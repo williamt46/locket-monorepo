@@ -1,0 +1,17 @@
+{
+    "name": "locket-chaincode",
+    "version": "1.0.0",
+    "description": "Locket Integrity Anchor Chaincode",
+    "main": "index.js",
+    "engines": {
+        "node": ">=18",
+        "npm": ">=9"
+    },
+    "scripts": {
+        "start": "fabric-chaincode-node server --chaincode-address=$CHAINCODE_SERVER_ADDRESS --chaincode-id=$CHAINCODE_ID"
+    },
+    "dependencies": {
+        "fabric-contract-api": "^2.5.0",
+        "fabric-shim": "^2.5.0"
+    }
+}
