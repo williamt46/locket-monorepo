@@ -10,7 +10,7 @@
 
 The repository is structured as a **Monorepo** containing applications, shared packages, and infrastructure:
 
-### 📱 `apps/mobile/` (Formerly `locket-app`)
+### 📱 `apps/mobile/` 
 *   **Purpose**: The primary mobile interface for users (React Native/Expo).
 *   **Key Directories**:
     *   `src/components/`: Reusable UI elements (e.g., `WinslowGrid`, `CycleLengthTable`, `IntegritySeal`).
@@ -18,14 +18,14 @@ The repository is structured as a **Monorepo** containing applications, shared p
     *   `src/navigation/`: App navigation logic (`AppNavigator`).
     *   `src/theme/`: Design tokens (`colors`, `typography`, `layout`).
 
-### 🌐 `apps/web/` (Formerly `locket-web`)
+### 🌐 `apps/web/`
 *   **Purpose**: A web-based interface for the application (React/Vite).
 *   **Key Files**:
     *   `src/LogDataScreen.jsx`: Screen for logging data via verifying keys.
     *   `src/services/`: Client-side logic including key persistence.
     *   `src/main.jsx`: Entry point.
 
-### 🔗 `apps/gateway/` (Formerly `locket-gateway`)
+### 🔗 `apps/gateway/` 
 *   **Purpose**: The backend service connecting clients to the blockchain network.
 *   **Key Files**:
     *   `src/app.js`: Main Express application entry point.
@@ -39,7 +39,7 @@ The repository is structured as a **Monorepo** containing applications, shared p
     *   `src/types.ts`: Shared TypeScript interfaces (`LedgerEntry`, `EncryptedPayload`).
     *   `src/index.ts`: Main export file.
 
-### ⛓️ `network/` (Formerly `locket-network`)
+### ⛓️ `network/` 
 *   **Purpose**: Infrastructure and smart contracts (Hyperledger Fabric).
 *   **Key Directories**:
     *   `chaincode/`: The smart contract logic (`index.js`).
