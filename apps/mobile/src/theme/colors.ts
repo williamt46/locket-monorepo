@@ -1,8 +1,9 @@
 export const colors = {
     paper: '#FDFBF7',
-    ink: '#2D2D2D',
-    primary: '#004080', // Ink Blue
+    inkBlue: '#004080', // Past (Permanent)
+    charcoal: '#2D2D2D', // Default Text
+    graphite: '#4A4A4A', // Current (Sketch)
+    watermark: '#E6E2D8', // Future (Debossed - slightly darker than paper for shadow effect)
     alert: '#8B0000',
-    secondary: '#5A5A5A',
-    gold: '#D4AF37', // For the Locket/Seal
+    gold: '#D4AF37',
 };
