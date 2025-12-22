@@ -13,5 +13,9 @@
     },
     "peerDependencies": {
         "react-native-quick-crypto": "^0.7.0"
+    },
+    "devDependencies": {
+        "@types/react": "^19.2.7",
+        "@types/readable-stream": "^4.0.23"
     }
 }

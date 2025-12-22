@@ -12,6 +12,9 @@
         "@locket/shared": "*"
     },
     "peerDependencies": {
-        "expo-sqlite": "*"
+        "expo-sqlite": "^16.0.10"
+    },
+    "devDependencies": {
+        "@types/react": "^19.2.7"
     }
 }

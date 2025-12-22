@@ -5,6 +5,7 @@ export interface StorageRecord {
     status: 'local' | 'anchoring' | 'anchored';
     assetId?: string;
     signature?: string;
+    isDummy?: boolean;
 }
 
 export interface LedgerStorage {
