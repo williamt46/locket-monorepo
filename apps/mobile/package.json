@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@locket/shared": "*",
+    "@locket/core-crypto": "*",
+    "@locket/secure-storage": "*",
     "@react-navigation/native": "^7.1.26",
     "@react-navigation/stack": "^7.6.13",
     "expo": "~54.0.30",

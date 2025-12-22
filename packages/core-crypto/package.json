@@ -1,0 +1,17 @@
+{
+    "name": "@locket/core-crypto",
+    "version": "0.0.1",
+    "type": "module",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "build": "tsc",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "dependencies": {
+        "@locket/shared": "*"
+    },
+    "peerDependencies": {
+        "react-native-quick-crypto": "^0.7.0"
+    }
+}
