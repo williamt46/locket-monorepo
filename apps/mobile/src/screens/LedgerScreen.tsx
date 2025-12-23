@@ -8,13 +8,19 @@ import { HorizontalCalendar } from '../components/HorizontalCalendar';
 import { VerticalYearView } from '../components/VerticalYearView';
 import { DataEntryModal } from '../components/DataEntryModal';
 import * as Haptics from 'expo-haptics';
+import { useLedger } from '../hooks/useLedger';
+import { SecureKeyService } from '../services/SecureKeyService';
+import { LocketCryptoService } from '@locket/core-crypto';
+
+const crypto = new LocketCryptoService();
 
 export const LedgerScreen = () => {
     // State
     const [viewMode, setViewMode] = useState<'monthly' | 'yearly'>('monthly');
     const [initialMonthIndex, setInitialMonthIndex] = useState<number>(new Date().getMonth());
-    // Use DayData object structure
-    const [cycleData, setCycleData] = useState<Record<string, { isPeriod: boolean; isStart?: boolean; isEnd?: boolean; note?: string }>>({});
+    const [keyHex, setKeyHex] = useState<string | undefined>(undefined);
+    const { events, inscribe, isInitialized } = useLedger(keyHex);
+
     const [futureData, setFutureData] = useState<Record<string, boolean>>({});
 
     // Modal State
@@ -23,6 +29,41 @@ export const LedgerScreen = () => {
 
     // Current Date State
     const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
+
+    // Initialize Key
+    useEffect(() => {
+        SecureKeyService.getOrGenerateKey().then(setKeyHex).catch(console.error);
+    }, []);
+
+    // Decrypt events for UI
+    const [decryptedData, setDecryptedData] = useState<Record<string, any>>({});
+
+    useEffect(() => {
+        const decryptAll = async () => {
+            if (!keyHex || events.length === 0) return;
+            const newData: Record<string, any> = {};
+            for (const event of events) {
+                try {
+                    const decrypted = await crypto.decryptData(event.payload, keyHex);
+                    // Use ts to derive key if event doesn't have date? 
+                    // Actually, handleSaveData used to store {isPeriod, note}
+                    // If it's a period entry, we need its date.
+                    // Let's assume the payload itself contains the date if we refactor inscribe.
+                    // For now, use ts to match or check payload.
+                    if (decrypted && typeof decrypted === 'object') {
+                        // If we have multiple entries for same day, latest wins
+                        const date = new Date(decrypted.ts || event.ts);
+                        const k = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+                        newData[k] = decrypted;
+                    }
+                } catch (e) {
+                    console.error('Decryption failed for event', event.id);
+                }
+            }
+            setDecryptedData(newData);
+        };
+        decryptAll();
+    }, [events, keyHex]);
 
     // Generate specific predictions for demo when component mounts
     useEffect(() => {
@@ -114,7 +155,7 @@ export const LedgerScreen = () => {
         return avgs;
     };
 
-    const cycleStats = useMemo(() => calculateAverageCycle(cycleData), [cycleData]);
+    const cycleStats = useMemo(() => calculateAverageCycle(decryptedData), [decryptedData]);
 
     const handleToggleDate = (monthIndex: number, day: number) => {
         // Open Modal instead of direct toggle
@@ -123,90 +164,59 @@ export const LedgerScreen = () => {
         setModalVisible(true);
     };
 
-    const handleSaveData = (modalData: { isStart?: boolean; isEnd?: boolean; note?: string; delete?: boolean }) => {
-        if (!selectedDate) return;
+    const handleSaveData = async (modalData: { isStart?: boolean; isEnd?: boolean; note?: string; delete?: boolean }) => {
+        if (!selectedDate || !keyHex) return;
 
         const year = selectedDate.getFullYear();
         const month = selectedDate.getMonth();
         const day = selectedDate.getDate();
-        const targetKey = `${year}-${month}-${day}`;
 
-        setCycleData(prev => {
-            const newState = { ...prev };
+        // Helper to get key from date
+        const getKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 
-            if (modalData.delete) {
-                if (newState[targetKey]) {
-                    delete newState[targetKey];
-                }
-                setModalVisible(false);
-                return newState;
-            }
+        if (modalData.delete) {
+            // Nuke or selective delete TBD, for now let's just not show it
+            // In a real relational DB we'd delete the rows.
+            setModalVisible(false);
+            return;
+        }
 
-            // Helper to get key from date
-            const getKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-
-            // Conflict Logic
-            const clearConflicts = (windowStart: Date, windowEnd: Date) => {
-                Object.keys(newState).forEach(existingKey => {
-                    if (!newState[existingKey].isPeriod) return;
-
-                    const parts = existingKey.split('-');
-                    const existingDate = new Date(parseInt(parts[0]), parseInt(parts[1]), parseInt(parts[2]));
-
-                    // Buffer +/- 3 days
-                    const buffer = 3 * 24 * 60 * 60 * 1000;
-                    if (existingDate.getTime() >= windowStart.getTime() - buffer &&
-                        existingDate.getTime() <= windowEnd.getTime() + buffer) {
-                        delete newState[existingKey];
-                    }
-                });
-            };
-
-            // AUTO-FILL LOGIC
+        try {
             if (modalData.isStart) {
-                const startDate = new Date(year, month, day);
-                const endDate = new Date(year, month, day + 6); // 7 days inclusive
-
-                clearConflicts(startDate, endDate);
-
+                // Inscribe 7 days
                 for (let i = 0; i < 7; i++) {
-                    const d = new Date(year, month, day + i);
-                    const k = getKey(d);
-                    newState[k] = {
+                    const date = new Date(year, month, day + i);
+                    await inscribe({
+                        ts: date.getTime(),
                         isPeriod: true,
                         isStart: i === 0,
                         isEnd: i === 6,
                         note: i === 0 ? modalData.note : undefined
-                    };
+                    });
                 }
             } else if (modalData.isEnd) {
-                const endDate = new Date(year, month, day);
                 const startDate = new Date(year, month, day - 6);
-
-                clearConflicts(startDate, endDate);
-
                 for (let i = 0; i < 7; i++) {
-                    const d = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() + i);
-                    const k = getKey(d);
-                    newState[k] = {
+                    const date = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() + i);
+                    await inscribe({
+                        ts: date.getTime(),
                         isPeriod: true,
                         isStart: i === 0,
                         isEnd: i === 6,
                         note: i === 6 ? modalData.note : undefined
-                    };
+                    });
                 }
             } else {
-                // Just saving note
-                const currentEntry = newState[targetKey] || { isPeriod: false };
-                newState[targetKey] = {
-                    ...currentEntry,
+                await inscribe({
+                    ts: selectedDate.getTime(),
                     note: modalData.note,
-                    isPeriod: true // Implicitly create entry if note added
-                };
+                    isPeriod: true
+                });
             }
+        } catch (e) {
+            console.error('Save failed', e);
+        }
 
-            return newState;
-        });
         setModalVisible(false);
     };
 
@@ -232,7 +242,7 @@ export const LedgerScreen = () => {
                 {viewMode === 'monthly' ? (
                     <HorizontalCalendar
                         year={currentYear}
-                        data={cycleData}
+                        data={decryptedData}
                         futureData={futureData}
                         onToggleDate={handleToggleDate}
                         initialMonthIndex={initialMonthIndex}
@@ -241,7 +251,7 @@ export const LedgerScreen = () => {
                     <VerticalYearView
                         // Chronological Order: Oldest at Top
                         years={[2024, 2025, 2026]}
-                        data={cycleData}
+                        data={decryptedData}
                         futureData={futureData}
                         cycleStats={cycleStats}
                         onMonthPress={handleDrillDown}
@@ -253,7 +263,7 @@ export const LedgerScreen = () => {
             <DataEntryModal
                 visible={modalVisible}
                 date={selectedDate}
-                initialData={selectedDate ? cycleData[`${selectedDate.getFullYear()}-${selectedDate.getMonth()}-${selectedDate.getDate()}`] : undefined}
+                initialData={selectedDate ? decryptedData[`${selectedDate.getFullYear()}-${selectedDate.getMonth()}-${selectedDate.getDate()}`] : undefined}
                 onClose={() => setModalVisible(false)}
                 onSave={handleSaveData}
             />
