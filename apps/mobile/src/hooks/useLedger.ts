@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { SQLiteLedger, TrafficPadding, StorageRecord } from '@locket/secure-storage';
+import { createPersistentLedger, TrafficPadding, StorageRecord } from '@locket/secure-storage';
 import { LocketCryptoService } from '@locket/core-crypto';
 
 // Singleton-ish instances for the lifetime of the session
-const ledger = new SQLiteLedger();
+let ledger: any = null;
 const crypto = new LocketCryptoService();
-const padding = new TrafficPadding(ledger);
+let padding: any = null;
 
 export const useLedger = (keyHex?: string) => {
     const [events, setEvents] = useState<StorageRecord[]>([]);
@@ -15,7 +15,10 @@ export const useLedger = (keyHex?: string) => {
     const init = useCallback(async () => {
         if (isInitialized) return;
         try {
-            await ledger.init();
+            if (!ledger) {
+                ledger = await createPersistentLedger();
+                padding = new TrafficPadding(ledger);
+            }
             padding.start(); // Start background noise
             setIsInitialized(true);
             await refresh();
