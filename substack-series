@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Locket Chronicles: Editorial Board</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F9F7F2; /* Cream/Paper background */
+            color: #2D2D2D;
+        }
+        h1, h2, h3, .serif {
+            font-family: 'Playfair Display', serif;
+        }
+        .paper-shadow {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        }
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .modal-enter {
+            opacity: 0;
+            transform: scale(0.95);
+        }
+        .modal-enter-active {
+            opacity: 1;
+            transform: scale(1);
+            transition: opacity 200ms ease-out, transform 200ms ease-out;
+        }
+        .modal-exit {
+            opacity: 1;
+            transform: scale(1);
+        }
+        .modal-exit-active {
+            opacity: 0;
+            transform: scale(0.95);
+            transition: opacity 150ms ease-in, transform 150ms ease-in;
+        }
+        /* Custom Scrollbar for the board */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d1d5db; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af; 
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-stone-200 px-8 py-5 flex justify-between items-center z-10 shrink-0">
+        <div>
+            <h1 class="text-2xl font-bold text-stone-800 tracking-tight serif italic">Blockchain Bites: <span class="not-italic text-stone-600">The Editorial Board</span></h1>
+            <p class="text-sm text-stone-500 mt-1">Translating Hyperledger Architecture into Human Stories</p>
+        </div>
+        <div class="flex items-center gap-4">
+            <div class="px-3 py-1 bg-stone-100 rounded-full text-xs font-medium text-stone-600">Target Audience: Privacy-Conscious / Non-Technical</div>
+            <button class="bg-stone-800 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-stone-700 transition-colors" onclick="alert('This would export the content plan to PDF.')">Export Plan</button>
+        </div>
+    </header>
+
+    <!-- Main Board Area -->
+    <main class="flex-1 overflow-x-auto overflow-y-hidden p-8">
+        <div class="flex h-full gap-8 min-w-max">
+
+            <!-- Column 1: The Trust Deficit (Intro) -->
+            <div class="w-80 flex flex-col h-full">
+                <div class="flex justify-between items-center mb-4 px-2">
+                    <h2 class="font-semibold text-stone-700">1. The Setup</h2>
+                    <span class="bg-red-100 text-red-700 text-xs px-2 py-1 rounded-full">Problem Awareness</span>
+                </div>
+                
+                <!-- Card 1 -->
+                <div onclick="openModal('post1')" class="bg-white p-5 rounded-lg border border-stone-200 paper-shadow card-hover cursor-pointer mb-4 flex flex-col gap-3 transition-all">
+                    <div class="w-full h-1 bg-red-400 rounded-full"></div>
+                    <h3 class="text-lg font-serif font-semibold text-stone-800">Why "Trust Us" is Broken</h3>
+                    <p class="text-sm text-stone-500 line-clamp-3">Deconstructing the "Superuser" vulnerability. Why standard databases allow admins to change history without a trace.</p>
+                    <div class="flex justify-between items-center mt-2 border-t border-stone-100 pt-3">
+                        <span class="text-xs font-semibold text-stone-400">Post #1</span>
+                        <div class="flex -space-x-2">
+                            <div class="w-6 h-6 rounded-full bg-stone-200 border-2 border-white flex items-center justify-center text-[10px]">CEO</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Column 2: The Core Mechanics (Education) -->
+            <div class="w-80 flex flex-col h-full">
+                <div class="flex justify-between items-center mb-4 px-2">
+                    <h2 class="font-semibold text-stone-700">2. The "Aha!" Moments</h2>
+                    <span class="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full">Core Tech</span>
+                </div>
+
+                <!-- Card 2 -->
+                <div onclick="openModal('post2')" class="bg-white p-5 rounded-lg border border-stone-200 paper-shadow card-hover cursor-pointer mb-4 flex flex-col gap-3 transition-all">
+                    <div class="w-full h-1 bg-blue-400 rounded-full"></div>
+                    <h3 class="text-lg font-serif font-semibold text-stone-800">The Glass Vault</h3>
+                    <p class="text-sm text-stone-500 line-clamp-3">Explaining Private Data Collections (PDC). How we prove data exists without revealing what it is.</p>
+                    <div class="flex justify-between items-center mt-2 border-t border-stone-100 pt-3">
+                        <span class="text-xs font-semibold text-stone-400">Post #2</span>
+                    </div>
+                </div>
+
+                <!-- Card 3 -->
+                <div onclick="openModal('post3')" class="bg-white p-5 rounded-lg border border-stone-200 paper-shadow card-hover cursor-pointer mb-4 flex flex-col gap-3 transition-all">
+                    <div class="w-full h-1 bg-blue-400 rounded-full"></div>
+                    <h3 class="text-lg font-serif font-semibold text-stone-800">The Digital Notary</h3>
+                    <p class="text-sm text-stone-500 line-clamp-3">Immutability & The Blockchain. Why we can't delete the past even if we wanted to.</p>
+                    <div class="flex justify-between items-center mt-2 border-t border-stone-100 pt-3">
+                        <span class="text-xs font-semibold text-stone-400">Post #3</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Column 3: Advanced Trust (Differentiation) -->
+            <div class="w-80 flex flex-col h-full">
+                <div class="flex justify-between items-center mb-4 px-2">
+                    <h2 class="font-semibold text-stone-700">3. The Differentiators</h2>
+                    <span class="bg-emerald-100 text-emerald-700 text-xs px-2 py-1 rounded-full">Advanced</span>
+                </div>
+
+                <!-- Card 4 -->
+                <div onclick="openModal('post4')" class="bg-white p-5 rounded-lg border border-stone-200 paper-shadow card-hover cursor-pointer mb-4 flex flex-col gap-3 transition-all">
+                    <div class="w-full h-1 bg-emerald-400 rounded-full"></div>
+                    <h3 class="text-lg font-serif font-semibold text-stone-800">Your Phone is the Key</h3>
+                    <p class="text-sm text-stone-500 line-clamp-3">Client-Side Signing. Why a server hack yields zero data. The "Safety Deposit Box" analogy.</p>
+                    <div class="flex justify-between items-center mt-2 border-t border-stone-100 pt-3">
+                        <span class="text-xs font-semibold text-stone-400">Post #4</span>
+                    </div>
+                </div>
+
+                <!-- Card 5 -->
+                <div onclick="openModal('post5')" class="bg-white p-5 rounded-lg border border-stone-200 paper-shadow card-hover cursor-pointer mb-4 flex flex-col gap-3 transition-all">
+                    <div class="w-full h-1 bg-emerald-400 rounded-full"></div>
+                    <h3 class="text-lg font-serif font-semibold text-stone-800">The Invisible ID</h3>
+                    <p class="text-sm text-stone-500 line-clamp-3">Idemix & Zero-Knowledge. Proving you're a subscriber without revealing who you are.</p>
+                    <div class="flex justify-between items-center mt-2 border-t border-stone-100 pt-3">
+                        <span class="text-xs font-semibold text-stone-400">Post #5</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Column 4: Validation (Closing) -->
+            <div class="w-80 flex flex-col h-full">
+                <div class="flex justify-between items-center mb-4 px-2">
+                    <h2 class="font-semibold text-stone-700">4. The Proof</h2>
+                    <span class="bg-purple-100 text-purple-700 text-xs px-2 py-1 rounded-full">Validation</span>
+                </div>
+
+                <!-- Card 6 -->
+                <div onclick="openModal('post6')" class="bg-white p-5 rounded-lg border border-stone-200 paper-shadow card-hover cursor-pointer mb-4 flex flex-col gap-3 transition-all">
+                    <div class="w-full h-1 bg-purple-400 rounded-full"></div>
+                    <h3 class="text-lg font-serif font-semibold text-stone-800">The Green Checkmark</h3>
+                    <p class="text-sm text-stone-500 line-clamp-3">Auditability. How you can verify the math yourself using the app.</p>
+                    <div class="flex justify-between items-center mt-2 border-t border-stone-100 pt-3">
+                        <span class="text-xs font-semibold text-stone-400">Post #6</span>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    </main>
+
+    <!-- Modal Template (Hidden by default) -->
+    <div id="modalOverlay" class="fixed inset-0 bg-stone-900/40 backdrop-blur-sm hidden items-center justify-center z-50 p-4 transition-opacity duration-300" onclick="closeModal()">
+        <div id="modalContent" class="bg-[#FDFBF7] w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden transform transition-all duration-300 scale-95 opacity-0" onclick="event.stopPropagation()">
+            <!-- Dynamic Content Injected Here -->
+            <div id="modalInner"></div>
+        </div>
+    </div>
+
+    <script>
+        // Data for the posts
+        const postData = {
+            post1: {
+                title: "Why \"Trust Us\" is Broken",
+                subtitle: "The Trust Deficit",
+                anxiety: "\"If you get subpoenaed, will you hand over my data?\"",
+                metaphor: "The Superuser Problem: In standard apps, the 'Root Admin' is God. They can edit the database and delete the logs. It's like a diary written in pencil—the author can erase pages. We need a system written in diamond.",
+                tech: "Standard SQL vs. Distributed Ledger. Highlighting the 'Mutable vs. Immutable' database architecture gap.",
+                cta: "Subscribe to learn about the 'Glass Vault' next week."
+            },
+            post2: {
+                title: "The Glass Vault",
+                subtitle: "Private Data Collections",
+                anxiety: "\"If my data is on a blockchain, can't everyone see it?\"",
+                metaphor: "Imagine a Glass Vault. Inside are locked safety deposit boxes. You can see the boxes exist (Auditability), but you can't see inside them (Privacy). We store the 'Box Number' on the public ledger, but the 'Contents' stay on a private server that only you can unlock.",
+                tech: "Hyperledger Fabric Private Data Collections (PDC). Transient data inputs. Hashing mechanisms.",
+                cta: "Next: How we make sure we can't change the rules."
+            },
+            post3: {
+                title: "The Digital Notary",
+                subtitle: "Immutability & Consensus",
+                anxiety: "\"What if you change your privacy policy secretly?\"",
+                metaphor: "Our system is like a Digital Notary. Every time we save data or change a rule, the Notary stamps it. If we try to change a record from last month, the Notary checks the stamp and rejects it. We literally cannot be evil because the code won't let us.",
+                tech: "Merkle-Hash Chains. The 'Avalanche Effect' of hashing. Endorsement policies requiring multiple signatures.",
+                cta: "Next: Why your phone is more powerful than our servers."
+            },
+            post4: {
+                title: "Your Phone is the Key",
+                subtitle: "Client-Side Signing",
+                anxiety: "\"What if your company gets hacked?\"",
+                metaphor: "Most apps keep your house key at their office. If they get robbed, your house is open. We don't want your key. We built a lock that only *your* phone can open. If hackers breach our servers, they find millions of locked boxes they can't open.",
+                tech: "Non-custodial PKI. Offline signing inside the Secure Enclave. The server only acts as a gateway.",
+                cta: "Next: How to be invisible online."
+            },
+            post5: {
+                title: "The Invisible ID",
+                subtitle: "Idemix & Zero-Knowledge",
+                anxiety: "\"Can you link my credit card to my cycle data?\"",
+                metaphor: "Imagine entering a club. Usually, you show your ID with your name and address. With our system, you have a magic bouncer. You prove you are 'Over 21' and 'Paid the Cover' without ever showing your name. We know you're a subscriber, but we don't know *who* you are.",
+                tech: "Hyperledger Fabric Identity Mixer (Idemix). Zero-Knowledge Proofs (ZKPs). Unlinkable transactions.",
+                cta: "Next: Verifying the truth yourself."
+            },
+            post6: {
+                title: "The Green Checkmark",
+                subtitle: "Auditability",
+                anxiety: "\"This sounds nice, but how do I *know* it's working?\"",
+                metaphor: "We don't expect you to trust us. We expect you to verify. The app has a 'Verify' button. It runs a quick math problem that checks the 'Digital Notary's' stamp against your phone's data. If it matches, you get the Green Checkmark. It's proof, not a promise.",
+                tech: "Merkle Proofs. Light Client Verification. Transaction IDs (TxID) visible in UI.",
+                cta: "Download the Beta."
+            }
+        };
+
+        function openModal(postId) {
+            const data = postData[postId];
+            const modalInner = document.getElementById('modalInner');
+            
+            modalInner.innerHTML = `
+                <div class="relative">
+                    <button onclick="closeModal()" class="absolute top-4 right-4 text-stone-400 hover:text-stone-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                    
+                    <div class="p-8 pb-4 border-b border-stone-100 bg-white">
+                        <span class="uppercase tracking-widest text-xs font-bold text-stone-400 mb-2 block">${data.subtitle}</span>
+                        <h2 class="text-3xl font-serif font-bold text-stone-800 mb-2">${data.title}</h2>
+                    </div>
+
+                    <div class="p-8 grid gap-6">
+                        <!-- Anxiety Section -->
+                        <div class="bg-red-50 p-4 rounded-lg border border-red-100">
+                            <h4 class="text-xs font-bold uppercase text-red-800 mb-1 tracking-wide">The User Anxiety (The Hook)</h4>
+                            <p class="text-red-900 font-medium italic">${data.anxiety}</p>
+                        </div>
+
+                        <!-- Metaphor Section -->
+                        <div>
+                            <h4 class="text-xs font-bold uppercase text-stone-400 mb-2 tracking-wide">The Narrative Metaphor</h4>
+                            <p class="text-stone-700 leading-relaxed font-serif text-lg">${data.metaphor}</p>
+                        </div>
+
+                        <!-- Technical Section -->
+                        <div class="bg-stone-100 p-4 rounded-lg">
+                            <h4 class="text-xs font-bold uppercase text-stone-500 mb-1 tracking-wide">Under the Hood (Technical Reality)</h4>
+                            <p class="text-stone-600 text-sm font-mono">${data.tech}</p>
+                        </div>
+
+                        <div class="mt-4 pt-4 border-t border-stone-100 flex justify-between items-center">
+                            <span class="text-xs text-stone-400 uppercase tracking-widest">Call to Action</span>
+                            <span class="text-sm font-medium text-stone-800">${data.cta}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            const overlay = document.getElementById('modalOverlay');
+            const content = document.getElementById('modalContent');
+            
+            overlay.classList.remove('hidden');
+            overlay.classList.add('flex');
+            
+            // Small delay to allow display:flex to apply before transition
+            setTimeout(() => {
+                content.classList.remove('scale-95', 'opacity-0');
+                content.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        function closeModal() {
+            const overlay = document.getElementById('modalOverlay');
+            const content = document.getElementById('modalContent');
+            
+            content.classList.remove('scale-100', 'opacity-100');
+            content.classList.add('scale-95', 'opacity-0');
+            
+            setTimeout(() => {
+                overlay.classList.remove('flex');
+                overlay.classList.add('hidden');
+            }, 200);
+        }
+
+        // Close modal on escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === "Escape") {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>
