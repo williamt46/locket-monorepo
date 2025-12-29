@@ -11,6 +11,8 @@ export interface StorageRecord {
 export interface LedgerStorage {
     init(): Promise<void>;
     saveEvent(record: StorageRecord): Promise<void>;
+    saveEvents(records: StorageRecord[]): Promise<void>;
     loadEvents(): Promise<StorageRecord[]>;
+    deleteByTimestamp(ts: number): Promise<void>;
     nuke(): Promise<void>;
 }

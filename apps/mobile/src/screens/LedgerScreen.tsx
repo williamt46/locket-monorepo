@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, SafeAreaView, StatusBar, AppState } from 'react-native';
 import { ScreenWrapper } from '../components/ScreenWrapper';
 import { colors } from '../theme/colors';
@@ -19,7 +19,7 @@ export const LedgerScreen = () => {
     const [viewMode, setViewMode] = useState<'monthly' | 'yearly'>('monthly');
     const [initialMonthIndex, setInitialMonthIndex] = useState<number>(new Date().getMonth());
     const [keyHex, setKeyHex] = useState<string | undefined>(undefined);
-    const { events, inscribe, isInitialized } = useLedger(keyHex);
+    const { events, inscribe, batchInscribe, deleteByTimestamp, superNuke, isInitialized } = useLedger(keyHex);
 
     const [futureData, setFutureData] = useState<Record<string, boolean>>({});
 
@@ -35,32 +35,63 @@ export const LedgerScreen = () => {
         SecureKeyService.getOrGenerateKey().then(setKeyHex).catch(console.error);
     }, []);
 
-    // Decrypt events for UI
+    // Decrypt events for UI with memoization
     const [decryptedData, setDecryptedData] = useState<Record<string, any>>({});
+    const decryptionCache = useRef<Record<string, any>>({});
 
     useEffect(() => {
         const decryptAll = async () => {
-            if (!keyHex || events.length === 0) return;
+            if (!keyHex) return;
+            if (events.length === 0) {
+                setDecryptedData({});
+                return;
+            }
+
+            console.log(`[LedgerScreen] Decrypting ${events.length} events...`);
+
             const newData: Record<string, any> = {};
-            for (const event of events) {
+            const promises = events.map(async (event) => {
+                const cacheKey = `${event.id}_${event.signature}`;
+                if (decryptionCache.current[cacheKey]) {
+                    return { event, decrypted: decryptionCache.current[cacheKey] };
+                }
+
                 try {
                     const decrypted = await crypto.decryptData(event.payload, keyHex);
-                    // Use ts to derive key if event doesn't have date? 
-                    // Actually, handleSaveData used to store {isPeriod, note}
-                    // If it's a period entry, we need its date.
-                    // Let's assume the payload itself contains the date if we refactor inscribe.
-                    // For now, use ts to match or check payload.
                     if (decrypted && typeof decrypted === 'object') {
-                        // If we have multiple entries for same day, latest wins
-                        const date = new Date(decrypted.ts || event.ts);
-                        const k = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
-                        newData[k] = decrypted;
+                        decryptionCache.current[cacheKey] = decrypted;
+                        return { event, decrypted };
                     }
                 } catch (e) {
                     console.error('Decryption failed for event', event.id);
                 }
+                return null;
+            });
+
+            const results = await Promise.all(promises);
+            const validResults = results.filter(r => r !== null);
+            console.log(`[LedgerScreen] Decrypted ${validResults.length} / ${events.length} events successfully`);
+
+            const prevKeyCount = Object.keys(decryptedData).length;
+            for (const result of validResults) {
+                const { event, decrypted } = result;
+                const tsToUse = decrypted?.ts || event.ts;
+                const d = new Date(tsToUse);
+                const k = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+
+                const dataObj = (decrypted && typeof decrypted === 'object') ? decrypted : { isPeriod: true };
+
+                // Only set if not already set, so latest (first in list) wins
+                if (!newData[k]) {
+                    newData[k] = {
+                        ...dataObj,
+                        ts: tsToUse,
+                        isPeriod: dataObj.isPeriod !== undefined ? dataObj.isPeriod : true
+                    };
+                }
             }
             setDecryptedData(newData);
+
         };
         decryptAll();
     }, [events, keyHex]);
@@ -171,41 +202,58 @@ export const LedgerScreen = () => {
         const month = selectedDate.getMonth();
         const day = selectedDate.getDate();
 
-        // Helper to get key from date
-        const getKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-
         if (modalData.delete) {
-            // Nuke or selective delete TBD, for now let's just not show it
-            // In a real relational DB we'd delete the rows.
+            try {
+                const ts = selectedDate.getTime();
+                const dateStr = selectedDate.toLocaleDateString();
+                await deleteByTimestamp(ts);
+                console.log('[LedgerScreen] Deleted data for:', dateStr);
+            } catch (e) {
+                console.error('Delete failed', e);
+            }
             setModalVisible(false);
             return;
         }
 
         try {
+            console.log('[LedgerScreen] Saving data:', modalData, 'for date:', selectedDate.toLocaleDateString());
             if (modalData.isStart) {
-                // Inscribe 7 days
+                // Batch Inscribe 7 days
+                const batch = [];
                 for (let i = 0; i < 7; i++) {
-                    const date = new Date(year, month, day + i);
-                    await inscribe({
-                        ts: date.getTime(),
+                    const d = new Date(year, month, day + i);
+                    const record: any = {
+                        ts: d.getTime(),
                         isPeriod: true,
                         isStart: i === 0,
                         isEnd: i === 6,
-                        note: i === 0 ? modalData.note : undefined
-                    });
+                    };
+                    if (i === 0 && modalData.note) {
+                        record.note = modalData.note;
+                    }
+                    batch.push(record);
                 }
+                await batchInscribe(batch);
+                console.log(`[LedgerScreen] Inscribed batch of ${batch.length} days starting from ${selectedDate.toLocaleDateString()}`);
             } else if (modalData.isEnd) {
+                const batch = [];
+                // End date is selectedDate, so we want 7 days leading UP to it
                 const startDate = new Date(year, month, day - 6);
                 for (let i = 0; i < 7; i++) {
-                    const date = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() + i);
-                    await inscribe({
-                        ts: date.getTime(),
+                    const d = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() + i);
+                    const record: any = {
+                        ts: d.getTime(),
                         isPeriod: true,
                         isStart: i === 0,
                         isEnd: i === 6,
-                        note: i === 6 ? modalData.note : undefined
-                    });
+                    };
+                    if (i === 6 && modalData.note) {
+                        record.note = modalData.note;
+                    }
+                    batch.push(record);
                 }
+                await batchInscribe(batch);
+                console.log(`[LedgerScreen] Inscribed batch of ${batch.length} days ending at ${selectedDate.toLocaleDateString()}`);
             } else {
                 await inscribe({
                     ts: selectedDate.getTime(),
@@ -234,7 +282,20 @@ export const LedgerScreen = () => {
                     <Text style={styles.headerTitle}>Locket</Text>
                 </View>
                 <View style={styles.headerRight}>
-                    <IntegritySeal status="secure" />
+                    <TouchableOpacity
+                        onPress={() => {
+                            const clearAll = async () => {
+                                await superNuke();
+                                // Refresh key to re-generate since SecureStore was wiped
+                                SecureKeyService.getOrGenerateKey().then(setKeyHex);
+                            };
+                            clearAll();
+                        }}
+                        style={{ marginRight: 15 }}
+                    >
+                        <Text style={{ color: colors.alert, fontSize: 10, fontWeight: 'bold' }}>RESET</Text>
+                    </TouchableOpacity>
+                    <IntegritySeal status={isInitialized ? 'secure' : 'pending'} />
                 </View>
             </View>
 

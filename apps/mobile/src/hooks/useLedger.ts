@@ -12,6 +12,17 @@ export const useLedger = (keyHex?: string) => {
     const [isInitialized, setIsInitialized] = useState(false);
     const [isBusy, setIsBusy] = useState(false);
 
+    const refresh = useCallback(async (force = false) => {
+        if (!isInitialized && !force) return;
+        try {
+            const data = await ledger.loadEvents();
+            console.log(`[useLedger] Refresh found ${data.length} total events`);
+            setEvents(data);
+        } catch (e) {
+            console.error('[useLedger] Refresh failed', e);
+        }
+    }, [isInitialized]);
+
     const init = useCallback(async () => {
         if (isInitialized) return;
         try {
@@ -21,45 +32,62 @@ export const useLedger = (keyHex?: string) => {
             }
             padding.start(); // Start background noise
             setIsInitialized(true);
-            await refresh();
+            await refresh(true); // Force refresh as state update is async
         } catch (e) {
             console.error('[useLedger] Initialization failed', e);
         }
-    }, [isInitialized]);
-
-    const refresh = useCallback(async () => {
-        if (!isInitialized) return;
-        try {
-            const data = await ledger.loadEvents();
-            setEvents(data);
-        } catch (e) {
-            console.error('[useLedger] Refresh failed', e);
-        }
-    }, [isInitialized]);
+    }, [isInitialized, refresh]);
 
     const inscribe = useCallback(async (data: any) => {
         if (!isInitialized || !keyHex) throw new Error('Ledger not ready or key missing');
         setIsBusy(true);
         try {
-            // 1. Encrypt Data (Async, off main thread)
+            const ts = data.ts || Date.now();
             const encrypted = await crypto.encryptData(data, keyHex);
-
-            // 2. Generate Deterministic Hash for Integrity Seal
             const hash = await crypto.generateIntegrityHash(encrypted);
-
-            // 3. Save to Relational SQLite
             const record: StorageRecord = {
-                ts: Date.now(),
+                ts,
                 payload: encrypted,
                 status: 'local',
-                signature: hash // Using hash as local integrity signature
+                signature: hash
             };
 
             await ledger.saveEvent(record);
             await refresh();
-            console.log('[useLedger] Inscribed event with hash:', hash);
+            console.log('[useLedger] Inscribed event at:', new Date(ts).toLocaleDateString());
         } catch (e) {
             console.error('[useLedger] Inscription failed', e);
+            throw e;
+        } finally {
+            setIsBusy(false);
+        }
+    }, [isInitialized, keyHex, refresh]);
+
+    const batchInscribe = useCallback(async (entries: any[]) => {
+        if (!isInitialized || !keyHex) throw new Error('Ledger not ready or key missing');
+        setIsBusy(true);
+        try {
+            console.log(`[useLedger] Starting batch inscribe of ${entries.length} items`);
+            const records: StorageRecord[] = [];
+
+            for (const data of entries) {
+                const ts = data.ts || Date.now();
+                const encrypted = await crypto.encryptData(data, keyHex);
+                const hash = await crypto.generateIntegrityHash(encrypted);
+                records.push({
+                    ts,
+                    payload: encrypted,
+                    status: 'local',
+                    signature: hash
+                });
+            }
+
+            // Use the new atomic batch save method
+            await ledger.saveEvents(records);
+            await refresh();
+            console.log(`[useLedger] Batch inscribed ${entries.length} entries successfully`);
+        } catch (e) {
+            console.error('[useLedger] Batch inscription failed', e);
             throw e;
         } finally {
             setIsBusy(false);
@@ -80,12 +108,43 @@ export const useLedger = (keyHex?: string) => {
         }
     }, [isInitialized]);
 
+    const superNuke = useCallback(async () => {
+        if (!isInitialized) return;
+        setIsBusy(true);
+        try {
+            // This is the "Nuclear Option" - wipes data AND keys
+            await ledger.nuke();
+            const { SecureKeyService } = require('../services/SecureKeyService');
+            await SecureKeyService.nukeKey();
+            setEvents([]);
+            console.log('[useLedger] SUPER NUKE: Data and Keys wiped.');
+            // Reload app or state would be needed, but we'll at least clear the ledger
+            await refresh(true);
+        } catch (e) {
+            console.error('[useLedger] Super Nuke failed', e);
+        } finally {
+            setIsBusy(false);
+        }
+    }, [isInitialized, refresh]);
+
+    const deleteByTimestamp = useCallback(async (ts: number) => {
+        if (!isInitialized) return;
+        setIsBusy(true);
+        try {
+            if (ledger.deleteByTimestamp) {
+                await ledger.deleteByTimestamp(ts);
+                await refresh();
+                console.log('[useLedger] Deleted events for timestamp:', ts);
+            }
+        } catch (e) {
+            console.error('[useLedger] Delete failed', e);
+        } finally {
+            setIsBusy(false);
+        }
+    }, [isInitialized, refresh]);
+
     useEffect(() => {
         init();
-        return () => {
-            // we don't necessarily stop padding here as it's a global singleton in this implementation
-            // but in a real app we might manage lifecycle more strictly
-        };
     }, []);
 
     return {
@@ -93,7 +152,10 @@ export const useLedger = (keyHex?: string) => {
         isInitialized,
         isBusy,
         inscribe,
+        batchInscribe,
+        deleteByTimestamp,
         refresh,
-        nuke
+        nuke,
+        superNuke
     };
 };

@@ -1,26 +1,35 @@
-import * as FileSystem from 'expo-file-system';
+import { Directory, File, Paths } from 'expo-file-system';
 import { LedgerStorage, StorageRecord } from './types.js';
-
-const DATA_DIR = `${(FileSystem as any).documentDirectory}locket_ledger/`;
-const DATA_FILE = `${DATA_DIR}events.json`;
 
 export class FileSystemLedger implements LedgerStorage {
     private events: StorageRecord[] = [];
+    private dir: Directory;
+    private file: File;
+    private isInitialized: boolean = false;
+
+    constructor() {
+        this.dir = new Directory(Paths.document, 'locket_ledger');
+        this.file = new File(this.dir, 'events.json');
+    }
 
     async init(): Promise<void> {
-        const dirInfo = await FileSystem.getInfoAsync(DATA_DIR);
-        if (!dirInfo.exists) {
-            await FileSystem.makeDirectoryAsync(DATA_DIR, { intermediates: true });
+        if (!this.dir.exists) {
+            await this.dir.create({ intermediates: true, idempotent: true });
         }
         await this.loadFromDisk();
+        this.isInitialized = true;
+        console.log(`[FileSystemLedger] Initialized with ${this.events.length} events`);
     }
 
     private async loadFromDisk(): Promise<void> {
-        const fileInfo = await FileSystem.getInfoAsync(DATA_FILE);
-        if (fileInfo.exists) {
-            const content = await FileSystem.readAsStringAsync(DATA_FILE);
+        if (this.file.exists) {
             try {
-                this.events = JSON.parse(content);
+                const content = await this.file.text();
+                if (content && content.trim()) {
+                    this.events = JSON.parse(content);
+                } else {
+                    this.events = [];
+                }
             } catch (e) {
                 console.error('[FileSystemLedger] Error parsing events', e);
                 this.events = [];
@@ -29,11 +38,11 @@ export class FileSystemLedger implements LedgerStorage {
     }
 
     private async saveToDisk(): Promise<void> {
-        await FileSystem.writeAsStringAsync(DATA_FILE, JSON.stringify(this.events));
+        // ALWAYS await the write to avoid race conditions during batch/refresh
+        await this.file.write(JSON.stringify(this.events));
     }
 
     async saveEvent(record: StorageRecord): Promise<void> {
-        // Add ID if missing
         const newRecord = {
             ...record,
             id: record.id || Math.random().toString(36).substring(7)
@@ -42,20 +51,58 @@ export class FileSystemLedger implements LedgerStorage {
         await this.saveToDisk();
     }
 
+    async saveEvents(records: StorageRecord[]): Promise<void> {
+        const newRecords = records.map(record => ({
+            ...record,
+            id: record.id || Math.random().toString(36).substring(7)
+        }));
+        this.events.push(...newRecords);
+        await this.saveToDisk();
+        console.log(`[FileSystemLedger] Batch saved ${records.length} events`);
+    }
+
     async loadEvents(): Promise<StorageRecord[]> {
-        await this.loadFromDisk();
-        // Filter out dummy events for UI and sort by ts desc
-        return this.events
+        // DO NOT call loadFromDisk here. It overwrites memory with disk state.
+        // In a running app, this.events is the source of truth.
+        // We only load from disk on init().
+
+        // Return latest first. If TS is equal, use array index as tie-breaker (latest index = latest insertion)
+        const filtered = this.events
+            .map((e, idx) => ({ ...e, _idx: idx }))
             .filter(e => !e.isDummy)
-            .sort((a, b) => b.ts - a.ts);
+            .sort((a, b) => b.ts - a.ts || b._idx - a._idx)
+            .map(({ _idx, ...e }) => e);
+
+        console.log(`[FileSystemLedger] Returning ${filtered.length} non-dummy events`);
+        return filtered;
+    }
+
+    async deleteByTimestamp(ts: number): Promise<void> {
+        const date = new Date(ts);
+        // Use Y-M-D string for reliable matching across day boundaries
+        const dateStr = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+
+        const initialCount = this.events.length;
+        this.events = this.events.filter(e => {
+            const d = new Date(e.ts);
+            const s = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+            return s !== dateStr;
+        });
+
+        if (this.events.length !== initialCount) {
+            await this.saveToDisk();
+            console.log(`[FileSystemLedger] Deleted ${initialCount - this.events.length} events for ${dateStr}. Remaining: ${this.events.length}`);
+        } else {
+            console.log(`[FileSystemLedger] No events found to delete for ${dateStr}`);
+        }
     }
 
     async nuke(): Promise<void> {
         this.events = [];
-        const fileInfo = await FileSystem.getInfoAsync(DATA_FILE);
-        if (fileInfo.exists) {
-            await FileSystem.deleteAsync(DATA_FILE, { idempotent: true });
+        if (this.file.exists) {
+            await this.file.delete();
         }
+        console.log('[FileSystemLedger] Ledger nuked');
     }
 
     async insertDummy(): Promise<void> {

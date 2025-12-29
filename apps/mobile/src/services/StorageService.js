@@ -1,9 +1,11 @@
-import { SQLiteLedger } from '@locket/secure-storage';
+import { createPersistentLedger } from '@locket/secure-storage';
 
-const ledger = new SQLiteLedger();
+let ledger = null;
 
 export const initStorage = async () => {
-    await ledger.init();
+    if (!ledger) {
+        ledger = await createPersistentLedger();
+    }
 };
 
 export const saveEvent = async (encryptedEvent, assetId = null) => {

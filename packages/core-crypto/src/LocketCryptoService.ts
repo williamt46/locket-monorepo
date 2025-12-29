@@ -60,7 +60,8 @@ export class LocketCryptoService implements CryptoService {
 
                 try {
                     resolve(JSON.parse(decrypted));
-                } catch {
+                } catch (pe) {
+                    console.log('[LocketCryptoService] JSON parse failed during decryption. Result was not an object:', decrypted.substring(0, 50) + '...');
                     resolve(decrypted);
                 }
             } catch (e) {
