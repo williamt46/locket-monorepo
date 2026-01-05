@@ -44,6 +44,38 @@ app.post('/api/anchor', async (req, res) => {
     }
 });
 
+// Anchor Multiple Hashes (Batch Write)
+// Payload: { assets: [{userDID, dataHash, id?}] }
+app.post('/api/anchor/batch', async (req, res) => {
+    try {
+        const { assets } = req.body;
+        
+        if (!assets || !Array.isArray(assets)) {
+            return res.status(400).json({ error: 'Missing or invalid assets array' });
+        }
+
+        console.log(`[AnchorBatch] Request for ${assets.length} assets`);
+
+        const enrichedAssets = assets.map(a => ({
+            assetId: a.id || `asset-${Date.now()}-${Math.floor(Math.random() * 1000000)}`,
+            userDID: a.userDID,
+            dataHash: a.dataHash
+        }));
+
+        const result = await submitTransaction('CreateAssetBatch', JSON.stringify(enrichedAssets));
+        
+        res.status(201).json({ 
+            success: true, 
+            txId: result.transactionId,
+            results: enrichedAssets.map(a => ({ assetId: a.assetId }))
+        });
+
+    } catch (error) {
+        console.error('[AnchorBatch Error]', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Verify Data Hash (Read)
 // Params: assetID (which is the userDID for this singleton model, or a derived ID)
 // For this MVP, let's assume one Asset per User for simplicity, or we use a composite key.

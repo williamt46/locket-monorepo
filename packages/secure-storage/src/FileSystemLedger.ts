@@ -17,6 +17,22 @@ export class FileSystemLedger implements LedgerStorage {
             await this.dir.create({ intermediates: true, idempotent: true });
         }
         await this.loadFromDisk();
+
+        // Data Migration: Ensure all records have unique IDs for anchor updates
+        let migrationCount = 0;
+        this.events = this.events.map(e => {
+            if (!e.id) {
+                migrationCount++;
+                return { ...e, id: Math.random().toString(36).substring(7) + '-' + Date.now() };
+            }
+            return e;
+        });
+
+        if (migrationCount > 0) {
+            console.log(`[FileSystemLedger] Data Migration: Assigned IDs to ${migrationCount} records`);
+            await this.saveToDisk();
+        }
+
         this.isInitialized = true;
         console.log(`[FileSystemLedger] Initialized with ${this.events.length} events`);
     }
@@ -43,22 +59,38 @@ export class FileSystemLedger implements LedgerStorage {
     }
 
     async saveEvent(record: StorageRecord): Promise<void> {
-        const newRecord = {
-            ...record,
-            id: record.id || Math.random().toString(36).substring(7)
-        };
-        this.events.push(newRecord);
+        // Idempotency: Use existing ID if present, otherwise generate one
+        const id = record.id || Math.random().toString(36).substring(7) + '-' + Date.now();
+        const newRecord = { ...record, id };
+
+        const index = this.events.findIndex(e => e.id === id);
+        if (index >= 0) {
+            this.events[index] = newRecord;
+        } else {
+            if (record.id) {
+                console.warn(`[FileSystemLedger] Single update failed: Record ${record.id} not found.`);
+            }
+            this.events.push(newRecord);
+        }
         await this.saveToDisk();
     }
 
     async saveEvents(records: StorageRecord[]): Promise<void> {
-        const newRecords = records.map(record => ({
-            ...record,
-            id: record.id || Math.random().toString(36).substring(7)
-        }));
-        this.events.push(...newRecords);
+        const before = this.events.length;
+        for (const record of records) {
+            const id = record.id || Math.random().toString(36).substring(7) + '-' + Date.now();
+            const newRecord = { ...record, id };
+            const index = this.events.findIndex(e => e.id === id);
+            if (index >= 0) {
+                this.events[index] = newRecord;
+            } else {
+                // Removed console.warn as per instruction
+                this.events.push(newRecord);
+            }
+        }
+        const after = this.events.length;
         await this.saveToDisk();
-        console.log(`[FileSystemLedger] Batch saved ${records.length} events`);
+        console.log(`[FileSystemLedger] Batch saved ${records.length} events (including updates)`);
     }
 
     async loadEvents(): Promise<StorageRecord[]> {
@@ -73,7 +105,6 @@ export class FileSystemLedger implements LedgerStorage {
             .sort((a, b) => b.ts - a.ts || b._idx - a._idx)
             .map(({ _idx, ...e }) => e);
 
-        console.log(`[FileSystemLedger] Returning ${filtered.length} non-dummy events`);
         return filtered;
     }
 

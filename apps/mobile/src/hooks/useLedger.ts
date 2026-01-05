@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createPersistentLedger, TrafficPadding, StorageRecord } from '@locket/secure-storage';
 import { LocketCryptoService } from '@locket/core-crypto';
+import { BackgroundSyncService } from '../services/BackgroundSyncService';
 
 // Singleton-ish instances for the lifetime of the session
 let ledger: any = null;
@@ -11,6 +12,7 @@ export const useLedger = (keyHex?: string) => {
     const [events, setEvents] = useState<StorageRecord[]>([]);
     const [isInitialized, setIsInitialized] = useState(false);
     const [isBusy, setIsBusy] = useState(false);
+    const [isSyncing, setIsSyncing] = useState(false);
 
     const refresh = useCallback(async (force = false) => {
         if (!isInitialized && !force) return;
@@ -24,13 +26,19 @@ export const useLedger = (keyHex?: string) => {
     }, [isInitialized]);
 
     const init = useCallback(async () => {
-        if (isInitialized) return;
+        if (isInitialized && ledger) return;
         try {
             if (!ledger) {
                 ledger = await createPersistentLedger();
                 padding = new TrafficPadding(ledger);
             }
             padding.start(); // Start background noise
+
+            // Wire up sync status updates
+            BackgroundSyncService.onStatusChange = (syncing: boolean) => {
+                setIsSyncing(syncing);
+            };
+
             setIsInitialized(true);
             await refresh(true); // Force refresh as state update is async
         } catch (e) {
@@ -55,6 +63,9 @@ export const useLedger = (keyHex?: string) => {
             await ledger.saveEvent(record);
             await refresh();
             console.log('[useLedger] Inscribed event at:', new Date(ts).toLocaleDateString());
+
+            // Trigger optimistic sync check
+            BackgroundSyncService.performSync(ledger, refresh);
         } catch (e) {
             console.error('[useLedger] Inscription failed', e);
             throw e;
@@ -86,6 +97,9 @@ export const useLedger = (keyHex?: string) => {
             await ledger.saveEvents(records);
             await refresh();
             console.log(`[useLedger] Batch inscribed ${entries.length} entries successfully`);
+
+            // Trigger optimistic sync check (should hit the 7-event threshold immediately)
+            BackgroundSyncService.performSync(ledger, refresh);
         } catch (e) {
             console.error('[useLedger] Batch inscription failed', e);
             throw e;
@@ -127,6 +141,12 @@ export const useLedger = (keyHex?: string) => {
         }
     }, [isInitialized, refresh]);
 
+    const triggerSync = useCallback(async () => {
+        if (!isInitialized) return;
+        console.log('[useLedger] Manual sync trigger requested');
+        await BackgroundSyncService.forceSync(ledger, refresh);
+    }, [isInitialized, refresh]);
+
     const deleteByTimestamp = useCallback(async (ts: number) => {
         if (!isInitialized) return;
         setIsBusy(true);
@@ -145,15 +165,20 @@ export const useLedger = (keyHex?: string) => {
 
     useEffect(() => {
         init();
+        return () => {
+            BackgroundSyncService.onStatusChange = () => { };
+        };
     }, []);
 
     return {
         events,
         isInitialized,
         isBusy,
+        isSyncing,
         inscribe,
         batchInscribe,
         deleteByTimestamp,
+        triggerSync,
         refresh,
         nuke,
         superNuke

@@ -1,10 +1,15 @@
-# Repository Structure: locket-monorepo
+# Locket Monorepo
+
+Welcome to the Locket monorepo. This project is a local-first health tracker with blockchain-anchored integrity.
+
+## 🏗️ Technical Architecture
+This repository uses a monorepo structure managed by **npm workspaces** and **Turborepo** for efficient development and build orchestration.
 
 ## 🌿 Branches
-*   **`feature/ui-refinement`** *(Current Branch)*: Contains the latest UI changes including the new Ledger layout, Auth screen updates, and cycle logic.
+*   **`data-persistent-ledger-architecture`** *(Current Branch)*: Contains the latest monorepo restructuring and persistent ledger state.
 *   **`main`**: The stable base branch.
 *   **`origin/main`**: Remote tracking branch for main.
-*   **`origin/feature/ui-refinement`**: Remote tracking branch for the new feature.
+*   **`origin/data-persistent-ledger-architecture`**: Remote tracking branch for the current architecture branch.
 
 ## 📦 Component Overview
 
@@ -51,4 +56,32 @@ The repository is structured as a **Monorepo** containing applications, shared p
 *   `wallet/`: Directory for local crypto identities (`admin.id`, `appUser.id`).
 *   `package.json`: Root configuration defining workspaces.
 *   `turbo.json`: Turborepo configuration for build orchestration.
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js (v18+)
+- npm
+
+### Installation
+```bash
+npm install
+```
+
+### Development
+Start all services in development mode:
+```bash
+npm run dev
+```
+
+### Build
+Build all packages and applications:
+```bash
+npm run build
+```
+
+## 🛠️ Monorepo Workflow
+- **Shared Code**: Reusable logic (like crypto and types) lives in `packages/shared`.
+- **Atomic Changes**: PRs can safely touch both shared logic and its usage in applications.
+- **Task Pipelines**: Use `turbo` to run commands efficiently across the workspace.
 

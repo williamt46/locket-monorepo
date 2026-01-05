@@ -60,6 +60,39 @@ class IntegrityContract extends Contract {
         const assetJSON = await ctx.stub.getState(assetId);
         return assetJSON && assetJSON.length > 0;
     }
+
+    /**
+     * CreateAssetBatch anchors multiple data hashes to the ledger in one transaction.
+     * @param {Context} ctx the transaction context
+     * @param {String} batchJSON JSON string containing array of assets [{assetId, userDID, dataHash}]
+     */
+    async CreateAssetBatch(ctx, batchJSON) {
+        console.info('============= START : Create Asset Batch ===========');
+        const assets = JSON.parse(batchJSON);
+        const results = [];
+
+        for (const assetData of assets) {
+            const { assetId, userDID, dataHash } = assetData;
+            const exists = await this.AssetExists(ctx, assetId);
+            if (exists) {
+                console.warn(`The asset ${assetId} already exists, skipping.`);
+                continue;
+            }
+
+            const asset = {
+                assetId,
+                userDID,
+                dataHash,
+                timestamp: ctx.stub.getTxTimestamp().seconds.low
+            };
+
+            await ctx.stub.putState(assetId, Buffer.from(JSON.stringify(asset)));
+            results.push(asset);
+        }
+
+        console.info('============= END : Create Asset Batch =============');
+        return JSON.stringify(results);
+    }
 }
 
 module.exports = IntegrityContract;

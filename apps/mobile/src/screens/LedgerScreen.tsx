@@ -19,7 +19,9 @@ export const LedgerScreen = () => {
     const [viewMode, setViewMode] = useState<'monthly' | 'yearly'>('monthly');
     const [initialMonthIndex, setInitialMonthIndex] = useState<number>(new Date().getMonth());
     const [keyHex, setKeyHex] = useState<string | undefined>(undefined);
-    const { events, inscribe, batchInscribe, deleteByTimestamp, superNuke, isInitialized } = useLedger(keyHex);
+    const { events, inscribe, batchInscribe, deleteByTimestamp, triggerSync, superNuke, isInitialized, isSyncing } = useLedger(keyHex);
+
+    console.warn(`[LedgerScreen] Render. Total Events: ${events.length}, Initialized: ${isInitialized}`);
 
     const [futureData, setFutureData] = useState<Record<string, boolean>>({});
 
@@ -268,6 +270,21 @@ export const LedgerScreen = () => {
         setModalVisible(false);
     };
 
+    // Aggregate Integrity Status
+    const sealStatus = useMemo(() => {
+        if (!isInitialized) return 'pending';
+        if (isSyncing) return 'syncing';
+        if (events.length === 0) return 'secure';
+
+        const localWithSig = events.filter(e => e.status === 'local' && e.signature);
+        const localsWithoutSig = events.filter(e => e.status === 'local' && !e.signature);
+        const anchoredCount = events.filter(e => e.status === 'anchored').length;
+
+        if (localWithSig.length > 0) return 'secure';
+        if (anchoredCount > 0) return 'anchored';
+        return 'secure';
+    }, [isInitialized, isSyncing, events]);
+
     const handleDrillDown = (monthIndex: number, year: number) => {
         // Tapping month in Year view drills down to Monthly view
         setViewMode('monthly');
@@ -295,7 +312,21 @@ export const LedgerScreen = () => {
                     >
                         <Text style={{ color: colors.alert, fontSize: 10, fontWeight: 'bold' }}>RESET</Text>
                     </TouchableOpacity>
-                    <IntegritySeal status={isInitialized ? 'secure' : 'pending'} />
+
+                    <TouchableOpacity
+                        onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            triggerSync();
+                        }}
+                        style={{ marginRight: 15, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, backgroundColor: colors.watermark }}
+                    >
+                        <Text style={{ color: colors.charcoal, fontSize: 10, fontWeight: 'bold' }}>SYNC</Text>
+                    </TouchableOpacity>
+
+                    {isSyncing && (
+                        <Text style={{ fontSize: 10, color: '#3B82F6', fontWeight: '600', marginRight: 8 }}>Securing...</Text>
+                    )}
+                    <IntegritySeal status={sealStatus} />
                 </View>
             </View>
 
@@ -343,7 +374,7 @@ export const LedgerScreen = () => {
                     </Text>
                 </TouchableOpacity>
             </View>
-        </ScreenWrapper>
+        </ScreenWrapper >
     );
 };
 
