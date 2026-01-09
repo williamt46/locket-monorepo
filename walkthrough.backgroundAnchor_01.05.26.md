@@ -1,4 +1,4 @@
-# Phase 3 Walkthrough: Background Anchor
+no# Phase 3 Walkthrough: Background Anchor
 
 We have successfully implemented the **Background Anchor** phase, transitioning from immediate, single-hash anchoring to a more efficient and robust batch anchoring system.
 
@@ -118,3 +118,4 @@ Verified the "Reset -> Inscribe -> Batch Sync" flow:
 - [DONE] Decentralized Integrity Seal (Gold -> Blue -> Green).
 - Implement `VerificationService` for independent block-level integrity checks against the blockchain.
 - Schedule periodic background syncs while the app is in the background.
+- Integrate MCP remote server into IDE to automate checking for vulnerable dependencies, malwares, and license compliance
