@@ -22,14 +22,21 @@ dist
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+dev_logs.txt
+
+# Verification & Debug
+verify-batch.js
+verify-flow.js
+walkthrough*.md
+mcp_config.json
 
 # Hyperledger Fabric
 # The huge samples directory which contains generated crypto material
-locket-network/fabric-samples/
+network/fabric-samples/
 # Any unexpected crypto material
-locket-network/organizations/
-locket-network/channel-artifacts/
-locket-network/system-genesis-block/
+network/organizations/
+network/channel-artifacts/
+network/system-genesis-block/
 *.msp
 *.pem
 *.key
@@ -37,6 +44,9 @@ locket-network/system-genesis-block/
 # Locket Gateway Secrets
 wallet/
 locket-gateway/wallet/
+
+# Turbo
+.turbo/
 
 # Mobile
 .expo/

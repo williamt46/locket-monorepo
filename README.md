@@ -85,3 +85,21 @@ npm run build
 - **Atomic Changes**: PRs can safely touch both shared logic and its usage in applications.
 - **Task Pipelines**: Use `turbo` to run commands efficiently across the workspace.
 
+
+## 🔒 Security
+
+### Dependency Management
+This project prioritizes software supply chain security. All dependencies are regularly audited using the **Sonatype MCP** tools to identify and mitigate vulnerabilities.
+
+*   **Audit Frequency**: Continuous scanning during development.
+*   **Scanning Tools**: Sonatype OSS Index via Model Context Protocol (MCP).
+*   **Resolution Strategy**: Prioritize upgrading to the "Latest Secure" versions recommended by Sonatype intelligence.
+
+### Verified Security Patches (January 2026)
+*   **API Gateway**: `body-parser` updated to `>2.2.2` (DoS mitigation).
+*   **Mobile App**:
+    *   `expo` SDK updated to secure patch levels.
+    *   `@react-native-community/cli` updated to `>20.0.0` (RCE mitigation).
+
+### Vulnerability Reporting
+If you discover a security vulnerability within this project, please report it immediately to the maintainers. Do not disclose sensitive information publicly until a patch has been released.

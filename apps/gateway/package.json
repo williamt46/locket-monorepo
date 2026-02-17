@@ -8,12 +8,12 @@
     "dev": "nodemon src/app.js"
   },
   "dependencies": {
-    "body-parser": "^1.20.2",
+    "@locket/shared": "*",
+    "body-parser": "^2.2.2",
     "cors": "^2.8.5",
-    "express": "^4.19.2",
-    "fabric-network": "^2.2.20",
+    "express": "^5.2.1",
     "fabric-ca-client": "^2.2.20",
-    "@locket/shared": "*"
+    "fabric-network": "^2.2.20"
   },
   "devDependencies": {
     "nodemon": "^3.1.0"
