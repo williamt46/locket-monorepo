@@ -3,22 +3,21 @@ const path = require('path');
 
 // Find the project and workspace directories
 const projectRoot = __dirname;
-// This can be replaced with `find-yarn-workspace-root`
 const workspaceRoot = path.resolve(projectRoot, '../..');
 
 const config = getDefaultConfig(projectRoot);
 
 // 1. Watch all files within the monorepo
-config.watchFolders = [workspaceRoot];
+config.watchFolders.push(workspaceRoot);
 
 // 2. Let Metro know where to resolve packages and in what order
-config.resolver.nodeModulesPaths = [
+config.resolver.nodeModulesPaths.push(
   path.resolve(projectRoot, 'node_modules'),
-  path.resolve(workspaceRoot, 'node_modules'),
-];
+  path.resolve(workspaceRoot, 'node_modules')
+);
 
 // 3. Force Metro to resolve (sub)dependencies only from the `nodeModulesPaths`
 // This prevents errors where multiple versions of the same package are loaded
-config.resolver.disableHierarchicalLookup = true;
+config.resolver.disableHierarchicalLookup = false;
 
 module.exports = config;

@@ -11,6 +11,7 @@ export const AppNavigator = () => {
     return (
         <NavigationContainer>
             <Stack.Navigator
+                id="RootStack"
                 screenOptions={{
                     headerShown: false,
                     cardStyle: { backgroundColor: colors.paper }
