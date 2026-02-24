@@ -1,0 +1,20 @@
+{
+    "name": "@locket/secure-storage",
+    "version": "0.0.1",
+    "type": "module",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "build": "tsc",
+        "test": "vitest run"
+    },
+    "dependencies": {
+        "@locket/shared": "*"
+    },
+    "peerDependencies": {
+        "expo-sqlite": "^16.0.10"
+    },
+    "devDependencies": {
+        "@types/react": "^19.2.7"
+    }
+}
