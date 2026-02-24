@@ -1,4 +1,7 @@
 import { createPersistentLedger } from '@locket/secure-storage';
+import * as SecureStore from 'expo-secure-store';
+
+const USER_CONFIG_KEY = 'locket_user_config';
 
 let ledger = null;
 
@@ -26,3 +29,20 @@ export const loadEvents = async () => {
 export const nukeData = async () => {
     await ledger.nuke();
 };
+
+// ── UserConfig persistence (Onboarding) ─────────────────────────────
+
+export const saveUserConfig = async (config) => {
+    await SecureStore.setItemAsync(USER_CONFIG_KEY, JSON.stringify(config));
+};
+
+export const getUserConfig = async () => {
+    const raw = await SecureStore.getItemAsync(USER_CONFIG_KEY);
+    if (!raw) return null;
+    try {
+        return JSON.parse(raw);
+    } catch {
+        return null;
+    }
+};
+

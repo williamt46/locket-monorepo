@@ -1,6 +1,5 @@
 export * from './types.js';
 export * from './FileSystemLedger.js';
-export * from './TrafficPadding.js';
 
 // We don't statically export SQLiteLedger from index to prevent crash-on-import
 // but we still need it for the factory.

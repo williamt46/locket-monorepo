@@ -80,11 +80,64 @@ Build all packages and applications:
 npm run build
 ```
 
-## 🛠️ Monorepo Workflow
+## � Mobile Development
+
+The mobile app is built with Expo and requires native environment setup for iOS (Xcode) and Android (Android Studio).
+
+### 🍏 iOS Development
+
+#### Simulator
+Run the app on the latest iOS simulator:
+```bash
+cd apps/mobile
+npx expo run:ios
+```
+
+#### Physical Device
+1.  Connect your iPhone via USB.
+2.  Enable **Developer Mode** on your iPhone 
+3.  Open the workspace in Xcode to configure signing:
+    ```bash
+    open apps/mobile/ios/locketapp.xcworkspace
+    ```
+4.  In Xcode, select the **locketapp** project -> **Signing & Capabilities** -> Select your **Team**.
+5.  Run the build command:
+    ```bash
+    npx expo run:ios --device
+    ```
+
+### 🤖 Android Development
+
+#### Emulator
+Ensure an Android Virtual Device (AVD) is running, then execute:
+```bash
+cd apps/mobile
+npx expo run:android
+```
+
+#### Environment Variables
+Ensure your `JAVA_HOME` is set to **Java 17** (required for Gradle compatibility).
+
+## �🛠️ Monorepo Workflow
 - **Shared Code**: Reusable logic (like crypto and types) lives in `packages/shared`.
 - **Atomic Changes**: PRs can safely touch both shared logic and its usage in applications.
 - **Task Pipelines**: Use `turbo` to run commands efficiently across the workspace.
 
+
+## ⛓️ Blockchain Network
+
+The local developer network uses Hyperledger Fabric.
+
+### Prerequisites
+- **Docker & Docker Compose**: Ensure Docker Desktop is running.
+
+### Start the Network
+This script will bring down any existing network, start the Fabric test network with a Certificate Authority (CA) and CouchDB, and deploy the chaincode.
+
+```bash
+cd network
+./start-network.sh
+```
 
 ## 🔒 Security
 

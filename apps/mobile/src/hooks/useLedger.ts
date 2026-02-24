@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { createPersistentLedger, TrafficPadding, StorageRecord } from '@locket/secure-storage';
+import { createPersistentLedger, StorageRecord } from '@locket/secure-storage';
 import { LocketCryptoService } from '@locket/core-crypto';
 import { BackgroundSyncService } from '../services/BackgroundSyncService';
 
 // Singleton-ish instances for the lifetime of the session
 let ledger: any = null;
 const crypto = new LocketCryptoService();
-let padding: any = null;
+
 
 export const useLedger = (keyHex?: string) => {
     const [events, setEvents] = useState<StorageRecord[]>([]);
@@ -30,9 +30,7 @@ export const useLedger = (keyHex?: string) => {
         try {
             if (!ledger) {
                 ledger = await createPersistentLedger();
-                padding = new TrafficPadding(ledger);
             }
-            padding.start(); // Start background noise
 
             // Wire up sync status updates
             BackgroundSyncService.onStatusChange = (syncing: boolean) => {

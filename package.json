@@ -15,7 +15,8 @@
   },
   "devDependencies": {
     "turbo": "^2.3.3",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
   },
   "dependencies": {
     "react-dom": "19.1.0",

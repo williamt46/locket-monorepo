@@ -11,6 +11,9 @@ import * as Haptics from 'expo-haptics';
 import { useLedger } from '../hooks/useLedger';
 import { SecureKeyService } from '../services/SecureKeyService';
 import { LocketCryptoService } from '@locket/core-crypto';
+import { getUserConfig, saveUserConfig } from '../services/StorageService';
+import { UserConfig } from '../models/UserConfig';
+import { calculatePredictedPeriods, getLatestPeriodStart } from '../utils/PredictionEngine';
 
 const crypto = new LocketCryptoService();
 
@@ -31,10 +34,12 @@ export const LedgerScreen = () => {
 
     // Current Date State
     const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
+    const [config, setConfig] = useState<UserConfig | null>(null);
 
-    // Initialize Key
+    // Initialize Key and Config
     useEffect(() => {
         SecureKeyService.getOrGenerateKey().then(setKeyHex).catch(console.error);
+        getUserConfig().then(setConfig).catch(console.error);
     }, []);
 
     // Decrypt events for UI with memoization
@@ -99,28 +104,65 @@ export const LedgerScreen = () => {
     }, [events, keyHex]);
 
     // Generate specific predictions for demo when component mounts
+    // Generate future predictions dynamically based on decrypted local data and UserConfig
     useEffect(() => {
-        const mockFuture: Record<string, boolean> = {};
-
-        // Mark 10-14 of NEXT month relative to now as "Future"
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = now.getMonth();
-
-        // Logic for "Next Month" safely handling December
-        let targetYear = year;
-        let targetMonth = month + 1;
-        if (targetMonth > 11) {
-            targetMonth = 0;
-            targetYear += 1;
+        if (!config) {
+            setFutureData({});
+            return;
         }
 
-        // Mock 5 days of predicted period
-        for (let d = 10; d <= 14; d++) {
-            mockFuture[`${targetYear}-${targetMonth}-${d}`] = true;
+        const latestStart = getLatestPeriodStart(decryptedData, config.lastPeriodDate);
+        const predictions = calculatePredictedPeriods(
+            latestStart,
+            config.cycleLength,
+            config.periodLength,
+            3 // Forecast next 3 cycles
+        );
+
+        setFutureData(predictions);
+    }, [decryptedData, config]);
+
+    // Initial Seeding: if onboarding is complete but ledger is empty, generate initial period logs
+    useEffect(() => {
+        if (isInitialized && keyHex && config && !config.hasSeededInitialData && events.length === 0 && !isSyncing) {
+            console.log('[LedgerScreen] Seeding initial data from Onboarding...');
+
+            const seedData = async () => {
+                const batch = [];
+                // Parse UTC string strictly
+                const [y, m, d] = config.lastPeriodDate.split('-');
+                const startDate = new Date(Date.UTC(+y, +m - 1, +d));
+
+                for (let i = 0; i < config.periodLength; i++) {
+                    const date = new Date(startDate);
+                    date.setUTCDate(date.getUTCDate() + i);
+
+                    const record: any = {
+                        ts: date.getTime(),
+                        isPeriod: true,
+                        isStart: i === 0,
+                        isEnd: i === config.periodLength - 1,
+                    };
+                    if (i === 0) {
+                        record.note = "Initial Record from Onboarding";
+                    }
+                    batch.push(record);
+                }
+
+                try {
+                    await batchInscribe(batch);
+                    const updatedConfig = { ...config, hasSeededInitialData: true };
+                    await saveUserConfig(updatedConfig);
+                    setConfig(updatedConfig);
+                    console.log(`[LedgerScreen] Successfully seeded ${batch.length} initial entries.`);
+                } catch (e) {
+                    console.error('[LedgerScreen] Initial seed failed:', e);
+                }
+            };
+
+            seedData();
         }
-        setFutureData(mockFuture);
-    }, []);
+    }, [isInitialized, keyHex, config, events.length, isSyncing, batchInscribe]);
 
     const calculateAverageCycle = (data: Record<string, { isPeriod: boolean }>): Record<number, number> => {
         // Real Calculation Logic
@@ -219,16 +261,18 @@ export const LedgerScreen = () => {
 
         try {
             console.log('[LedgerScreen] Saving data:', modalData, 'for date:', selectedDate.toLocaleDateString());
+            const length = config?.periodLength || 5;
+
             if (modalData.isStart) {
-                // Batch Inscribe 7 days
+                // Batch Inscribe based on user's periodLength
                 const batch = [];
-                for (let i = 0; i < 7; i++) {
+                for (let i = 0; i < length; i++) {
                     const d = new Date(year, month, day + i);
                     const record: any = {
                         ts: d.getTime(),
                         isPeriod: true,
                         isStart: i === 0,
-                        isEnd: i === 6,
+                        isEnd: i === length - 1,
                     };
                     if (i === 0 && modalData.note) {
                         record.note = modalData.note;
@@ -239,17 +283,17 @@ export const LedgerScreen = () => {
                 console.log(`[LedgerScreen] Inscribed batch of ${batch.length} days starting from ${selectedDate.toLocaleDateString()}`);
             } else if (modalData.isEnd) {
                 const batch = [];
-                // End date is selectedDate, so we want 7 days leading UP to it
-                const startDate = new Date(year, month, day - 6);
-                for (let i = 0; i < 7; i++) {
+                // End date is selectedDate, so we want (length) days leading UP to it
+                const startDate = new Date(year, month, day - (length - 1));
+                for (let i = 0; i < length; i++) {
                     const d = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() + i);
                     const record: any = {
                         ts: d.getTime(),
                         isPeriod: true,
                         isStart: i === 0,
-                        isEnd: i === 6,
+                        isEnd: i === length - 1,
                     };
-                    if (i === 6 && modalData.note) {
+                    if (i === length - 1 && modalData.note) {
                         record.note = modalData.note;
                     }
                     batch.push(record);
@@ -302,6 +346,10 @@ export const LedgerScreen = () => {
                     <TouchableOpacity
                         onPress={() => {
                             const clearAll = async () => {
+                                // PREVENT RACE CONDITION: Invalidate the key in React state BEFORE wiping the ledger.
+                                // If we don't, the seeder will see 0 events and use the old key to encrypt before the new one generates.
+                                setKeyHex(undefined);
+
                                 await superNuke();
                                 // Refresh key to re-generate since SecureStore was wiped
                                 SecureKeyService.getOrGenerateKey().then(setKeyHex);

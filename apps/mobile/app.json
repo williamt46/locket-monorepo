@@ -14,7 +14,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.locket-app"
+      "bundleIdentifier": "com.kabst.locketapp"
     },
     "android": {
       "adaptiveIcon": {
@@ -22,7 +22,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.locketapp"
+      "package": "com.kabst.locketapp"
     },
     "web": {
       "favicon": "./assets/favicon.png"

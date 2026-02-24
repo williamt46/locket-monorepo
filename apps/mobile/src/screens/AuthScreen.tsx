@@ -1,9 +1,10 @@
 import React, { useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Alert } from 'react-native';
 import { ScreenWrapper } from '../components/ScreenWrapper';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 import * as LocalAuthentication from 'expo-local-authentication';
+import * as SecureStore from 'expo-secure-store';
 
 export const AuthScreen = ({ navigation }: any) => {
 
@@ -18,6 +19,13 @@ export const AuthScreen = ({ navigation }: any) => {
         } catch (e) {
             console.log('Auth error', e);
         }
+    };
+
+    // TODO: TEMP — Remove before release
+    const clearConfig = async () => {
+        await SecureStore.deleteItemAsync('locket_user_config');
+        Alert.alert('Config Cleared', 'Restarting onboarding…');
+        navigation.replace('Onboarding');
     };
 
     useEffect(() => {
@@ -35,6 +43,11 @@ export const AuthScreen = ({ navigation }: any) => {
                 </View>
                 <Text style={styles.title}>Locket</Text>
                 <Text style={styles.instructionText}>Tap anywhere to unlock</Text>
+            </TouchableOpacity>
+
+            {/* TODO: TEMP — Remove before release */}
+            <TouchableOpacity onPress={clearConfig} style={styles.clearButton}>
+                <Text style={styles.clearButtonText}>⚠ Clear Config (Dev)</Text>
             </TouchableOpacity>
         </ScreenWrapper>
     );
@@ -73,5 +86,19 @@ const styles = StyleSheet.create({
         color: colors.secondary,
         marginTop: 20,
         opacity: 0.6,
+    },
+    clearButton: {
+        position: 'absolute',
+        bottom: 50,
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        borderRadius: 8,
+        backgroundColor: colors.alert,
+        opacity: 0.7,
+    },
+    clearButtonText: {
+        color: '#fff',
+        fontSize: 13,
+        fontFamily: typography.body,
     },
 });

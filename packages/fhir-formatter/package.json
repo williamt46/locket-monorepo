@@ -1,0 +1,19 @@
+{
+    "name": "@locket/fhir-formatter",
+    "version": "0.0.1",
+    "type": "module",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "build": "tsc",
+        "test": "vitest run"
+    },
+    "dependencies": {
+        "uuid": "^11.1.0"
+    },
+    "devDependencies": {
+        "@types/fhir": "^0.0.41",
+        "@types/uuid": "^10.0.0",
+        "vitest": "*"
+    }
+}
