@@ -74,7 +74,7 @@ GRANT_RESULT=$(peer chaincode invoke \
   -C mychannel -n basic \
   --peerAddresses localhost:7051 --tlsRootCertFiles "$CORE_PEER_TLS_ROOTCERT_FILE" \
   --peerAddresses localhost:9051 --tlsRootCertFiles "$NETWORK_DIR/organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt" \
-  -c '{"function":"ConInSeContract:GrantConsentEvent","Args":["did:locket:alice","pubkey_bob_test","kfrag_test_base64","delegator_pk_test","hash_abc123","4102444800000"]}' \
+  -c '{"function":"ConInSeContract:GrantConsentEvent","Args":["did:locket:alice","pubkey_bob_test","kfrag_test_base64","delegator_pk_test","hash_abc123","4102444800000","verifying_key_test"]}' \
   2>&1)
 
 if echo "$GRANT_RESULT" | grep -q "status:200"; then
@@ -103,6 +103,13 @@ if echo "$VERIFY_RESULT" | grep -q '"valid":true'; then
     pass "kFragBase64 correctly returned"
   else
     fail "kFragBase64 not found in response"
+    echo "  Output: $VERIFY_RESULT"
+  fi
+  # Also check verifyingKey is returned
+  if echo "$VERIFY_RESULT" | grep -q '"verifyingKeyBase64":"verifying_key_test"'; then
+    pass "verifyingKeyBase64 correctly returned"
+  else
+    fail "verifyingKeyBase64 not found in response"
     echo "  Output: $VERIFY_RESULT"
   fi
 else

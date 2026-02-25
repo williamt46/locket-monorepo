@@ -10,6 +10,7 @@ class ConInSeContract extends Contract {
      * Creates a composite key ConInSe~[userDid, recipientPublicKey] and stores:
      *   - kFragBase64: The PRE re-encryption key fragment
      *   - delegatorPublicKeyBase64: The data owner's public key
+     *   - verifyingKeyBase64: The owner's verifying key (for cfrag.verify)
      *   - anchorHash: SHA-256 of the encrypted data bundle
      *   - expirationTimestamp: Unix ms after which consent expires
      *   - status: 'ACTIVE'
@@ -21,9 +22,10 @@ class ConInSeContract extends Contract {
      * @param {string} delegatorPublicKeyBase64 Owner's public key (base64)
      * @param {string} anchorHash        SHA-256 anchor hash of encrypted data
      * @param {string} expirationTimestamp Unix timestamp (ms) for consent expiry
+     * @param {string} verifyingKeyBase64 Owner's verifying key for cfrag verification (base64)
      * @returns {string} JSON of the created consent token
      */
-    async GrantConsentEvent(ctx, userDid, recipientPublicKey, kFragBase64, delegatorPublicKeyBase64, anchorHash, expirationTimestamp) {
+    async GrantConsentEvent(ctx, userDid, recipientPublicKey, kFragBase64, delegatorPublicKeyBase64, anchorHash, expirationTimestamp, verifyingKeyBase64) {
         console.info('============= START : GrantConsentEvent ===========');
 
         const tokenizedConsent = {
@@ -32,6 +34,7 @@ class ConInSeContract extends Contract {
             recipientPublicKey,
             kFragBase64,
             delegatorPublicKeyBase64,
+            verifyingKeyBase64,
             anchorHash,
             expirationTimestamp: parseInt(expirationTimestamp),
             status: 'ACTIVE',
@@ -91,7 +94,8 @@ class ConInSeContract extends Contract {
         return JSON.stringify({
             valid: true,
             kFragBase64: record.kFragBase64,
-            delegatorPublicKeyBase64: record.delegatorPublicKeyBase64
+            delegatorPublicKeyBase64: record.delegatorPublicKeyBase64,
+            verifyingKeyBase64: record.verifyingKeyBase64
         });
     }
 

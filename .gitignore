@@ -28,11 +28,20 @@ dev_logs.txt
 verify-batch.js
 verify-flow.js
 walkthrough*.md
+handoff_*.md
+*Handoff*.md
+implementation_plan*.md
+task.md
+*.resolved
+persistent data flow debug.*.md
+audit-report.md
 mcp_config.json
 
 # Hyperledger Fabric
 # The huge samples directory which contains generated crypto material
 network/fabric-samples/
+# Deprecated/Scratchpad network folder
+locket-network/
 # Any unexpected crypto material
 network/organizations/
 network/channel-artifacts/
@@ -45,6 +54,9 @@ network/system-genesis-block/
 wallet/
 locket-gateway/wallet/
 
+# Legacy Applications
+apps/gateway/
+
 # Turbo
 .turbo/
 
@@ -52,18 +64,6 @@ locket-gateway/wallet/
 .expo/
 *.jks
 *.keystore
-.agent/skills/aws-serverless
-.agent/skills/concise-planning
-.agent/skills/copywriting
-.agent/skills/deployment-procedures
-.agent/skills/docker-expert
-.agent/skills/environment-setup-guide
-.agent/skills/git-pushing
-.agent/skills/kaizen
-.agent/skills/lint-and-validate
-.agent/skills/mobile-design
-.agent/skills/product-manager-toolkit
-.agent/skills/README.md
-.agent/skills/scroll-experience
-.agent/skills/systematic-debugging
-.agent/skills/ui-ux-pro-max
+
+# Agent Workspace
+.agent/

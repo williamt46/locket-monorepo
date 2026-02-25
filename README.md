@@ -6,10 +6,8 @@ Welcome to the Locket monorepo. This project is a local-first health tracker wit
 This repository uses a monorepo structure managed by **npm workspaces** and **Turborepo** for efficient development and build orchestration.
 
 ## 🌿 Branches
-*   **`data-persistent-ledger-architecture`** *(Current Branch)*: Contains the latest monorepo restructuring and persistent ledger state.
-*   **`main`**: The stable base branch.
+*   **`main`** *(Current Branch)*: The stable base branch.
 *   **`origin/main`**: Remote tracking branch for main.
-*   **`origin/data-persistent-ledger-architecture`**: Remote tracking branch for the current architecture branch.
 
 ## 📦 Component Overview
 
@@ -18,10 +16,10 @@ The repository is structured as a **Monorepo** containing applications, shared p
 ### 📱 `apps/mobile/` 
 *   **Purpose**: The primary mobile interface for users (React Native/Expo).
 *   **Key Directories**:
-    *   `src/components/`: Reusable UI elements (e.g., `WinslowGrid`, `CycleLengthTable`, `IntegritySeal`).
-    *   `src/screens/`: Main application screens (`AuthScreen`, `LedgerScreen`).
-    *   `src/navigation/`: App navigation logic (`AppNavigator`).
-    *   `src/theme/`: Design tokens (`colors`, `typography`, `layout`).
+    *   `src/components/`: Reusable UI elements.
+    *   `src/screens/`: Main application screens.
+    *   `src/navigation/`: App navigation logic.
+    *   `src/theme/`: Design tokens.
 
 ### 🌐 `apps/web/`
 *   **Purpose**: A web-based interface for the application (React/Vite).
@@ -30,19 +28,18 @@ The repository is structured as a **Monorepo** containing applications, shared p
     *   `src/services/`: Client-side logic including key persistence.
     *   `src/main.jsx`: Entry point.
 
-### 🔗 `apps/gateway/` 
-*   **Purpose**: The backend service connecting clients to the blockchain network.
+### 🔗 `apps/serverless-gateway/` 
+*   **Purpose**: The serverless backend service connecting clients to the blockchain network via REST APIs.
 *   **Key Files**:
-    *   `src/app.js`: Main Express application entry point.
-    *   `src/fabricClient.js`: Logic for interacting with the Hyperledger Fabric SDK.
-    *   `src/enrollAdmin.js` & `src/registerUser.js`: Identity management scripts.
+    *   `src/index.ts`: Main entry point for the serverless functions.
+    *   `src/FabricService.ts`: Logic for interacting with the Hyperledger Fabric SDK.
 
-### 📦 `packages/shared/` (Shared Library)
+### 📦 `packages/` (Shared Libraries & Utilities)
 *   **Purpose**: Common utilities, types, and constants shared across applications.
-*   **Key Files**:
-    *   `src/constants.ts`: Shared constants (e.g., Encryption Algorithm, IV Length).
-    *   `src/types.ts`: Shared TypeScript interfaces (`LedgerEntry`, `EncryptedPayload`).
-    *   `src/index.ts`: Main export file.
+*   **`crypto-engine/`**: Cryptographic abstractions (AES, RSA, PRE).
+*   **`fhir-formatter/`**: HL7 FHIR data transformation logic.
+*   **`secure-storage/`**: Modular storage interfaces.
+*   **`shared/`**: Common types, constants, and utilities.
 
 ### ⛓️ `network/` 
 *   **Purpose**: Infrastructure and smart contracts (Hyperledger Fabric).
@@ -52,6 +49,7 @@ The repository is structured as a **Monorepo** containing applications, shared p
     *   `start-network.sh`: Script to initialize the local blockchain environment.
 
 ### 📂 Root Files
+*   `.gitignore`: Defines intentionally untracked files and directories, ensuring secrets and build outputs stay out of version control.
 *   `verify-flow.js`: End-to-end verification script.
 *   `wallet/`: Directory for local crypto identities (`admin.id`, `appUser.id`).
 *   `package.json`: Root configuration defining workspaces.

@@ -16,7 +16,7 @@ This registry tracks the status of each phase across different agent conversatio
 | P2 | FHIR Formatter | `@locket/fhir-formatter` (LOINC/SNOMED mapping) | P0 | [x] Complete | aaf7cc20 | [handoff_P2.md](file:///Users/kabst/.gemini/antigravity/locket-monorepo/handoff_P2.md) |
 | P3 | Onboarding Flow | 4-step wizard, `UserConfig`, clamping (period 1–20, cycle 10–100) | P0 | [x] Complete | 6c2d09c9 | [handoff_P3.md](file:///Users/kabst/.gemini/antigravity/brain/52b72c75-edbe-4d20-ba02-088b5a721783/handoff_P3.md) |
 | P4 | ConInSe Contracts | Chaincode: Grant/Verify/Revoke on Fabric | P0, P1 | [x] Complete | 52b72c75 | [handoff_P4.md](file:///Users/kabst/.gemini/antigravity/brain/52b72c75-edbe-4d20-ba02-088b5a721783/handoff_P4.md) |
-| P5 | Serverless Gateway | Express PRE proxy + `FabricService` (`@hyperledger/fabric-gateway`) | P1, P4 | [ ] Blocked | - | - |
+| P5 | Serverless Gateway | Express PRE proxy + `FabricService` (`@hyperledger/fabric-gateway`) | P1, P4 | [x] Complete | 52b72c75 | [handoff_P5.md](file:///Users/kabst/.gemini/antigravity/brain/52b72c75-edbe-4d20-ba02-088b5a721783/handoff_P5.md) |
 | P6 | Mobile Sync + QR | `SyncService`, full camera QR scanner (`expo-camera`) | P3, P5 | [ ] Blocked | - | - |
 | P7 | Provider Portal | **Vite React** + `vite-plugin-wasm`, FHIR edge-formatting | P1, P2, P5 | [ ] Blocked | - | - |
 | P8 | Partner Portal | **Vite React** + `vite-plugin-wasm`, relational phase calc (NO FHIR) | P1, P5 | [ ] Blocked | - | - |
