@@ -20,7 +20,7 @@ This registry tracks the status of each phase across different agent conversatio
 | P6 | Mobile Sync + QR | `SyncService`, full camera QR scanner (`expo-camera`) | P3, P5 | [/] in progress (pending physical device testing) | 1c0df022 | [Handoff P6.md](file:///Users/kabst/.gemini/antigravity/locket-monorepo/Handoff P6.md) |
 | P7 | Provider Portal | **Vite React** + `vite-plugin-wasm`, FHIR edge-formatting | P1, P2, P5 | [ ] Blocked | - | - |
 | P8 | Partner Portal | **Vite React** + `vite-plugin-wasm`, relational phase calc (NO FHIR) | P1, P5 | [ ] Blocked | - | - |
-| P9 | Sovereign Persistence | AES-GCM-256 cloud backup, Clue/Flo/CSV import | P3 | [/] In Progress (9.1 Backups Complete, pending 9.2 Import parser) | 6c2d09c9 | [handoff_P9.1.md](file:///Users/kabst/.gemini/antigravity/brain/6c2d09c9-f1f9-458a-b8b1-cef2b91fe75a/handoff_P9.1.md) |
+| P9 | Sovereign Persistence | AES-GCM-256 cloud backup, Clue/Flo/CSV import | P3 | [/] In Progress (9.1 & 9.2 Complete, pending 9.3 UI) | 4330fc27 | [handoff_P9.1.md](file:///Users/kabst/.gemini/antigravity/brain/6c2d09c9-f1f9-458a-b8b1-cef2b91fe75a/handoff_P9.1.md), [handoff_P9.2.md](file:///Users/kabst/.gemini/antigravity/brain/4330fc27-09bb-4215-8487-b3e135c039df/handoff_P9.2.md) |
 | P10 | E2E Integration | Full PRE workflow script, security hardening, data purity audit | All | [ ] Blocked | - | - |
 
 ## WASM Strategy

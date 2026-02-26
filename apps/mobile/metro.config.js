@@ -20,4 +20,8 @@ config.resolver.nodeModulesPaths.push(
 // This prevents errors where multiple versions of the same package are loaded
 config.resolver.disableHierarchicalLookup = false;
 
+// Add WASM support
+config.resolver.assetExts.push('wasm');
+config.resolver.sourceExts.push('mjs');
+
 module.exports = config;

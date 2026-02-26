@@ -9,10 +9,12 @@
         "test": "vitest run"
     },
     "dependencies": {
+        "@locket/shared": "*",
         "@nucypher/umbral-pre": "*",
-        "@locket/shared": "*"
+        "crypto-js": "^4.2.0"
     },
     "devDependencies": {
+        "@types/crypto-js": "^4.2.2",
         "vitest": "*"
     }
 }

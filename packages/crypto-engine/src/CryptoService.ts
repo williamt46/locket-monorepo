@@ -12,6 +12,7 @@
 
 import * as umbral from '@nucypher/umbral-pre';
 import { canonicalStringify } from '@locket/shared';
+import CryptoJS from 'crypto-js';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -77,10 +78,8 @@ async function sha256Hex(data: string): Promise<string> {
         const hashArray = new Uint8Array(hashBuffer);
         return '0x' + Array.from(hashArray).map(b => b.toString(16).padStart(2, '0')).join('');
     }
-    // Node.js fallback
-    const { createHash } = await import('node:crypto');
-    const hash = createHash('sha256').update(data).digest('hex');
-    return '0x' + hash;
+    // Universal fallback using crypto-js if native crypto is unavailable
+    return '0x' + CryptoJS.SHA256(data).toString();
 }
 
 // ─── CryptoService ───────────────────────────────────────────────────────────
