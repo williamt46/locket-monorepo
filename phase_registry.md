@@ -17,10 +17,10 @@ This registry tracks the status of each phase across different agent conversatio
 | P3 | Onboarding Flow | 4-step wizard, `UserConfig`, clamping (period 1–20, cycle 10–100) | P0 | [x] Complete | 6c2d09c9 | [handoff_P3.md](file:///Users/kabst/.gemini/antigravity/brain/52b72c75-edbe-4d20-ba02-088b5a721783/handoff_P3.md) |
 | P4 | ConInSe Contracts | Chaincode: Grant/Verify/Revoke on Fabric | P0, P1 | [x] Complete | 52b72c75 | [handoff_P4.md](file:///Users/kabst/.gemini/antigravity/brain/52b72c75-edbe-4d20-ba02-088b5a721783/handoff_P4.md) |
 | P5 | Serverless Gateway | Express PRE proxy + `FabricService` (`@hyperledger/fabric-gateway`) | P1, P4 | [x] Complete | 52b72c75 | [handoff_P5.md](file:///Users/kabst/.gemini/antigravity/brain/52b72c75-edbe-4d20-ba02-088b5a721783/handoff_P5.md) |
-| P6 | Mobile Sync + QR | `SyncService`, full camera QR scanner (`expo-camera`) | P3, P5 | [ ] Blocked | - | - |
+| P6 | Mobile Sync + QR | `SyncService`, full camera QR scanner (`expo-camera`) | P3, P5 | [/] in progress (pending physical device testing) | 1c0df022 | [Handoff P6.md](file:///Users/kabst/.gemini/antigravity/locket-monorepo/Handoff P6.md) |
 | P7 | Provider Portal | **Vite React** + `vite-plugin-wasm`, FHIR edge-formatting | P1, P2, P5 | [ ] Blocked | - | - |
 | P8 | Partner Portal | **Vite React** + `vite-plugin-wasm`, relational phase calc (NO FHIR) | P1, P5 | [ ] Blocked | - | - |
-| P9 | Sovereign Persistence | AES-GCM-256 cloud backup, Clue/Flo import | P3 | [ ] Blocked | - | - |
+| P9 | Sovereign Persistence | AES-GCM-256 cloud backup, Clue/Flo/CSV import | P3 | [/] In Progress (pending 9.1 cloud backup and 9.3 UI elements) | 4330fc27 | [handoff_P9.2.md](file:///Users/kabst/.gemini/antigravity/brain/4330fc27-09bb-4215-8487-b3e135c039df/handoff_P9.2.md.resolved) |
 | P10 | E2E Integration | Full PRE workflow script, security hardening, data purity audit | All | [ ] Blocked | - | - |
 
 ## WASM Strategy

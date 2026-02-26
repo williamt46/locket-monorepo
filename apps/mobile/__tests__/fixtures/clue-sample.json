@@ -1,0 +1,38 @@
+{
+    "data": [
+        {
+            "day": "2024-01-01",
+            "period/light": true,
+            "pain/headache": true,
+            "bbt": 97.4
+        },
+        {
+            "day": "2024-01-02",
+            "period/heavy": true,
+            "pain/cramps": true,
+            "feelings/sad": true,
+            "bbt": 97.2
+        },
+        {
+            "day": "2024-01-03",
+            "period/medium": true
+        },
+        {
+            "day": "2024-01-04",
+            "spotting": true
+        },
+        {
+            "day": "2024-01-20",
+            "bbt": 98.6,
+            "pain/ovulation": true
+        },
+        {
+            "day": "2024-01-29",
+            "period/medium": true
+        },
+        {
+            "day": "2024-01-30",
+            "period/light": true
+        }
+    ]
+}

@@ -168,6 +168,56 @@ export const useLedger = (keyHex?: string) => {
         };
     }, []);
 
+    const importData = useCallback(async (rawString: string) => {
+        if (!isInitialized) throw new Error('Ledger not initialized');
+        setIsBusy(true);
+        try {
+            // Lazy load ImportService to avoid circular/heavy deps on boot if not importing
+            const { detectFormat, detectSource, parseClueExport, parseFloExport, parseCsvExport } = require('../services/ImportService');
+
+            const format = detectFormat(rawString);
+            let result;
+
+            if (format === 'csv') {
+                result = parseCsvExport(rawString);
+            } else if (format === 'json') {
+                const jsonObj = JSON.parse(rawString);
+                const source = detectSource(jsonObj);
+
+                if (source === 'clue') {
+                    result = parseClueExport(jsonObj);
+                } else if (source === 'flo') {
+                    result = parseFloExport(jsonObj);
+                } else {
+                    throw new Error('Unrecognized JSON export schema (not Clue or Flo)');
+                }
+            } else {
+                throw new Error('Unrecognized file format. Must be Clue/Flo JSON or spreadsheet CSV.');
+            }
+
+            if (!result || result.entries.length === 0) {
+                console.warn('[useLedger] Import parsed successfully but no valid entries were found.');
+                return { success: true, count: 0, warnings: result?.warnings || [] };
+            }
+
+            console.log(`[useLedger] Mapped ${result.entries.length} items from ${result.source}, beginning batch inscribe...`);
+            await batchInscribe(result.entries);
+
+            return {
+                success: true,
+                count: result.entries.length,
+                source: result.source,
+                warnings: result.warnings,
+                stats: result.stats
+            };
+        } catch (e) {
+            console.error('[useLedger] Data import failed', e);
+            throw e;
+        } finally {
+            setIsBusy(false);
+        }
+    }, [isInitialized, batchInscribe]);
+
     return {
         events,
         isInitialized,
@@ -175,6 +225,7 @@ export const useLedger = (keyHex?: string) => {
         isSyncing,
         inscribe,
         batchInscribe,
+        importData,
         deleteByTimestamp,
         triggerSync,
         refresh,
