@@ -6,5 +6,12 @@ export default defineConfig({
         environment: 'node',
         include: ['__tests__/**/*.test.ts'],
         testTimeout: 10_000,
+        deps: {
+            optimizer: {
+                web: {
+                    include: ['@craftzdog/react-native-buffer', 'react-native-quick-crypto']
+                }
+            }
+        }
     },
 });

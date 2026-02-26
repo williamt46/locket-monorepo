@@ -26,6 +26,18 @@ export const loadEvents = async () => {
     return await ledger.loadEvents();
 };
 
+// ── Raw Ledger Access (For Backup Restore) ───────────────────────
+
+export const rawSaveEvents = async (records) => {
+    await ledger.init();
+    await ledger.saveEvents(records);
+};
+
+export const rawNukeData = async () => {
+    await ledger.init();
+    await ledger.nuke();
+};
+
 export const nukeData = async () => {
     await ledger.nuke();
 };

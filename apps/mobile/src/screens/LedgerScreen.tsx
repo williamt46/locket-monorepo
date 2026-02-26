@@ -14,6 +14,11 @@ import { LocketCryptoService } from '@locket/core-crypto';
 import { getUserConfig, saveUserConfig } from '../services/StorageService';
 import { UserConfig } from '../models/UserConfig';
 import { calculatePredictedPeriods, getLatestPeriodStart } from '../utils/PredictionEngine';
+import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system';
+import * as DocumentPicker from 'expo-document-picker';
+import { CloudBackupService } from '../services/CloudBackupService';
+import { Alert } from 'react-native';
 
 const crypto = new LocketCryptoService();
 
@@ -335,6 +340,72 @@ export const LedgerScreen = () => {
         setInitialMonthIndex(monthIndex);
         setCurrentYear(year); // Correctly update the year for HorizontalCalendar
     };
+    const handleExportBackup = async () => {
+        if (!keyHex) return;
+        try {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            const backupJson = await CloudBackupService.createBackup(keyHex);
+
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const fileUri = FileSystem.documentDirectory + `locket-backup-${timestamp}.locket`;
+
+            await FileSystem.writeAsStringAsync(fileUri, backupJson);
+
+            if (await Sharing.isAvailableAsync()) {
+                await Sharing.shareAsync(fileUri, {
+                    mimeType: 'application/json',
+                    dialogTitle: 'Save Locket Backup'
+                });
+            } else {
+                Alert.alert('Error', 'Sharing is not available on this device');
+            }
+        } catch (e: any) {
+            Alert.alert('Backup Failed', e.message);
+        }
+    };
+
+    const handleRestoreBackup = async () => {
+        if (!keyHex) return;
+        try {
+            const result = await DocumentPicker.getDocumentAsync({
+                type: ['*/*'],
+                copyToCacheDirectory: true,
+            });
+
+            if (result.canceled || !result.assets || result.assets.length === 0) {
+                return;
+            }
+
+            const file = result.assets[0];
+            const content = await FileSystem.readAsStringAsync(file.uri);
+
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            Alert.alert(
+                "Restore Backup?",
+                "This will overwrite your current ledger and settings. This action cannot be undone.",
+                [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                        text: "Restore",
+                        style: "destructive",
+                        onPress: async () => {
+                            try {
+                                const count = await CloudBackupService.parseAndRestore(content, keyHex);
+                                Alert.alert("Success", `Restored ${count} events.`);
+                                // Trigger full refresh to reload state
+                                await triggerSync();
+                            } catch (e: any) {
+                                Alert.alert("Restore Failed", e.message || "Invalid backup file or wrong master key.");
+                            }
+                        }
+                    }
+                ]
+            );
+
+        } catch (e) {
+            console.error(e);
+        }
+    };
 
     return (
         <ScreenWrapper>
@@ -343,6 +414,20 @@ export const LedgerScreen = () => {
                     <Text style={styles.headerTitle}>Locket</Text>
                 </View>
                 <View style={styles.headerRight}>
+                    <TouchableOpacity
+                        onPress={handleExportBackup}
+                        style={{ marginRight: 15 }}
+                    >
+                        <Text style={{ color: colors.charcoal, fontSize: 10, fontWeight: 'bold' }}>EXPORT</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        onPress={handleRestoreBackup}
+                        style={{ marginRight: 15 }}
+                    >
+                        <Text style={{ color: colors.charcoal, fontSize: 10, fontWeight: 'bold' }}>RESTORE</Text>
+                    </TouchableOpacity>
+
                     <TouchableOpacity
                         onPress={() => {
                             const clearAll = async () => {
