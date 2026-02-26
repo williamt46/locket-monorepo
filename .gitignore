@@ -67,3 +67,6 @@ apps/gateway/
 
 # Agent Workspace
 .agent/
+
+# Documents
+docs/
