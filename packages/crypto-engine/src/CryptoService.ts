@@ -10,7 +10,10 @@
  * 6. decryptAsRecipient()       → Recipient decrypts with cFrags
  */
 
-import * as umbral from '@nucypher/umbral-pre';
+// Use a Deferred Dynamic Import to avoid static evaluation crashes
+import type { SecretKey, PublicKey } from '@nucypher/umbral-pre';
+let umbral: typeof import('@nucypher/umbral-pre');
+
 import { canonicalStringify } from '@locket/shared';
 import CryptoJS from 'crypto-js';
 
@@ -87,9 +90,20 @@ async function sha256Hex(data: string): Promise<string> {
 export class CryptoService {
 
     /**
+     * Dynamically initialize the umbral-pre WASM library at runtime.
+     * This bypasses Hermes static module evaluation crashes.
+     */
+    private async initUmbral() {
+        if (!umbral) {
+            umbral = await import('@nucypher/umbral-pre');
+        }
+    }
+
+    /**
      * Step 1: Generate a new owner keypair.
      */
-    generateUserKeys(): UserKeyPair {
+    async generateUserKeys(): Promise<UserKeyPair> {
+        await this.initUmbral();
         const sk = umbral.SecretKey.random();
         const pk = sk.publicKey();
         return {
@@ -101,14 +115,14 @@ export class CryptoService {
     /**
      * Serialize a SecretKey from base64.
      */
-    private skFromB64(b64: string): umbral.SecretKey {
+    private skFromB64(b64: string): SecretKey {
         return umbral.SecretKey.fromBEBytes(fromB64(b64));
     }
 
     /**
      * Serialize a PublicKey from base64 compressed bytes.
      */
-    private pkFromB64(b64: string): umbral.PublicKey {
+    private pkFromB64(b64: string): PublicKey {
         return umbral.PublicKey.fromCompressedBytes(fromB64(b64));
     }
 
@@ -120,6 +134,7 @@ export class CryptoService {
         data: unknown,
         ownerPublicKeyB64: string
     ): Promise<EncryptedPayload> {
+        await this.initUmbral();
         const pk = this.pkFromB64(ownerPublicKeyB64);
         const plaintext = new TextEncoder().encode(canonicalStringify(data));
         const [capsule, ciphertext] = umbral.encrypt(pk, plaintext);
@@ -143,10 +158,11 @@ export class CryptoService {
      * This allows a proxy to re-encrypt data for the recipient without
      * ever seeing the plaintext.
      */
-    generateConsentKFrag(
+    async generateConsentKFrag(
         ownerSecretKeyB64: string,
         recipientPublicKeyB64: string
-    ): ConsentKFrag {
+    ): Promise<ConsentKFrag> {
+        await this.initUmbral();
         const ownerSK = this.skFromB64(ownerSecretKeyB64);
         const recipientPK = this.pkFromB64(recipientPublicKeyB64);
         const signer = new umbral.Signer(ownerSK);
@@ -176,10 +192,11 @@ export class CryptoService {
      * VerifiedKeyFrag status. The proxy uses skipVerification() since
      * it operates in a trusted context (the kFrag was verified at creation).
      */
-    proxyReEncrypt(
+    async proxyReEncrypt(
         capsuleB64: string,
         kfragB64: string
-    ): ReEncryptedCFrag {
+    ): Promise<ReEncryptedCFrag> {
+        await this.initUmbral();
         const capsule = umbral.Capsule.fromBytes(fromB64(capsuleB64));
         const kfrag = umbral.KeyFrag.fromBytes(fromB64(kfragB64));
 
@@ -195,11 +212,12 @@ export class CryptoService {
     /**
      * Step 5: Owner self-decrypts their own data.
      */
-    decryptOriginalData(
+    async decryptOriginalData(
         ownerSecretKeyB64: string,
         capsuleB64: string,
         ciphertextB64: string
-    ): unknown {
+    ): Promise<unknown> {
+        await this.initUmbral();
         const sk = this.skFromB64(ownerSecretKeyB64);
         const capsule = umbral.Capsule.fromBytes(fromB64(capsuleB64));
         const ciphertext = fromB64(ciphertextB64);
@@ -211,14 +229,15 @@ export class CryptoService {
     /**
      * Step 6: Recipient decrypts data using cFrags.
      */
-    decryptAsRecipient(
+    async decryptAsRecipient(
         recipientSecretKeyB64: string,
         ownerPublicKeyB64: string,
         capsuleB64: string,
         cfragB64s: string[],
         ciphertextB64: string,
         verifyingKeyB64: string
-    ): unknown {
+    ): Promise<unknown> {
+        await this.initUmbral();
         const recipientSK = this.skFromB64(recipientSecretKeyB64);
         const ownerPK = this.pkFromB64(ownerPublicKeyB64);
         const capsule = umbral.Capsule.fromBytes(fromB64(capsuleB64));

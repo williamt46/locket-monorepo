@@ -34,6 +34,56 @@ export const AuthScreen = ({ navigation }: any) => {
         // Maybe auto-trigger or tap to unlock.
     }, []);
 
+    const styles = StyleSheet.create({
+        center: {
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+            width: '100%',
+        },
+        locketPlaceholder: {
+            width: 200,
+            height: 200,
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginBottom: 40,
+        },
+        circle: {
+            width: 150,
+            height: 150,
+            borderRadius: 75,
+            backgroundColor: colors.gold,
+            opacity: 0.3,
+        },
+        title: {
+            fontFamily: typography.serif,
+            fontSize: typography.sizes.h1,
+            color: colors.charcoal,
+            marginBottom: 10,
+        },
+        instructionText: {
+            fontFamily: typography.sans,
+            fontSize: typography.sizes.body,
+            color: colors.charcoal,
+            marginTop: 20,
+            opacity: 0.6,
+        },
+        clearButton: {
+            position: 'absolute',
+            bottom: 50,
+            paddingVertical: 10,
+            paddingHorizontal: 20,
+            borderRadius: 8,
+            backgroundColor: colors.alert,
+            opacity: 0.7,
+        },
+        clearButtonText: {
+            color: '#fff',
+            fontSize: 13,
+            fontFamily: typography.body,
+        },
+    });
+
     return (
         <ScreenWrapper>
             <TouchableOpacity style={styles.center} onPress={authenticate} activeOpacity={0.9}>
@@ -52,53 +102,3 @@ export const AuthScreen = ({ navigation }: any) => {
         </ScreenWrapper>
     );
 };
-
-const styles = StyleSheet.create({
-    center: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        width: '100%',
-    },
-    locketPlaceholder: {
-        width: 200,
-        height: 200,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 40,
-    },
-    circle: {
-        width: 150,
-        height: 150,
-        borderRadius: 75,
-        backgroundColor: colors.gold,
-        opacity: 0.3,
-    },
-    title: {
-        fontFamily: typography.serif,
-        fontSize: typography.sizes.h1,
-        color: colors.ink,
-        marginBottom: 10,
-    },
-    instructionText: {
-        fontFamily: typography.sans,
-        fontSize: typography.sizes.body,
-        color: colors.secondary,
-        marginTop: 20,
-        opacity: 0.6,
-    },
-    clearButton: {
-        position: 'absolute',
-        bottom: 50,
-        paddingVertical: 10,
-        paddingHorizontal: 20,
-        borderRadius: 8,
-        backgroundColor: colors.alert,
-        opacity: 0.7,
-    },
-    clearButtonText: {
-        color: '#fff',
-        fontSize: 13,
-        fontFamily: typography.body,
-    },
-});

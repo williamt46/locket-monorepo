@@ -20,14 +20,67 @@ import * as DocumentPicker from 'expo-document-picker';
 import { CloudBackupService } from '../services/CloudBackupService';
 import { Alert } from 'react-native';
 
-const crypto = new LocketCryptoService();
-
 export const LedgerScreen = () => {
+    const crypto = useMemo(() => new LocketCryptoService(), []);
+
     // State
     const [viewMode, setViewMode] = useState<'monthly' | 'yearly'>('monthly');
     const [initialMonthIndex, setInitialMonthIndex] = useState<number>(new Date().getMonth());
     const [keyHex, setKeyHex] = useState<string | undefined>(undefined);
     const { events, inscribe, batchInscribe, deleteByTimestamp, triggerSync, superNuke, isInitialized, isSyncing } = useLedger(keyHex);
+
+    const styles = StyleSheet.create({
+        header: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            paddingHorizontal: 20,
+            paddingTop: 10,
+            paddingBottom: 10,
+        },
+        headerLeft: {
+            flex: 1,
+        },
+        headerTitle: {
+            fontFamily: typography.heading,
+            fontSize: 24,
+            color: colors.charcoal,
+            fontWeight: 'bold',
+        },
+        headerRight: {
+            flexDirection: 'row',
+            alignItems: 'center',
+        },
+        content: {
+            flex: 1,
+        },
+        footerContainer: {
+            position: 'absolute',
+            bottom: 40,
+            left: 0,
+            right: 0,
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 100, // Ensure it floats above
+        },
+        toggleButton: {
+            backgroundColor: colors.charcoal,
+            paddingVertical: 12,
+            paddingHorizontal: 24,
+            borderRadius: 30,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.2,
+            shadowRadius: 4,
+            elevation: 5,
+        },
+        toggleText: {
+            fontFamily: typography.body,
+            color: colors.paper,
+            fontSize: 14,
+            fontWeight: '600',
+        },
+    });
 
     console.warn(`[LedgerScreen] Render. Total Events: ${events.length}, Initialized: ${isInitialized}`);
 
@@ -510,56 +563,3 @@ export const LedgerScreen = () => {
         </ScreenWrapper >
     );
 };
-
-const styles = StyleSheet.create({
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingTop: 10,
-        paddingBottom: 10,
-    },
-    headerLeft: {
-        flex: 1,
-    },
-    headerTitle: {
-        fontFamily: typography.heading,
-        fontSize: 24,
-        color: colors.charcoal,
-        fontWeight: 'bold',
-    },
-    headerRight: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    content: {
-        flex: 1,
-    },
-    footerContainer: {
-        position: 'absolute',
-        bottom: 40,
-        left: 0,
-        right: 0,
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 100, // Ensure it floats above
-    },
-    toggleButton: {
-        backgroundColor: colors.charcoal,
-        paddingVertical: 12,
-        paddingHorizontal: 24,
-        borderRadius: 30,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 4,
-        elevation: 5,
-    },
-    toggleText: {
-        fontFamily: typography.body,
-        color: colors.paper,
-        fontSize: 14,
-        fontWeight: '600',
-    },
-});

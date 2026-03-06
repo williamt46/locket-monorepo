@@ -15,6 +15,92 @@ export const ConsentScreen = ({ navigation }: any) => {
     const [scanned, setScanned] = useState(false);
     const [duration, setDuration] = useState('24h');
 
+    const styles = StyleSheet.create({
+        container: {
+            flex: 1,
+            backgroundColor: colors.paper,
+            padding: 24,
+        },
+        header: {
+            marginBottom: 24,
+            alignItems: 'center',
+        },
+        title: {
+            fontSize: 24,
+            fontWeight: '700',
+            color: colors.charcoal,
+            marginBottom: 8,
+        },
+        subtitle: {
+            fontSize: 16,
+            color: colors.charcoal,
+            opacity: 0.6,
+            textAlign: 'center',
+        },
+        cameraContainer: {
+            flex: 1,
+            borderRadius: 24,
+            overflow: 'hidden',
+            position: 'relative',
+            backgroundColor: colors.watermark,
+        },
+        overlay: {
+            ...StyleSheet.absoluteFillObject,
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            justifyContent: 'center',
+            alignItems: 'center',
+        },
+        overlayText: {
+            color: colors.paper,
+            fontSize: 18,
+            fontWeight: 'bold',
+        },
+        controls: {
+            marginTop: 24,
+        },
+        label: {
+            fontSize: 16,
+            fontWeight: '600',
+            color: colors.charcoal,
+            marginBottom: 12,
+        },
+        durationSelector: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            marginBottom: 24,
+        },
+        durationButton: {
+            flex: 1,
+            paddingVertical: 12,
+            marginHorizontal: 4,
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: colors.watermark,
+            alignItems: 'center',
+        },
+        durationButtonActive: {
+            backgroundColor: colors.inkBlue,
+            borderColor: colors.inkBlue,
+        },
+        durationText: {
+            fontWeight: '600',
+            color: colors.charcoal,
+        },
+        durationTextActive: {
+            color: colors.paper,
+        },
+        cancelButton: {
+            paddingVertical: 16,
+            alignItems: 'center',
+        },
+        cancelButtonText: {
+            color: colors.charcoal,
+            opacity: 0.5,
+            fontSize: 16,
+            fontWeight: '600',
+        },
+    });
+
     useEffect(() => {
         const getCameraPermissions = async () => {
             const { status } = await Camera.requestCameraPermissionsAsync();
@@ -29,7 +115,7 @@ export const ConsentScreen = ({ navigation }: any) => {
         if (!keyPairStr) {
             console.log('[ConsentScreen] Generating new PRE keypair...');
             const cryptoService = new CryptoService();
-            const keys = cryptoService.generateUserKeys();
+            const keys = await cryptoService.generateUserKeys();
             await SecureStore.setItemAsync(PRE_KEYPAIR_KEY, JSON.stringify(keys));
             return keys.secretKeyB64;
         }
@@ -141,86 +227,3 @@ export const ConsentScreen = ({ navigation }: any) => {
     );
 };
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: colors.paper,
-        padding: 24,
-    },
-    header: {
-        marginBottom: 24,
-        alignItems: 'center',
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: '700',
-        color: colors.slate[800],
-        marginBottom: 8,
-    },
-    subtitle: {
-        fontSize: 16,
-        color: colors.slate[500],
-        textAlign: 'center',
-    },
-    cameraContainer: {
-        flex: 1,
-        borderRadius: 24,
-        overflow: 'hidden',
-        position: 'relative',
-        backgroundColor: colors.slate[100],
-    },
-    overlay: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0,0,0,0.6)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    overlayText: {
-        color: colors.white,
-        fontSize: 18,
-        fontWeight: 'bold',
-    },
-    controls: {
-        marginTop: 24,
-    },
-    label: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: colors.slate[700],
-        marginBottom: 12,
-    },
-    durationSelector: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 24,
-    },
-    durationButton: {
-        flex: 1,
-        paddingVertical: 12,
-        marginHorizontal: 4,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: colors.slate[200],
-        alignItems: 'center',
-    },
-    durationButtonActive: {
-        backgroundColor: colors.primary.main,
-        borderColor: colors.primary.main,
-    },
-    durationText: {
-        fontWeight: '600',
-        color: colors.slate[600],
-    },
-    durationTextActive: {
-        color: colors.white,
-    },
-    cancelButton: {
-        paddingVertical: 16,
-        alignItems: 'center',
-    },
-    cancelButtonText: {
-        color: colors.slate[500],
-        fontSize: 16,
-        fontWeight: '600',
-    },
-});
