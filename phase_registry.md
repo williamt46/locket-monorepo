@@ -22,7 +22,7 @@ This registry tracks the status of each phase across different agent conversatio
 | P6 | Mobile Sync + QR | `SyncService`, full camera QR scanner (`expo-camera`) | P3, P5 | [/] in progress (pending physical device testing) | 1c0df022 | [handoff_P6.md](docs/handoffs/handoff_P6.md) |
 | P7 | Provider Portal | **Vite React** + `vite-plugin-wasm`, FHIR edge-formatting | P1, P2, P5 | [x] Complete | f8e465d6 | [handoff_P7.md](docs/handoffs/handoff_P7.md) |
 | P8 | Partner Portal | **Vite React** + `vite-plugin-wasm`, relational phase calc (NO FHIR) | P1, P5 | [x] Complete | f8e465d6 | [handoff_P8.md](docs/handoffs/handoff_P8.md) |
-| P9 | Sovereign Persistence | AES-GCM-256 cloud backup, Clue/Flo/CSV import | P3 | [x] Complete | P9.1: 4330fc27 P9.2,9.3: 6c2d09c9| [handoff_P9.1.md](docs/handoffs/handoff_P9.1.md), [handoff_P9.2.md](docs/handoffs/handoff_P9.2.md), [handoff_P9.3.md](docs/handoffs/handoff_P9.3.md) |
+| P9 | Sovereign Persistence | AES-GCM-256 cloud backup, Clue/Flo/CSV import, Settings Screen | P3 | [x] Complete | P9.1-9.4: 4330fc27 | [handoff_P9.1.md](docs/handoffs/handoff_P9.1.md), [handoff_P9.2.md](docs/handoffs/handoff_P9.2.md), [handoff_P9.3.md](docs/handoffs/handoff_P9.3.md) |
 | P10 | E2E Integration | Full PRE workflow script, security hardening, data purity audit | All | [ ] Blocked | - | - |
 
 ## WASM Strategy
