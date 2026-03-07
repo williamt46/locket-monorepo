@@ -118,6 +118,28 @@ export const LedgerScreen = () => {
         }
     }, [route.params?.jumpToTs, navigation]);
 
+    // Handle incoming settings actions
+    useEffect(() => {
+        if (route.params?.action) {
+            const action = route.params.action;
+            navigation.setParams({ action: undefined }); // clear immediately
+
+            if (action === 'triggerSync') {
+                triggerSync();
+            } else if (action === 'factoryReset') {
+                const clearAll = async () => {
+                    setKeyHex(undefined);
+                    await superNuke();
+                    SecureKeyService.getOrGenerateKey().then((val) => {
+                        setKeyHex(val);
+                    });
+                    Alert.alert('Reset Complete', 'Your local ledger has been wiped.');
+                };
+                clearAll();
+            }
+        }
+    }, [route.params?.action, triggerSync, superNuke, setKeyHex, navigation]);
+
     // Decrypt events for UI with memoization
     const [decryptedData, setDecryptedData] = useState<Record<string, any>>({});
     const decryptionCache = useRef<Record<string, any>>({});
@@ -340,9 +362,6 @@ export const LedgerScreen = () => {
                     <TouchableOpacity
                         onPress={() => navigation.navigate('Settings', {
                             keyHex,
-                            superNuke,
-                            setKeyHex,
-                            triggerSync,
                             isSyncing,
                             sealStatus
                         })}

@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, Alert, SafeAreaView, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, ScrollView, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 import * as Haptics from 'expo-haptics';
@@ -15,12 +16,8 @@ export const SettingsScreen = () => {
     const navigation = useNavigation<any>();
     const route = useRoute<any>();
 
-    // Extract functions and state from route params (passed by LedgerScreen)
     const {
         keyHex,
-        superNuke,
-        setKeyHex,
-        triggerSync,
         isSyncing,
         sealStatus
     } = route.params || {};
@@ -79,7 +76,7 @@ export const SettingsScreen = () => {
                                 const count = await CloudBackupService.parseAndRestore(content, keyHex);
                                 Alert.alert("Success", `Restored ${count} events.`);
                                 // Trigger full refresh to reload state
-                                if (triggerSync) await triggerSync();
+                                navigation.navigate({ name: 'Ledger', params: { action: 'triggerSync' }, merge: true });
                             } catch (e: any) {
                                 Alert.alert("Restore Failed", e.message || "Invalid backup file or wrong master key.");
                             }
@@ -104,16 +101,7 @@ export const SettingsScreen = () => {
                     text: 'Reset Everything',
                     style: 'destructive',
                     onPress: () => {
-                        const clearAll = async () => {
-                            if (setKeyHex) setKeyHex(undefined);
-                            if (superNuke) await superNuke();
-                            SecureKeyService.getOrGenerateKey().then((val) => {
-                                if (setKeyHex) setKeyHex(val);
-                            });
-                            Alert.alert('Reset Complete', 'Your local ledger has been wiped.');
-                            navigation.goBack();
-                        };
-                        clearAll();
+                        navigation.navigate({ name: 'Ledger', params: { action: 'factoryReset' }, merge: true });
                     }
                 }
             ]
@@ -163,7 +151,7 @@ export const SettingsScreen = () => {
                         style={[styles.actionRow, { borderBottomWidth: 0 }]}
                         onPress={() => {
                             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                            if (triggerSync) triggerSync();
+                            navigation.navigate({ name: 'Ledger', params: { action: 'triggerSync' }, merge: true });
                         }}
                     >
                         <View>
