@@ -90,6 +90,11 @@ Run the app on the latest iOS simulator:
 cd apps/mobile
 npx expo run:ios
 ```
+*note: after the app has been installed, run:
+```bash
+npx expo start -c
+```
+from then on to clear the cache and boot the app.
 
 #### Physical Device
 1.  Connect your iPhone via USB.
@@ -130,12 +135,29 @@ The local developer network uses Hyperledger Fabric.
 - **Docker & Docker Compose**: Ensure Docker Desktop is running.
 
 ### Start the Network
-This script will bring down any existing network, start the Fabric test network with a Certificate Authority (CA) and CouchDB, and deploy the chaincode.
+This script initializes the local blockchain environment. For general development, use:
 
 ```bash
 cd network
 ./start-network.sh
 ```
+
+### 🔄 Fresh Boot (Recovery / Reset)
+If the blockchain network or dev environment becomes inconsistent (e.g., "namespace not defined", certificate errors, or connection failures), follow this **nuclear reset** process:
+
+1.  **Stop all services**: Press `Ctrl+C` in any terminal running `npm run dev` or `expo start`.
+2.  **Reset Network**:
+    ```bash
+    cd network
+    bash deploy-conInSe.sh
+    ```
+    *(This wipes the network, removes stale Docker containers, and redeploys smart contracts)*.
+3.  **Restart Environment**:
+    ```bash
+    cd ..
+    npm run dev
+    ```
+
 
 ## 🔒 Security
 

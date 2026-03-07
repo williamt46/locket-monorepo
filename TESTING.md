@@ -56,7 +56,8 @@ npm test
 cd network
 bash tests/conInSe.test.sh
 ```
-*Note: This invokes actual on-chain transactions to verify Grant/Verify/Revoke lifecycle.*
+*Note: This invokes actual on-chain transactions to verify Grant/Verify/Revoke lifecycle.
+- to remove stale CCAAS containers,run `docker rm -f peer0org1_basic_ccaas peer0org2_basic_ccaas 2>/dev/null; bash deploy-conInSe.sh 2>&1` to clean up containers*
 
 #### Phase 5: Serverless Gateway
 **Type:** Integration Test (API + Blockchain + PRE)
@@ -66,6 +67,14 @@ cd apps/serverless-gateway
 bash tests/gateway.test.sh
 ```
 *Note: Generates real PRE cryptographic material, uploads it, grants consent on-chain, and verifies the full re-encryption round-trip.*
+
+#### Mobile App
+**Type:** Integration Test (API + Blockchain + PRE)
+**Prerequisite:** Network running AND Gateway server running (`npm start`)
+```bash
+cd apps/mobile
+npx vitest run
+```
 
 ---
 

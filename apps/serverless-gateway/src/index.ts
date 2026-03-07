@@ -9,6 +9,11 @@
  *   POST /api/data/upload           — App uploads base ciphertext
  *   POST /api/consent/grant         — App records consent on-chain
  *   GET  /api/data/request/:did/:pk — Provider requests re-encrypted data
+ *
+ * Compatibility Routes:
+ *   POST /api/anchor                — Legacy single anchor
+ *   POST /api/anchor/batch          — Legacy batch anchor
+ *   GET  /api/verify/:assetId       — Legacy asset verification
  */
 
 import express from 'express';
@@ -133,6 +138,52 @@ app.get('/api/data/request/:userDid/:recipientPublicKey', async (req, res) => {
 });
 
 /**
+ * Compatibility: POST /api/anchor
+ * Legacy single anchor support.
+ */
+app.post('/api/anchor', async (req, res) => {
+    const { userDID, dataHash } = req.body;
+    try {
+        const txId = await fabric.createAsset(userDID, dataHash);
+        return res.status(201).json({ txId, assetId: `anchor_${Date.now()}` }); // Note: actual ID generated in FabricService
+    } catch (e: any) {
+        console.error('[Gateway] anchor error:', e.message);
+        return res.status(500).json({ error: e.message });
+    }
+});
+
+/**
+ * Compatibility: POST /api/anchor/batch
+ * Legacy batch anchor support.
+ */
+app.post('/api/anchor/batch', async (req, res) => {
+    const { assets } = req.body;
+    try {
+        const resultJSON = await fabric.createAssetBatch(assets);
+        const results = JSON.parse(resultJSON);
+        return res.status(201).json({ status: 'Batch Anchored', results });
+    } catch (e: any) {
+        console.error('[Gateway] anchor/batch error:', e.message);
+        return res.status(500).json({ error: e.message });
+    }
+});
+
+/**
+ * Compatibility: GET /api/verify/:assetId
+ * Legacy verification support.
+ */
+app.get('/api/verify/:assetId', async (req, res) => {
+    const { assetId } = req.params;
+    try {
+        const asset = await fabric.readAsset(assetId);
+        return res.json(asset);
+    } catch (e: any) {
+        console.error('[Gateway] verify error:', e.message);
+        return res.status(404).json({ error: e.message });
+    }
+});
+
+/**
  * GET /health
  * Simple health check.
  */
@@ -175,6 +226,7 @@ async function start() {
         console.log(`     POST /api/data/upload`);
         console.log(`     POST /api/consent/grant`);
         console.log(`     GET  /api/data/request/:userDid/:recipientPublicKey`);
+        console.log(`     POST /api/anchor/batch (Legacy)`);
         console.log(`     GET  /health\n`);
     });
 

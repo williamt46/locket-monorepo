@@ -22,23 +22,28 @@ export const saveEvent = async (encryptedEvent, assetId = null) => {
 };
 
 export const loadEvents = async () => {
-    await ledger.init(); // Ensure init
+    await initStorage();
+    if (ledger.init) await ledger.init(); // Ensure init
     return await ledger.loadEvents();
 };
 
 // ── Raw Ledger Access (For Backup Restore) ───────────────────────
 
 export const rawSaveEvents = async (records) => {
-    await ledger.init();
+    await initStorage();
+    if (ledger.init) await ledger.init();
     await ledger.saveEvents(records);
 };
 
 export const rawNukeData = async () => {
-    await ledger.init();
+    await initStorage();
+    if (ledger.init) await ledger.init();
     await ledger.nuke();
 };
 
 export const nukeData = async () => {
+    await initStorage();
+    if (ledger.init) await ledger.init();
     await ledger.nuke();
 };
 

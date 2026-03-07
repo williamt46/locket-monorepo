@@ -41,16 +41,19 @@ export const CloudBackupService = {
                 // 5. Encrypt data payload with DEK
                 const dataIV = QuickCrypto.randomBytes(IV_LENGTH);
                 const dataCipher = QuickCrypto.createCipheriv(ALGORITHM, dek, dataIV);
-                let encryptedData = dataCipher.update(plaintext, 'utf8', 'hex');
-                encryptedData += dataCipher.final('hex');
+                const plaintextBuf = Buffer.from(plaintext, 'utf8');
+                let encryptedDataBuf = dataCipher.update(plaintextBuf);
+                encryptedDataBuf = Buffer.concat([encryptedDataBuf, dataCipher.final()]);
+                const encryptedData = encryptedDataBuf.toString('hex');
                 const dataAuthTag = dataCipher.getAuthTag().toString('hex');
 
                 // 6. Wrap DEK with Master Key
                 const masterKey = Buffer.from(masterKeyHex, 'hex');
                 const dekIV = QuickCrypto.randomBytes(IV_LENGTH);
                 const dekCipher = QuickCrypto.createCipheriv(ALGORITHM, masterKey, dekIV);
-                let wrappedDEK = dekCipher.update(dek.toString('hex'), 'hex', 'hex');
-                wrappedDEK += dekCipher.final('hex');
+                let wrappedDEKBuf = dekCipher.update(dek);
+                wrappedDEKBuf = Buffer.concat([wrappedDEKBuf, dekCipher.final()]);
+                const wrappedDEK = wrappedDEKBuf.toString('hex');
                 const dekAuthTag = dekCipher.getAuthTag().toString('hex');
 
                 // 7. Assemble envelope
@@ -86,7 +89,12 @@ export const CloudBackupService = {
     async parseAndRestore(backupJson: string, masterKeyHex: string): Promise<number> {
         return new Promise(async (resolve, reject) => {
             try {
-                const backupFile: LocketBackupFile = JSON.parse(backupJson);
+                let backupFile: LocketBackupFile;
+                try {
+                    backupFile = typeof backupJson === 'string' ? JSON.parse(backupJson) : backupJson;
+                } catch (e) {
+                    throw new Error('Failed to parse backup JSON');
+                }
 
                 if (backupFile.version > CURRENT_VERSION) {
                     throw new Error(`Unsupported backup version: ${backupFile.version}`);
@@ -98,21 +106,25 @@ export const CloudBackupService = {
                 // 1. Unwrap the DEK using the Master Key
                 const dekIV = Buffer.from(env.dekIV, 'hex');
                 const dekAuthTag = Buffer.from(env.dekAuthTag, 'hex');
+                const wrappedDEKBuf = Buffer.from(env.wrappedDEK, 'hex');
+
                 const dekDecipher = QuickCrypto.createDecipheriv(ALGORITHM, masterKey, dekIV);
                 dekDecipher.setAuthTag(dekAuthTag);
 
-                let dekHex = dekDecipher.update(env.wrappedDEK, 'hex', 'hex');
-                dekHex += dekDecipher.final('hex');
-                const dek = Buffer.from(dekHex, 'hex');
+                let dek = dekDecipher.update(wrappedDEKBuf);
+                dek = Buffer.concat([dek, dekDecipher.final()]);
 
                 // 2. Decrypt the Data payload using the recovered DEK
                 const dataIV = Buffer.from(env.dataIV, 'hex');
                 const dataAuthTag = Buffer.from(env.dataAuthTag, 'hex');
+                const encryptedDataBuf = Buffer.from(env.encryptedData, 'hex');
+
                 const dataDecipher = QuickCrypto.createDecipheriv(ALGORITHM, dek, dataIV);
                 dataDecipher.setAuthTag(dataAuthTag);
 
-                let plaintext = dataDecipher.update(env.encryptedData, 'hex', 'utf8');
-                plaintext += dataDecipher.final('utf8');
+                let plaintextBuf = dataDecipher.update(encryptedDataBuf);
+                plaintextBuf = Buffer.concat([plaintextBuf, dataDecipher.final()]);
+                const plaintext = plaintextBuf.toString('utf8');
 
                 // 3. Verify Integrity Hash (Defense in depth)
                 const hash = QuickCrypto.createHash('sha256');

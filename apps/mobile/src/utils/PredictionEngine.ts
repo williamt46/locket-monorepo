@@ -43,10 +43,10 @@ export function getLatestPeriodStart(
             highestTimestamp = entry.ts;
 
             const d = new Date(entry.ts);
-            const y = d.getUTCFullYear();
+            const y = d.getFullYear();
             // Month is 0-indexed in JS date, need 1-indexed for string builder to match 'configLastDate' standard (YYYY-MM-DD)
-            const m = (d.getUTCMonth() + 1).toString().padStart(2, '0');
-            const day = d.getUTCDate().toString().padStart(2, '0');
+            const m = (d.getMonth() + 1).toString().padStart(2, '0');
+            const day = d.getDate().toString().padStart(2, '0');
 
             latestDateStr = `${y}-${m}-${day}`;
         }

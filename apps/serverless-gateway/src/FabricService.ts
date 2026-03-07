@@ -55,7 +55,8 @@ const utf8Decoder = new TextDecoder();
 export class FabricService {
     private client: grpc.Client | null = null;
     private gateway: Gateway | null = null;
-    private contract: Contract | null = null;
+    private integrityContract: Contract | null = null;
+    private consentContract: Contract | null = null;
 
     /**
      * Establish gRPC + TLS connection to the Fabric peer.
@@ -97,9 +98,10 @@ export class FabricService {
             commitStatusOptions: () => ({ deadline: Date.now() + 60000 }),
         });
 
-        // 5. Get contract reference
+        // 5. Get contract references
         const network = this.gateway.getNetwork(CHANNEL_NAME);
-        this.contract = network.getContract(CHAINCODE_NAME, 'ConInSeContract');
+        this.integrityContract = network.getContract(CHAINCODE_NAME, 'IntegrityContract');
+        this.consentContract = network.getContract(CHAINCODE_NAME, 'ConInSeContract');
 
         console.log('[FabricService] Connected ✓');
     }
@@ -121,7 +123,7 @@ export class FabricService {
 
         console.log(`[FabricService] GrantConsentEvent: ${userDid} → ${recipientPublicKey.substring(0, 16)}...`);
 
-        const resultBytes = await this.contract!.submitTransaction(
+        const resultBytes = await this.consentContract!.submitTransaction(
             'GrantConsentEvent',
             userDid,
             recipientPublicKey,
@@ -149,7 +151,7 @@ export class FabricService {
 
         console.log(`[FabricService] VerifyConsentEvent: ${userDid} → ${recipientPublicKey.substring(0, 16)}...`);
 
-        const resultBytes = await this.contract!.evaluateTransaction(
+        const resultBytes = await this.consentContract!.evaluateTransaction(
             'VerifyConsentEvent',
             userDid,
             recipientPublicKey
@@ -172,16 +174,61 @@ export class FabricService {
             this.client.close();
             this.client = null;
         }
-        this.contract = null;
+        this.integrityContract = null;
+        this.consentContract = null;
         console.log('[FabricService] Disconnected');
     }
 
     // ─── Private Helpers ─────────────────────────────────────────────────────
 
     private ensureConnected(): void {
-        if (!this.contract) {
+        if (!this.consentContract || !this.integrityContract) {
             throw new Error('[FabricService] Not connected. Call connect() first.');
         }
+    }
+
+    /**
+     * Legacy Anchor: Create a single asset (IntegrityContract).
+     */
+    async createAsset(userDid: string, dataHash: string): Promise<string> {
+        this.ensureConnected();
+        const assetId = `anchor_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+        const resultBytes = await this.integrityContract!.submitTransaction(
+            'CreateAsset',
+            assetId,
+            userDid,
+            dataHash
+        );
+        return utf8Decoder.decode(resultBytes);
+    }
+
+    /**
+     * Legacy Anchor: Create a batch of assets (IntegrityContract).
+     */
+    async createAssetBatch(assets: Array<{ assetId?: string; userDID: string; dataHash: string }>): Promise<string> {
+        this.ensureConnected();
+
+        // Ensure every asset has an ID
+        const finalAssets = assets.map(a => ({
+            assetId: a.assetId || `anchor_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+            userDID: a.userDID,
+            dataHash: a.dataHash
+        }));
+
+        const resultBytes = await this.integrityContract!.submitTransaction(
+            'CreateAssetBatch',
+            JSON.stringify(finalAssets)
+        );
+        return utf8Decoder.decode(resultBytes);
+    }
+
+    /**
+     * Legacy Anchor: Read an asset for verification (IntegrityContract).
+     */
+    async readAsset(assetId: string): Promise<any> {
+        this.ensureConnected();
+        const resultBytes = await this.integrityContract!.evaluateTransaction('ReadAsset', assetId);
+        return JSON.parse(utf8Decoder.decode(resultBytes));
     }
 
     private async getFirstDirFile(dirPath: string): Promise<string> {

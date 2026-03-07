@@ -78,9 +78,9 @@ describe('PredictionEngine -> getLatestPeriodStart', () => {
 
     it('finds the most recent isStart event based on timestamp', () => {
         const data = {
-            '2026-1-1': { ts: Date.UTC(2026, 1, 1), isPeriod: true, isStart: true },
-            '2026-3-5': { ts: Date.UTC(2026, 3, 5), isPeriod: true, isStart: true },
-            '2026-2-1': { ts: Date.UTC(2026, 2, 1), isPeriod: true, isStart: true },
+            '2026-1-1': { ts: new Date(2026, 1, 1).getTime(), isPeriod: true, isStart: true },
+            '2026-3-5': { ts: new Date(2026, 3, 5).getTime(), isPeriod: true, isStart: true },
+            '2026-2-1': { ts: new Date(2026, 2, 1).getTime(), isPeriod: true, isStart: true },
         };
 
         // Month 3 array is April, so '2026-04-05' string

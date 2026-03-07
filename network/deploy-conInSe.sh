@@ -34,8 +34,9 @@ cd "$NETWORK_DIR"
 cd "$SCRIPT_DIR"
 echo "[2/4] Fabric network started ✓"
 
-# 3. Stop any existing CCAAS chaincode containers
+# 3. Clean up stale CCAAS containers and deploy
 echo "[3/4] Deploying chaincode via CCAAS..."
+docker rm -f peer0org1_basic_ccaas peer0org2_basic_ccaas 2>/dev/null || true
 cd "$NETWORK_DIR"
 
 # Deploy chaincode-as-a-service — the same package now includes ConInSeContract
@@ -46,8 +47,9 @@ echo "[3/4] Chaincode deployed ✓"
 
 # 4. Verify deployment
 echo "[4/4] Verifying deployment..."
+# The peer's own identity already has permission to query local state
 docker exec peer0.org1.example.com peer lifecycle chaincode querycommitted \
-  --channelID mychannel --name basic 2>&1 | head -3
+  --channelID mychannel --name basic 2>&1 | grep -A 1 "Committed chaincode definition"
 echo ""
 echo "=== ConInSe Deployment Complete ==="
 echo ""

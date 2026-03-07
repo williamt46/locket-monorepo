@@ -5,6 +5,7 @@ import { AuthScreen } from '../screens/AuthScreen';
 import { LedgerScreen } from '../screens/LedgerScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { ConsentScreen } from '../screens/ConsentScreen';
+import { ImportScreen } from '../screens/ImportScreen';
 import { getUserConfig } from '../services/StorageService';
 import { colors } from '../theme/colors';
 
@@ -37,6 +38,7 @@ export const AppNavigator = () => {
                 <Stack.Screen name="Onboarding" component={OnboardingScreen} />
                 <Stack.Screen name="Auth" component={AuthScreen} />
                 <Stack.Screen name="Ledger" component={LedgerScreen} />
+                <Stack.Screen name="Import" component={ImportScreen} />
                 <Stack.Screen name="Consent" component={ConsentScreen} />
             </Stack.Navigator>
         </NavigationContainer>

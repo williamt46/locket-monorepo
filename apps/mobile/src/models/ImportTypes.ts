@@ -38,6 +38,7 @@ export interface ImportStats {
     periodDays: number;
     spottingDays: number;
     skippedDays: number;
+    latestTs?: number;
 }
 
 export interface ImportResult {
