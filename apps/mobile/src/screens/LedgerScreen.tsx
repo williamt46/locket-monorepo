@@ -14,7 +14,7 @@ import { LocketCryptoService } from '@locket/core-crypto';
 import { getUserConfig, saveUserConfig } from '../services/StorageService';
 import { UserConfig } from '../models/UserConfig';
 import { usePredictions } from '../hooks/usePredictions';
-import { LedgerHeaderActions } from '../components/LedgerHeaderActions';
+
 import { Alert } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 
@@ -337,14 +337,19 @@ export const LedgerScreen = () => {
                     <Text style={styles.headerTitle}>Locket</Text>
                 </View>
                 <View style={styles.headerRight}>
-                    <LedgerHeaderActions
-                        keyHex={keyHex}
-                        superNuke={superNuke}
-                        setKeyHex={setKeyHex}
-                        triggerSync={triggerSync}
-                        isSyncing={isSyncing}
-                        sealStatus={sealStatus}
-                    />
+                    <TouchableOpacity
+                        onPress={() => navigation.navigate('Settings', {
+                            keyHex,
+                            superNuke,
+                            setKeyHex,
+                            triggerSync,
+                            isSyncing,
+                            sealStatus
+                        })}
+                        style={{ padding: 4 }}
+                    >
+                        <Text style={{ fontSize: 24, color: colors.charcoal }}>⚙️</Text>
+                    </TouchableOpacity>
                 </View>
             </View>
 
