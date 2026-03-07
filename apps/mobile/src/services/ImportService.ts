@@ -3,7 +3,8 @@ import {
     ImportResult,
     ImportSource,
     ClueExport,
-    FloExport
+    FloExport,
+    ImportStats
 } from '../models/ImportTypes';
 
 // --- Type Guards and Detectors ---
@@ -55,7 +56,7 @@ export function detectSource(json: unknown): ImportSource {
 export function parseClueExport(json: ClueExport): ImportResult {
     const entries: LedgerEntry[] = [];
     const warnings: string[] = [];
-    const stats = { totalDays: 0, periodDays: 0, spottingDays: 0, skippedDays: 0 };
+    const stats: ImportStats = { totalDays: 0, periodDays: 0, spottingDays: 0, skippedDays: 0 };
 
     if (!json || !Array.isArray(json.data)) {
         throw new Error('Invalid Clue export format: missing data array');
@@ -78,11 +79,13 @@ export function parseClueExport(json: ClueExport): ImportResult {
             stats.skippedDays++;
             continue;
         }
-
-        const ts = Date.UTC(y, m - 1, d);
+        // Local midnight for alignment with device UI
+        const ts = new Date(y, m - 1, d).getTime();
 
         const unmapped: Record<string, unknown> = {};
         const entry: LedgerEntry = { ts, isPeriod: false, source: 'clue' };
+
+        const symptoms: string[] = [];
 
         // Process keys
         for (const [key, value] of Object.entries(day)) {
@@ -101,16 +104,18 @@ export function parseClueExport(json: ClueExport): ImportResult {
                 else if (key === 'period/heavy' || key === 'period/very_heavy') entry.flow = 3;
             } else if (key === 'bbt' && typeof value === 'number') {
                 entry.bbt = value;
+            } else if (value === true) {
+                const words = key.split(/[/_]/).map(w => w.charAt(0).toUpperCase() + w.slice(1));
+                symptoms.push(words.join(': '));
             } else {
-                unmapped[key] = value;
+                const words = key.split(/[/_]/).map(w => w.charAt(0).toUpperCase() + w.slice(1));
+                const valStr = typeof value === 'object' ? JSON.stringify(value) : String(value);
+                symptoms.push(`${words.join(': ')}: ${valStr}`);
             }
         }
 
-        if (Object.keys(unmapped).length > 0) {
-            entry.unmapped = unmapped;
-            if (warnings.length < 5) {
-                warnings.push(`Day ${day.day} contained unmapped keys.`);
-            }
+        if (symptoms.length > 0) {
+            entry.note = symptoms.join(', ');
         }
 
         entries.push(entry);
@@ -122,6 +127,10 @@ export function parseClueExport(json: ClueExport): ImportResult {
     // 2. Second pass: mark starts and ends of period runs
     applyBoundaryFlags(entries);
 
+    if (entries.length > 0) {
+        stats.latestTs = Math.max(...entries.map(e => e.ts));
+    }
+
     return { source: 'clue', entries, warnings, stats };
 }
 
@@ -130,7 +139,7 @@ export function parseClueExport(json: ClueExport): ImportResult {
 export function parseFloExport(json: FloExport): ImportResult {
     const entries: LedgerEntry[] = [];
     const warnings: string[] = [];
-    const stats = { totalDays: 0, periodDays: 0, spottingDays: 0, skippedDays: 0 };
+    const stats: ImportStats = { totalDays: 0, periodDays: 0, spottingDays: 0, skippedDays: 0 };
 
     if (!json || !json.operationalData || !Array.isArray(json.operationalData.cycles)) {
         throw new Error('Invalid Flo export format: missing cycles array');
@@ -155,8 +164,8 @@ export function parseFloExport(json: FloExport): ImportResult {
             continue;
         }
 
-        const startTs = Date.UTC(sy, sm - 1, sd);
-        const endTs = Date.UTC(ey, em - 1, ed);
+        const startTs = new Date(sy, sm - 1, sd).getTime();
+        const endTs = new Date(ey, em - 1, ed).getTime();
 
         // Calculate number of days (inclusive)
         const daysDiff = Math.round((endTs - startTs) / (1000 * 60 * 60 * 24)) + 1;
@@ -169,10 +178,12 @@ export function parseFloExport(json: FloExport): ImportResult {
         }
 
         // Collect unmapped cycle-level properties
-        const unmapped: Record<string, unknown> = {};
+        const cycleNotes: string[] = [];
         for (const [key, value] of Object.entries(cycle)) {
             if (key !== 'period_start_date' && key !== 'period_end_date') {
-                unmapped[key] = value;
+                const words = key.split(/[/_]/).map(w => w.charAt(0).toUpperCase() + w.slice(1));
+                const valStr = typeof value === 'object' ? JSON.stringify(value) : String(value);
+                cycleNotes.push(`${words.join(' ')}: ${valStr}`);
             }
         }
 
@@ -187,9 +198,8 @@ export function parseFloExport(json: FloExport): ImportResult {
                 source: 'flo'
             };
 
-            if (Object.keys(unmapped).length > 0) {
-                entry.unmapped = { ...unmapped, flo_cycle_day: i + 1 };
-            }
+            const dayNotes = [...cycleNotes, `Flo Cycle Day: ${i + 1}`];
+            entry.note = dayNotes.join(', ');
 
             stats.totalDays++;
             stats.periodDays++;
@@ -205,6 +215,10 @@ export function parseFloExport(json: FloExport): ImportResult {
 
     const finalEntries = Array.from(uniqueEntriesMap.values()).sort((a, b) => a.ts - b.ts);
     applyBoundaryFlags(finalEntries);
+
+    if (finalEntries.length > 0) {
+        stats.latestTs = Math.max(...finalEntries.map(e => e.ts));
+    }
 
     return { source: 'flo', entries: finalEntries, warnings, stats };
 }
@@ -245,7 +259,7 @@ function parseDateAutoDetect(dateStr: string, isUsFormatDefault = true): number 
         const y = parseInt(isoMatch[1], 10);
         const m = parseInt(isoMatch[2], 10);
         const d = parseInt(isoMatch[3], 10);
-        return Date.UTC(y, m - 1, d);
+        return new Date(y, m - 1, d).getTime();
     }
 
     // Attempt US/EU (MM/DD/YYYY or DD/MM/YYYY)
@@ -257,16 +271,16 @@ function parseDateAutoDetect(dateStr: string, isUsFormatDefault = true): number 
 
         if (p1 > 12) {
             // Definitely DD/MM/YYYY
-            return Date.UTC(y, p2 - 1, p1);
+            return new Date(y, p2 - 1, p1).getTime();
         } else if (p2 > 12) {
             // Definitely MM/DD/YYYY
-            return Date.UTC(y, p1 - 1, p2);
+            return new Date(y, p1 - 1, p2).getTime();
         } else {
             // Ambiguous format (e.g. 05/06/2024 -> May 6 or June 5?)
             if (isUsFormatDefault) {
-                return Date.UTC(y, p1 - 1, p2); // Assume US: MM/DD
+                return new Date(y, p1 - 1, p2).getTime(); // Assume US: MM/DD
             } else {
-                return Date.UTC(y, p2 - 1, p1); // Assume EU: DD/MM
+                return new Date(y, p2 - 1, p1).getTime(); // Assume EU: DD/MM
             }
         }
     }
@@ -277,7 +291,7 @@ function parseDateAutoDetect(dateStr: string, isUsFormatDefault = true): number 
 export function parseCsvExport(csvString: string): ImportResult {
     const entries: LedgerEntry[] = [];
     const warnings: string[] = [];
-    const stats = { totalDays: 0, periodDays: 0, spottingDays: 0, skippedDays: 0 };
+    const stats: ImportStats = { totalDays: 0, periodDays: 0, spottingDays: 0, skippedDays: 0 };
 
     if (!csvString || typeof csvString !== 'string') {
         throw new Error('Invalid CSV input');
@@ -336,7 +350,7 @@ export function parseCsvExport(csvString: string): ImportResult {
             continue;
         }
 
-        const unmapped: Record<string, unknown> = {};
+        const extraNotes: string[] = [];
         let flowSet = false;
         let flowValRaw = '';
 
@@ -369,7 +383,7 @@ export function parseCsvExport(csvString: string): ImportResult {
                     // If it has *some* value but not recognized, assume period and put raw value in unmapped
                     flowNum = 2;
                     stats.periodDays++;
-                    unmapped['_rawFlow'] = flowValRaw;
+                    extraNotes.push(`Raw Flow: ${flowValRaw}`);
                 }
             }
         }
@@ -400,7 +414,8 @@ export function parseCsvExport(csvString: string): ImportResult {
         if (noteIdx !== -1) {
             const noteVal = rowData[noteIdx]?.trim();
             if (noteVal) {
-                entry.note = noteVal;
+                // Ensure primary note is at the front
+                extraNotes.unshift(noteVal);
             }
         }
 
@@ -411,16 +426,17 @@ export function parseCsvExport(csvString: string): ImportResult {
             const head = headers[colIdx];
             const val = rowData[colIdx]?.trim();
             if (head && val) {
-                unmapped[head] = val;
+                const words = head.split(/[/_]/).map(w => w.charAt(0).toUpperCase() + w.slice(1));
+                extraNotes.push(`${words.join(' ')}: ${val}`);
             }
         }
 
-        if (Object.keys(unmapped).length > 0) {
-            entry.unmapped = unmapped;
+        if (extraNotes.length > 0) {
+            entry.note = extraNotes.join(', ');
         }
 
         // We ensure we only add entries that have actual data, not just an empty date
-        if (flowSet || entry.bbt || entry.note || Object.keys(unmapped).length > 0) {
+        if (flowSet || entry.bbt !== undefined || entry.note) {
             stats.totalDays++;
             entries.push(entry);
         } else {
@@ -430,6 +446,10 @@ export function parseCsvExport(csvString: string): ImportResult {
 
     entries.sort((a, b) => a.ts - b.ts);
     applyBoundaryFlags(entries);
+
+    if (entries.length > 0) {
+        stats.latestTs = Math.max(...entries.map(e => e.ts));
+    }
 
     return { source: 'csv', entries, warnings, stats };
 }

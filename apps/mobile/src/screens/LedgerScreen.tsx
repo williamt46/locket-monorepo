@@ -15,12 +15,15 @@ import { getUserConfig, saveUserConfig } from '../services/StorageService';
 import { UserConfig } from '../models/UserConfig';
 import { calculatePredictedPeriods, getLatestPeriodStart } from '../utils/PredictionEngine';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
+import { File, Paths } from 'expo-file-system';
 import * as DocumentPicker from 'expo-document-picker';
 import { CloudBackupService } from '../services/CloudBackupService';
 import { Alert } from 'react-native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 
 export const LedgerScreen = () => {
+    const navigation = useNavigation<any>();
+    const route = useRoute<any>();
     const crypto = useMemo(() => new LocketCryptoService(), []);
 
     // State
@@ -99,6 +102,24 @@ export const LedgerScreen = () => {
         SecureKeyService.getOrGenerateKey().then(setKeyHex).catch(console.error);
         getUserConfig().then(setConfig).catch(console.error);
     }, []);
+
+    // Handle incoming navigation jumps (e.g. from Import success)
+    useEffect(() => {
+        if (route.params?.jumpToTs) {
+            const d = new Date(route.params.jumpToTs);
+            const y = d.getFullYear();
+            const m = d.getMonth();
+
+            setTimeout(() => {
+                setViewMode('monthly');
+                setCurrentYear(y);
+                setInitialMonthIndex(m);
+            }, 100);
+
+            // Clear param so it doesn't fire again
+            navigation.setParams({ jumpToTs: undefined });
+        }
+    }, [route.params?.jumpToTs, navigation]);
 
     // Decrypt events for UI with memoization
     const [decryptedData, setDecryptedData] = useState<Record<string, any>>({});
@@ -400,12 +421,12 @@ export const LedgerScreen = () => {
             const backupJson = await CloudBackupService.createBackup(keyHex);
 
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-            const fileUri = FileSystem.documentDirectory + `locket-backup-${timestamp}.locket`;
+            const file = new File(Paths.document, `locket-backup-${timestamp}.locket`);
 
-            await FileSystem.writeAsStringAsync(fileUri, backupJson);
+            await file.write(backupJson);
 
             if (await Sharing.isAvailableAsync()) {
-                await Sharing.shareAsync(fileUri, {
+                await Sharing.shareAsync(file.uri, {
                     mimeType: 'application/json',
                     dialogTitle: 'Save Locket Backup'
                 });
@@ -430,7 +451,8 @@ export const LedgerScreen = () => {
             }
 
             const file = result.assets[0];
-            const content = await FileSystem.readAsStringAsync(file.uri);
+            const restoredFile = new File(file.uri);
+            const content = await restoredFile.text();
 
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
             Alert.alert(
@@ -467,6 +489,13 @@ export const LedgerScreen = () => {
                     <Text style={styles.headerTitle}>Locket</Text>
                 </View>
                 <View style={styles.headerRight}>
+                    <TouchableOpacity
+                        onPress={() => navigation.navigate('Import')}
+                        style={{ marginRight: 15 }}
+                    >
+                        <Text style={{ color: colors.charcoal, fontSize: 10, fontWeight: 'bold' }}>IMPORT</Text>
+                    </TouchableOpacity>
+
                     <TouchableOpacity
                         onPress={handleExportBackup}
                         style={{ marginRight: 15 }}

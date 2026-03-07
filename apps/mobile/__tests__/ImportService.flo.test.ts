@@ -40,9 +40,9 @@ describe('ImportService - Flo', () => {
         const result = parseFloExport(floSample as unknown as FloExport);
 
         // Cycle 1: Jan 1 - Jan 5
-        const jan1 = result.entries.find(e => e.ts === Date.UTC(2024, 0, 1));
-        const jan3 = result.entries.find(e => e.ts === Date.UTC(2024, 0, 3));
-        const jan5 = result.entries.find(e => e.ts === Date.UTC(2024, 0, 5));
+        const jan1 = result.entries.find(e => e.ts === new Date(2024, 0, 1).getTime());
+        const jan3 = result.entries.find(e => e.ts === new Date(2024, 0, 3).getTime());
+        const jan5 = result.entries.find(e => e.ts === new Date(2024, 0, 5).getTime());
 
         expect(jan1?.isStart).toBe(true);
         expect(jan1?.isEnd).toBeUndefined();
@@ -58,34 +58,35 @@ describe('ImportService - Flo', () => {
         const result = parseFloExport(floSample as unknown as FloExport);
 
         // Cycle 2: Jan 29
-        const jan29 = result.entries.find(e => e.ts === Date.UTC(2024, 0, 29));
+        const jan29 = result.entries.find(e => e.ts === new Date(2024, 0, 29).getTime());
 
         expect(jan29?.isStart).toBe(true);
         expect(jan29?.isEnd).toBe(true);
     });
 
-    it('all timestamps are UTC midnight', () => {
+    it('all timestamps are local midnight', () => {
         const result = parseFloExport(floSample as unknown as FloExport);
         for (const entry of result.entries) {
             const date = new Date(entry.ts);
-            expect(date.getUTCHours()).toBe(0);
-            expect(date.getUTCMinutes()).toBe(0);
-            expect(date.getUTCSeconds()).toBe(0);
+            expect(date.getHours()).toBe(0);
+            expect(date.getMinutes()).toBe(0);
+            expect(date.getSeconds()).toBe(0);
         }
     });
 
-    it('preserves unmapped cycle keys into unmapped, adding cycle day index', () => {
+    it('maps cycle keys and cycle day into notes', () => {
         const result = parseFloExport(floSample as unknown as FloExport);
 
-        const jan1 = result.entries.find(e => e.ts === Date.UTC(2024, 0, 1));
-        expect(jan1?.unmapped?.['symptom_cramps']).toBe(1);
-        expect(jan1?.unmapped?.['flo_cycle_day']).toBe(1);
+        const jan1 = result.entries.find(e => e.ts === new Date(2024, 0, 1).getTime());
+        expect(jan1?.note).toContain('Symptom Cramps: 1');
+        expect(jan1?.note).toContain('Flo Cycle Day: 1');
+        expect(jan1?.unmapped).toBeUndefined();
 
-        const jan2 = result.entries.find(e => e.ts === Date.UTC(2024, 0, 2));
-        expect(jan2?.unmapped?.['flo_cycle_day']).toBe(2);
+        const jan2 = result.entries.find(e => e.ts === new Date(2024, 0, 2).getTime());
+        expect(jan2?.note).toContain('Flo Cycle Day: 2');
 
-        const jan29 = result.entries.find(e => e.ts === Date.UTC(2024, 0, 29));
-        expect(jan29?.unmapped?.['note']).toBe('single day period edgecase');
+        const jan29 = result.entries.find(e => e.ts === new Date(2024, 0, 29).getTime());
+        expect(jan29?.note).toContain('Note: single day period edgecase');
     });
 
     it('detectSource returns unknown for garbage JSON', () => {

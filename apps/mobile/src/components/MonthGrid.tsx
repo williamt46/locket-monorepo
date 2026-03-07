@@ -10,7 +10,7 @@ const DAYS_OF_WEEK = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 interface Props {
     year: number;
     monthIndex: number; // 0-11
-    data: Record<string, { isPeriod: boolean; isStart?: boolean; isEnd?: boolean; note?: string }>; // key: "monthIndex-day"
+    data: Record<string, { isPeriod: boolean; isStart?: boolean; isEnd?: boolean; note?: string; flow?: number; bbt?: number; unmapped?: any }>; // key: "monthIndex-day"
     futureData?: Record<string, boolean>; // Mock predictions
     onToggle?: (day: number) => void;
     interactive?: boolean;
@@ -58,6 +58,8 @@ export const MonthGrid: React.FC<Props> = ({
         const key = `${year}-${monthIndex}-${day}`;
         const dayData = data[key]; // Now potentially an object or undefined
         const isStamped = dayData?.isPeriod;
+        const hasOtherData = !isStamped && dayData && (dayData.flow === 0 || dayData.note || dayData.bbt !== undefined || (dayData.unmapped && Object.keys(dayData.unmapped).length > 0));
+        const hasNotesWhenStamped = isStamped && dayData && (dayData.note || (dayData.unmapped && Object.keys(dayData.unmapped).length > 0) || dayData.bbt !== undefined);
 
         // Future/Prediction logic remains same (mock keys should match)
         const isFuture = futureData[key];
@@ -103,6 +105,16 @@ export const MonthGrid: React.FC<Props> = ({
                             {day}
                         </Text>
                     </View>
+                    {hasOtherData && (
+                        <View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'flex-end', paddingBottom: compact ? 1 : 4 }]} pointerEvents="none">
+                            <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: colors.gold }} />
+                        </View>
+                    )}
+                    {hasNotesWhenStamped && (
+                        <View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'flex-end', paddingBottom: compact ? 1 : 4 }]} pointerEvents="none">
+                            <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: colors.paper }} />
+                        </View>
+                    )}
                 </View>
             );
         }
@@ -124,6 +136,16 @@ export const MonthGrid: React.FC<Props> = ({
                         {day}
                     </Text>
                 </View>
+                {hasOtherData && (
+                    <View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'flex-end', paddingBottom: compact ? 1 : 4 }]} pointerEvents="none">
+                        <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: colors.gold }} />
+                    </View>
+                )}
+                {hasNotesWhenStamped && (
+                    <View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'flex-end', paddingBottom: compact ? 1 : 4 }]} pointerEvents="none">
+                        <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: colors.paper }} />
+                    </View>
+                )}
             </TouchableOpacity>
         );
     };
