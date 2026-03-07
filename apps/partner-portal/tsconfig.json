@@ -1,0 +1,6 @@
+{
+    "extends": "../provider-portal/tsconfig.json",
+    "compilerOptions": {
+        "composite": true
+    }
+}
