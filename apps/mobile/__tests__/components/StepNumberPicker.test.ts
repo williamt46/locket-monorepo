@@ -5,7 +5,7 @@ import {
     PERIOD_MAX,
     CYCLE_MIN,
     CYCLE_MAX,
-} from '../src/models/UserConfig';
+} from '../../src/models/UserConfig';
 
 /**
  * These tests validate the clamping logic that StepNumberPicker uses.

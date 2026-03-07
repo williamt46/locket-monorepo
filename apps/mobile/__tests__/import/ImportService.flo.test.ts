@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { detectSource, parseFloExport } from '../src/services/ImportService';
+import { detectSource, parseFloExport } from '../../src/services/ImportService';
 import floSample from './fixtures/flo-sample.json';
-import { FloExport } from '../src/models/ImportTypes';
+import { FloExport } from '../../src/models/ImportTypes';
 
 describe('ImportService - Flo', () => {
     it('detectSource returns "flo" for Flo-shaped JSON', () => {

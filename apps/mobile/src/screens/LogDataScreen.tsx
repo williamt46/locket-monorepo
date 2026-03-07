@@ -3,6 +3,7 @@ import { View, Text, TextInput, Button, StyleSheet, ScrollView, Alert } from 're
 import { LocketCryptoService } from '@locket/core-crypto';
 import { SecureKeyService } from '../services/SecureKeyService';
 import { useLedger } from '../hooks/useLedger';
+import { colors } from '../theme/colors';
 
 const crypto = new LocketCryptoService();
 
@@ -188,8 +189,3 @@ const styles = StyleSheet.create({
   logText: { fontWeight: 'bold' },
   logMeta: { fontSize: 10, color: '#666' }
 });
-
-// Import colors for status text
-const colors = {
-  charcoal: '#2D2D2D'
-};

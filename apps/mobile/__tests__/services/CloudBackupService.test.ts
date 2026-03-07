@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { CloudBackupService } from '../src/services/CloudBackupService';
-import { LocketBackupFile } from '../src/types/BackupTypes';
+import { CloudBackupService } from '../../src/services/CloudBackupService';
+import { LocketBackupFile } from '../../src/types/BackupTypes';
 import crypto from 'crypto';
 
 // 1. Mock the native crypto module using Node's standard crypto library
@@ -14,7 +14,7 @@ vi.mock('react-native-quick-crypto', () => ({
 }));
 
 // 2. Mock the Storage Service so we don't hit SQLite/SecureStore
-vi.mock('../src/services/StorageService.js', () => ({
+vi.mock('../../src/services/StorageService', () => ({
     initStorage: vi.fn(),
     getUserConfig: vi.fn().mockResolvedValue({ lastPeriodDate: '2026-02-12', periodLength: 5, cycleLength: 28 }),
     saveUserConfig: vi.fn(),
@@ -54,7 +54,7 @@ describe('CloudBackupService envelope encryption', () => {
         const eventsRestored = await CloudBackupService.parseAndRestore(generatedBackupJson, DUMMY_MASTER_KEY);
         expect(eventsRestored).toBe(2);
 
-        const storageService = await import('../src/services/StorageService.js');
+        const storageService = await import('../../src/services/StorageService');
         expect(storageService.rawNukeData).toHaveBeenCalled();
         expect(storageService.rawSaveEvents).toHaveBeenCalledWith([
             { id: '1', ts: 1700000000000, payload: 'encrypted_data_1', status: 'local', signature: 'hash1' },

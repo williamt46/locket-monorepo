@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
         marginBottom: 24,
     },
     dateTitle: {
-        ...typography.header,
+        fontFamily: typography.heading,
         fontSize: 20,
         color: colors.charcoal,
     },
@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     actionButtonText: {
-        ...typography.body,
+        fontFamily: typography.body,
         color: colors.paper,
         fontWeight: '600',
     },
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
         minHeight: 100,
     },
     textInput: {
-        ...typography.body,
+        fontFamily: typography.body,
         color: colors.charcoal,
         fontSize: 16,
         textAlignVertical: 'top',
@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
         marginBottom: 12,
     },
     saveButtonText: {
-        ...typography.body,
+        fontFamily: typography.body,
         color: colors.paper,
         fontWeight: '600',
     },
@@ -210,7 +210,8 @@ const styles = StyleSheet.create({
         padding: 8,
     },
     clearText: {
-        ...typography.caption,
+        fontFamily: typography.body,
+        fontSize: typography.sizes.caption,
         color: colors.alert,
     }
 });

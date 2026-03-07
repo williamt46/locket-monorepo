@@ -8,7 +8,7 @@ import {
     CYCLE_MIN,
     CYCLE_MAX,
     type UserConfig,
-} from '../src/models/UserConfig';
+} from '../../src/models/UserConfig';
 
 // ── clampValue ──────────────────────────────────────────────────────
 

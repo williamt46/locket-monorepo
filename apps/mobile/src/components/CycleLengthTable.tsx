@@ -11,7 +11,7 @@ interface Props {
 }
 
 // Helper to render a single form row "Month ______"
-const FormRow = ({ label, value }: { label: string, value: number | null }) => (
+const FormRow: React.FC<{ label: string, value: number | null }> = ({ label, value }) => (
     <View style={styles.formRow}>
         <Text style={styles.label}>{label}</Text>
         <View style={styles.valueContainer}>
@@ -57,7 +57,7 @@ const styles = StyleSheet.create({
     header: {
         fontFamily: typography.serif,
         fontSize: 18,
-        color: colors.ink,
+        color: colors.charcoal,
         marginBottom: 16,
         textAlign: 'center',
     },
@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
     label: {
         fontFamily: typography.serif,
         fontSize: 14,
-        color: colors.ink,
+        color: colors.charcoal,
         width: 40,
     },
     valueContainer: {
@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
     value: {
         fontFamily: typography.sans, // Handwritten look ideally
         fontSize: 14,
-        color: colors.primary,
+        color: colors.inkBlue,
         textAlign: 'center',
         position: 'absolute',
         bottom: 2,
@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
     },
     underline: {
         height: 1,
-        backgroundColor: colors.ink,
+        backgroundColor: colors.charcoal,
         opacity: 0.2,
         width: '100%',
         marginTop: 18,

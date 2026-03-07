@@ -12,8 +12,8 @@ describe('PRE Workflow — Full 6-Step Happy Path', () => {
 
     it('should complete the full PRE round-trip', async () => {
         // Step 1: Generate owner and recipient keys
-        const owner = crypto.generateUserKeys();
-        const recipient = crypto.generateUserKeys();
+        const owner = await crypto.generateUserKeys();
+        const recipient = await crypto.generateUserKeys();
 
         expect(owner.secretKeyB64).toBeTruthy();
         expect(owner.publicKeyB64).toBeTruthy();
@@ -34,7 +34,7 @@ describe('PRE Workflow — Full 6-Step Happy Path', () => {
         expect(encrypted.anchorHash).toMatch(/^0x[a-f0-9]{64}$/);
 
         // Step 3: Owner self-decrypts
-        const ownerDecrypted = crypto.decryptOriginalData(
+        const ownerDecrypted = await crypto.decryptOriginalData(
             owner.secretKeyB64,
             encrypted.capsuleB64,
             encrypted.ciphertextB64
@@ -42,7 +42,7 @@ describe('PRE Workflow — Full 6-Step Happy Path', () => {
         expect(ownerDecrypted).toEqual(testData);
 
         // Step 4: Owner generates consent kFrag for recipient
-        const consent = crypto.generateConsentKFrag(
+        const consent = await crypto.generateConsentKFrag(
             owner.secretKeyB64,
             recipient.publicKeyB64
         );
@@ -50,14 +50,14 @@ describe('PRE Workflow — Full 6-Step Happy Path', () => {
         expect(consent.verifyingKeyB64).toBeTruthy();
 
         // Step 5: Proxy re-encrypts
-        const reencrypted = crypto.proxyReEncrypt(
+        const reencrypted = await crypto.proxyReEncrypt(
             encrypted.capsuleB64,
             consent.kfragB64
         );
         expect(reencrypted.cfragB64).toBeTruthy();
 
         // Step 6: Recipient decrypts
-        const recipientDecrypted = crypto.decryptAsRecipient(
+        const recipientDecrypted = await crypto.decryptAsRecipient(
             recipient.secretKeyB64,
             owner.publicKeyB64,
             encrypted.capsuleB64,
@@ -69,7 +69,7 @@ describe('PRE Workflow — Full 6-Step Happy Path', () => {
     });
 
     it('should return base64-encoded values in all outputs', async () => {
-        const keys = crypto.generateUserKeys();
+        const keys = await crypto.generateUserKeys();
 
         // Base64 should decode without error
         const skBytes = Buffer.from(keys.secretKeyB64, 'base64');

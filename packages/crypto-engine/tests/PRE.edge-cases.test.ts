@@ -8,12 +8,12 @@ describe('PRE Edge Cases', () => {
     const crypto = new CryptoService();
 
     it('should handle empty object payload', async () => {
-        const owner = crypto.generateUserKeys();
+        const owner = await crypto.generateUserKeys();
         const encrypted = await crypto.encryptLocalData({}, owner.publicKeyB64);
 
         expect(encrypted.anchorHash).toMatch(/^0x[a-f0-9]{64}$/);
 
-        const decrypted = crypto.decryptOriginalData(
+        const decrypted = await crypto.decryptOriginalData(
             owner.secretKeyB64,
             encrypted.capsuleB64,
             encrypted.ciphertextB64
@@ -22,7 +22,7 @@ describe('PRE Edge Cases', () => {
     });
 
     it('should handle nested object payload', async () => {
-        const owner = crypto.generateUserKeys();
+        const owner = await crypto.generateUserKeys();
         const nested = {
             level1: {
                 level2: {
@@ -33,7 +33,7 @@ describe('PRE Edge Cases', () => {
         };
 
         const encrypted = await crypto.encryptLocalData(nested, owner.publicKeyB64);
-        const decrypted = crypto.decryptOriginalData(
+        const decrypted = await crypto.decryptOriginalData(
             owner.secretKeyB64,
             encrypted.capsuleB64,
             encrypted.ciphertextB64
@@ -42,7 +42,7 @@ describe('PRE Edge Cases', () => {
     });
 
     it('should handle unicode characters in payload', async () => {
-        const owner = crypto.generateUserKeys();
+        const owner = await crypto.generateUserKeys();
         const unicodeData = {
             emoji: '🔒🌸📊',
             japanese: 'こんにちは',
@@ -51,7 +51,7 @@ describe('PRE Edge Cases', () => {
         };
 
         const encrypted = await crypto.encryptLocalData(unicodeData, owner.publicKeyB64);
-        const decrypted = crypto.decryptOriginalData(
+        const decrypted = await crypto.decryptOriginalData(
             owner.secretKeyB64,
             encrypted.capsuleB64,
             encrypted.ciphertextB64
@@ -60,7 +60,7 @@ describe('PRE Edge Cases', () => {
     });
 
     it('should handle large payload (10KB)', async () => {
-        const owner = crypto.generateUserKeys();
+        const owner = await crypto.generateUserKeys();
         const largeData = {
             entries: Array.from({ length: 100 }, (_, i) => ({
                 id: i,
@@ -70,7 +70,7 @@ describe('PRE Edge Cases', () => {
         };
 
         const encrypted = await crypto.encryptLocalData(largeData, owner.publicKeyB64);
-        const decrypted = crypto.decryptOriginalData(
+        const decrypted = await crypto.decryptOriginalData(
             owner.secretKeyB64,
             encrypted.capsuleB64,
             encrypted.ciphertextB64
@@ -79,7 +79,7 @@ describe('PRE Edge Cases', () => {
     });
 
     it('should handle null and numeric values', async () => {
-        const owner = crypto.generateUserKeys();
+        const owner = await crypto.generateUserKeys();
         const mixedData = {
             nullVal: null,
             zero: 0,
@@ -90,7 +90,7 @@ describe('PRE Edge Cases', () => {
         };
 
         const encrypted = await crypto.encryptLocalData(mixedData, owner.publicKeyB64);
-        const decrypted = crypto.decryptOriginalData(
+        const decrypted = await crypto.decryptOriginalData(
             owner.secretKeyB64,
             encrypted.capsuleB64,
             encrypted.ciphertextB64

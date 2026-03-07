@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { detectSource, parseClueExport } from '../src/services/ImportService';
+import { detectSource, parseClueExport } from '../../src/services/ImportService';
 import clueSample from './fixtures/clue-sample.json';
-import { ClueExport } from '../src/models/ImportTypes';
+import { ClueExport } from '../../src/models/ImportTypes';
 
 describe('ImportService - Clue', () => {
     it('detectSource returns "clue" for Clue-shaped JSON', () => {

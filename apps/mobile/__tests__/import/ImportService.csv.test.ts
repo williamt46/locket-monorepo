@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { detectFormat, parseCsvExport } from '../src/services/ImportService';
+import { detectFormat, parseCsvExport } from '../../src/services/ImportService';
 import * as fs from 'fs';
 import * as path from 'path';
 

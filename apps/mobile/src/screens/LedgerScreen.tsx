@@ -13,11 +13,8 @@ import { SecureKeyService } from '../services/SecureKeyService';
 import { LocketCryptoService } from '@locket/core-crypto';
 import { getUserConfig, saveUserConfig } from '../services/StorageService';
 import { UserConfig } from '../models/UserConfig';
-import { calculatePredictedPeriods, getLatestPeriodStart } from '../utils/PredictionEngine';
-import * as Sharing from 'expo-sharing';
-import { File, Paths } from 'expo-file-system';
-import * as DocumentPicker from 'expo-document-picker';
-import { CloudBackupService } from '../services/CloudBackupService';
+import { usePredictions } from '../hooks/usePredictions';
+import { LedgerHeaderActions } from '../components/LedgerHeaderActions';
 import { Alert } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 
@@ -87,7 +84,7 @@ export const LedgerScreen = () => {
 
     console.warn(`[LedgerScreen] Render. Total Events: ${events.length}, Initialized: ${isInitialized}`);
 
-    const [futureData, setFutureData] = useState<Record<string, boolean>>({});
+
 
     // Modal State
     const [modalVisible, setModalVisible] = useState(false);
@@ -182,24 +179,7 @@ export const LedgerScreen = () => {
         decryptAll();
     }, [events, keyHex]);
 
-    // Generate specific predictions for demo when component mounts
-    // Generate future predictions dynamically based on decrypted local data and UserConfig
-    useEffect(() => {
-        if (!config) {
-            setFutureData({});
-            return;
-        }
 
-        const latestStart = getLatestPeriodStart(decryptedData, config.lastPeriodDate);
-        const predictions = calculatePredictedPeriods(
-            latestStart,
-            config.cycleLength,
-            config.periodLength,
-            3 // Forecast next 3 cycles
-        );
-
-        setFutureData(predictions);
-    }, [decryptedData, config]);
 
     // Initial Seeding: if onboarding is complete but ledger is empty, generate initial period logs
     useEffect(() => {
@@ -243,73 +223,7 @@ export const LedgerScreen = () => {
         }
     }, [isInitialized, keyHex, config, events.length, isSyncing, batchInscribe]);
 
-    const calculateAverageCycle = (data: Record<string, { isPeriod: boolean }>): Record<number, number> => {
-        // Real Calculation Logic
-        // 1. Parse keys into Dates
-        const dates: Date[] = [];
-        Object.keys(data).forEach(key => {
-            const parts = key.split('-');
-            if (parts.length === 3 && data[key].isPeriod) {
-                const y = parseInt(parts[0], 10);
-                const m = parseInt(parts[1], 10);
-                const d = parseInt(parts[2], 10);
-                dates.push(new Date(y, m, d));
-            }
-        });
-
-        if (dates.length < 2) {
-            return {};
-        }
-
-        // 2. Sort Dates
-        dates.sort((a, b) => a.getTime() - b.getTime());
-
-        // 3. Identify Cycles (Group consecutive days into 'Periods', measure distance between Starts)
-        const periodStarts: Date[] = [];
-        let lastDate: Date | null = null;
-
-        for (const date of dates) {
-            if (!lastDate) {
-                periodStarts.push(date);
-            } else {
-                // If gap is > 5 days (arbitrary threshold for new cycle vs same period), it's a new period
-                const diffTime = Math.abs(date.getTime() - lastDate.getTime());
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                if (diffDays > 5) {
-                    periodStarts.push(date);
-                }
-            }
-            lastDate = date;
-        }
-
-        if (periodStarts.length < 2) return {};
-
-        // 4. Calculate Average Interval per Year of the START date
-        const intervalsByYear: Record<number, number[]> = {};
-
-        for (let i = 1; i < periodStarts.length; i++) {
-            const start = periodStarts[i - 1];
-            const end = periodStarts[i];
-            const diffTime = Math.abs(end.getTime() - start.getTime());
-            const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-            const year = end.getFullYear();
-            if (!intervalsByYear[year]) intervalsByYear[year] = [];
-            intervalsByYear[year].push(days);
-        }
-
-        // 5. Average them
-        const avgs: Record<number, number> = {};
-        for (const y in intervalsByYear) {
-            const arr = intervalsByYear[y];
-            const total = arr.reduce((sum, val) => sum + val, 0);
-            avgs[y] = Math.round(total / arr.length);
-        }
-
-        return avgs;
-    };
-
-    const cycleStats = useMemo(() => calculateAverageCycle(decryptedData), [decryptedData]);
+    const { futureData, cycleStats } = usePredictions(decryptedData, config);
 
     const handleToggleDate = (monthIndex: number, day: number) => {
         // Open Modal instead of direct toggle
@@ -414,73 +328,7 @@ export const LedgerScreen = () => {
         setInitialMonthIndex(monthIndex);
         setCurrentYear(year); // Correctly update the year for HorizontalCalendar
     };
-    const handleExportBackup = async () => {
-        if (!keyHex) return;
-        try {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            const backupJson = await CloudBackupService.createBackup(keyHex);
 
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-            const file = new File(Paths.document, `locket-backup-${timestamp}.locket`);
-
-            await file.write(backupJson);
-
-            if (await Sharing.isAvailableAsync()) {
-                await Sharing.shareAsync(file.uri, {
-                    mimeType: 'application/json',
-                    dialogTitle: 'Save Locket Backup'
-                });
-            } else {
-                Alert.alert('Error', 'Sharing is not available on this device');
-            }
-        } catch (e: any) {
-            Alert.alert('Backup Failed', e.message);
-        }
-    };
-
-    const handleRestoreBackup = async () => {
-        if (!keyHex) return;
-        try {
-            const result = await DocumentPicker.getDocumentAsync({
-                type: ['*/*'],
-                copyToCacheDirectory: true,
-            });
-
-            if (result.canceled || !result.assets || result.assets.length === 0) {
-                return;
-            }
-
-            const file = result.assets[0];
-            const restoredFile = new File(file.uri);
-            const content = await restoredFile.text();
-
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-            Alert.alert(
-                "Restore Backup?",
-                "This will overwrite your current ledger and settings. This action cannot be undone.",
-                [
-                    { text: "Cancel", style: "cancel" },
-                    {
-                        text: "Restore",
-                        style: "destructive",
-                        onPress: async () => {
-                            try {
-                                const count = await CloudBackupService.parseAndRestore(content, keyHex);
-                                Alert.alert("Success", `Restored ${count} events.`);
-                                // Trigger full refresh to reload state
-                                await triggerSync();
-                            } catch (e: any) {
-                                Alert.alert("Restore Failed", e.message || "Invalid backup file or wrong master key.");
-                            }
-                        }
-                    }
-                ]
-            );
-
-        } catch (e) {
-            console.error(e);
-        }
-    };
 
     return (
         <ScreenWrapper>
@@ -489,59 +337,14 @@ export const LedgerScreen = () => {
                     <Text style={styles.headerTitle}>Locket</Text>
                 </View>
                 <View style={styles.headerRight}>
-                    <TouchableOpacity
-                        onPress={() => navigation.navigate('Import')}
-                        style={{ marginRight: 15 }}
-                    >
-                        <Text style={{ color: colors.charcoal, fontSize: 10, fontWeight: 'bold' }}>IMPORT</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        onPress={handleExportBackup}
-                        style={{ marginRight: 15 }}
-                    >
-                        <Text style={{ color: colors.charcoal, fontSize: 10, fontWeight: 'bold' }}>EXPORT</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        onPress={handleRestoreBackup}
-                        style={{ marginRight: 15 }}
-                    >
-                        <Text style={{ color: colors.charcoal, fontSize: 10, fontWeight: 'bold' }}>RESTORE</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        onPress={() => {
-                            const clearAll = async () => {
-                                // PREVENT RACE CONDITION: Invalidate the key in React state BEFORE wiping the ledger.
-                                // If we don't, the seeder will see 0 events and use the old key to encrypt before the new one generates.
-                                setKeyHex(undefined);
-
-                                await superNuke();
-                                // Refresh key to re-generate since SecureStore was wiped
-                                SecureKeyService.getOrGenerateKey().then(setKeyHex);
-                            };
-                            clearAll();
-                        }}
-                        style={{ marginRight: 15 }}
-                    >
-                        <Text style={{ color: colors.alert, fontSize: 10, fontWeight: 'bold' }}>RESET</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        onPress={() => {
-                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                            triggerSync();
-                        }}
-                        style={{ marginRight: 15, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, backgroundColor: colors.watermark }}
-                    >
-                        <Text style={{ color: colors.charcoal, fontSize: 10, fontWeight: 'bold' }}>SYNC</Text>
-                    </TouchableOpacity>
-
-                    {isSyncing && (
-                        <Text style={{ fontSize: 10, color: '#3B82F6', fontWeight: '600', marginRight: 8 }}>Securing...</Text>
-                    )}
-                    <IntegritySeal status={sealStatus} />
+                    <LedgerHeaderActions
+                        keyHex={keyHex}
+                        superNuke={superNuke}
+                        setKeyHex={setKeyHex}
+                        triggerSync={triggerSync}
+                        isSyncing={isSyncing}
+                        sealStatus={sealStatus}
+                    />
                 </View>
             </View>
 

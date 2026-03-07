@@ -55,7 +55,7 @@ const styles = StyleSheet.create({
     header: {
         fontFamily: typography.serif,
         fontSize: 18,
-        color: colors.ink,
+        color: colors.charcoal,
         marginBottom: 16,
         textAlign: 'center',
     },
@@ -69,25 +69,25 @@ const styles = StyleSheet.create({
         height: 20,
         borderRadius: 10,
         borderWidth: 1,
-        borderColor: colors.ink,
+        borderColor: colors.charcoal,
         marginRight: 10,
         backgroundColor: 'transparent',
         opacity: 0.5,
     },
     checkboxChecked: {
-        backgroundColor: colors.ink,
+        backgroundColor: colors.charcoal,
         opacity: 0.9,
     },
     label: {
         fontFamily: typography.serif,
         fontSize: 14,
-        color: colors.ink,
+        color: colors.charcoal,
         marginRight: 8,
     },
     line: {
         flex: 1,
         height: 1,
-        backgroundColor: colors.ink,
+        backgroundColor: colors.charcoal,
         opacity: 0.2, // Guidelines
         marginTop: 10,
     }

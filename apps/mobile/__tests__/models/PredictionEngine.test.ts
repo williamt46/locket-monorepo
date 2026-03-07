@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculatePredictedPeriods, getLatestPeriodStart } from '../src/utils/PredictionEngine';
+import { calculatePredictedPeriods, getLatestPeriodStart } from '../../src/utils/PredictionEngine';
 
 describe('PredictionEngine -> calculatePredictedPeriods', () => {
     it('predicts standard boundaries correctly', () => {

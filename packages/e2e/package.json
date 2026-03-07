@@ -1,0 +1,18 @@
+{
+    "name": "@locket/e2e",
+    "version": "1.0.0",
+    "type": "module",
+    "main": "index.js",
+    "scripts": {
+        "test": "vitest run"
+    },
+    "dependencies": {
+        "@locket/crypto-engine": "*",
+        "@locket/portal-core": "*",
+        "@locket/fhir-formatter": "*",
+        "@locket/shared": "*"
+    },
+    "devDependencies": {
+        "typescript": "~5.9.2"
+    }
+}

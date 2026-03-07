@@ -8,7 +8,6 @@ export const typography = {
     heading: Platform.select({ ios: 'Avenir Next', android: 'sans-serif-medium', default: 'sans-serif' }),
     body: Platform.select({ ios: 'Helvetica Neue', android: 'sans-serif', default: 'sans-serif' }),
     sans: Platform.select({ ios: 'Helvetica Neue', android: 'sans-serif', default: 'sans-serif' }),
-    serif: Platform.select({ ios: 'Georgia', android: 'serif', default: 'serif' }),
 
     sizes: {
         h1: 32,

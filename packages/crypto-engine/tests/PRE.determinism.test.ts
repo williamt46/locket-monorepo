@@ -11,7 +11,7 @@ describe('PRE Determinism — Anchor Hash Consistency', () => {
     const crypto = new CryptoService();
 
     it('deterministic: same data + same key → same anchorHash', async () => {
-        const owner = crypto.generateUserKeys();
+        const owner = await crypto.generateUserKeys();
         const data = { type: 'period', startDate: '2026-01-15', flow: 'light' };
 
         const result1 = await crypto.encryptLocalData(data, owner.publicKeyB64);
@@ -29,16 +29,16 @@ describe('PRE Determinism — Anchor Hash Consistency', () => {
         expect(result2.anchorHash).toMatch(/^0x[a-f0-9]{64}$/);
     });
 
-    it('deterministic: key generation is unique each time', () => {
-        const keys1 = crypto.generateUserKeys();
-        const keys2 = crypto.generateUserKeys();
+    it('deterministic: key generation is unique each time', async () => {
+        const keys1 = await crypto.generateUserKeys();
+        const keys2 = await crypto.generateUserKeys();
 
         expect(keys1.secretKeyB64).not.toBe(keys2.secretKeyB64);
         expect(keys1.publicKeyB64).not.toBe(keys2.publicKeyB64);
     });
 
     it('deterministic: canonicalStringify produces consistent ordering', async () => {
-        const owner = crypto.generateUserKeys();
+        const owner = await crypto.generateUserKeys();
 
         // Different property order, same data
         const data1 = { z: 1, a: 2, m: 3 };
@@ -48,12 +48,12 @@ describe('PRE Determinism — Anchor Hash Consistency', () => {
         const result2 = await crypto.encryptLocalData(data2, owner.publicKeyB64);
 
         // Both should decrypt to the same canonical form
-        const dec1 = crypto.decryptOriginalData(
+        const dec1 = await crypto.decryptOriginalData(
             owner.secretKeyB64,
             result1.capsuleB64,
             result1.ciphertextB64
         );
-        const dec2 = crypto.decryptOriginalData(
+        const dec2 = await crypto.decryptOriginalData(
             owner.secretKeyB64,
             result2.capsuleB64,
             result2.ciphertextB64

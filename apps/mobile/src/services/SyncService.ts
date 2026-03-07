@@ -58,7 +58,7 @@ export const SyncService = {
     ): Promise<GrantResult> {
         try {
             console.log('[SyncService] Generating consent kFrag...');
-            const kFrag = cryptoService.generateConsentKFrag(ownerSecretKeyB64, recipientPublicKeyB64);
+            const kFrag = await cryptoService.generateConsentKFrag(ownerSecretKeyB64, recipientPublicKeyB64);
 
             const payload = {
                 kfragB64: kFrag.kfragB64,
