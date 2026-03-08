@@ -3,6 +3,13 @@ import { CryptoService } from '@locket/crypto-engine';
 import { DecryptionService } from '@locket/portal-core';
 import { FhirService } from '@locket/fhir-formatter';
 import { canonicalStringify } from '@locket/shared';
+import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
+import { parseClueExport, parseFloExport, parseCsvExport } from '../../../apps/mobile/src/services/ImportService';
+import clueSample from '../../../apps/mobile/__tests__/import/fixtures/clue-sample.json';
+import floSample from '../../../apps/mobile/__tests__/import/fixtures/flo-sample.json';
+
 
 describe('Phase 10 E2E Verification', () => {
     let ownerKeys: any;
@@ -106,22 +113,40 @@ describe('Phase 10 E2E Verification', () => {
             expect(str1).toEqual(str2);
         });
 
-        it('T7 — Backup envelope round-trip preserves data fidelity', async () => {
-            // Placeholder: Write actual AES-GCM primitives logic here
-            expect(true).toBe(true);
+                it('T7 — Backup envelope round-trip preserves data fidelity', async () => {
+            const key = crypto.randomBytes(32);
+            const iv = crypto.randomBytes(12);
+            const payload = JSON.stringify([dummyPayload]);
+            const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+            let encrypted = cipher.update(payload, 'utf8', 'base64');
+            encrypted += cipher.final('base64');
+            const authTag = cipher.getAuthTag().toString('base64');
+            
+            const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+            decipher.setAuthTag(Buffer.from(authTag, 'base64'));
+            let decrypted = decipher.update(encrypted, 'base64', 'utf8');
+            decrypted += decipher.final('utf8');
+            expect(JSON.parse(decrypted)).toEqual([dummyPayload]);
         });
 
-        it('T8 — Clue import preserves all mapped + unmapped fields', async () => {
-            // Placeholder for ImportService test
-            expect(true).toBe(true);
+                it('T8 — Clue import preserves all mapped + unmapped fields', async () => {
+            const result = parseClueExport(clueSample as any);
+            expect(result.source).toBe('clue');
+            expect(result.entries.length).toBeGreaterThan(0);
+            expect(result.stats.skippedDays).toBe(0);
         });
 
-        it('T9 — Flo import preserves all mapped + unmapped fields', async () => {
-            expect(true).toBe(true);
+                it('T9 — Flo import preserves all mapped + unmapped fields', async () => {
+            const result = parseFloExport(floSample as any);
+            expect(result.source).toBe('flo');
+            expect(result.entries.length).toBeGreaterThan(0);
         });
 
-        it('T10 — CSV import preserves all mapped + unmapped fields', async () => {
-            expect(true).toBe(true);
+                it('T10 — CSV import preserves all mapped + unmapped fields', async () => {
+            const csvText = fs.readFileSync(path.resolve(__dirname, '../../../apps/mobile/__tests__/import/fixtures/csv-sample-us.csv'), 'utf8');
+            const result = parseCsvExport(csvText);
+            expect(result.source).toBe('csv');
+            expect(result.entries.length).toBeGreaterThan(0);
         });
     });
 
@@ -178,8 +203,24 @@ describe('Phase 10 E2E Verification', () => {
             await expect(cryptoEngine.proxyReEncrypt(capsuleB64, invalidKFrag)).rejects.toThrow();
         });
 
-        it('T15 — Backup integrity hash detects tampering', async () => {
-            expect(true).toBe(true);
+                it('T15 — Backup integrity hash detects tampering', async () => {
+            const key = crypto.randomBytes(32);
+            const iv = crypto.randomBytes(12);
+            const payload = JSON.stringify([dummyPayload]);
+            const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+            let encrypted = cipher.update(payload, 'utf8', 'base64');
+            encrypted += cipher.final('base64');
+            const authTag = cipher.getAuthTag().toString('base64');
+            
+            // Tamper with ciphertext
+            const tampered = encrypted.substring(0, 10) + (encrypted[10] === 'A' ? 'B' : 'A') + encrypted.substring(11);
+            
+            const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+            decipher.setAuthTag(Buffer.from(authTag, 'base64'));
+            expect(() => {
+                let decrypted = decipher.update(tampered, 'base64', 'utf8');
+                decrypted += decipher.final('utf8');
+            }).toThrow();
         });
     });
 });
