@@ -44,6 +44,8 @@ export const DataEntryModal: React.FC<DataEntryModalProps> = ({ visible, date, i
             >
                 {/* Standard Neutral Backdrop (No Blur) */}
                 <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel="Dismiss modal"
                     style={[styles.backdrop, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}
                     activeOpacity={1}
                     onPress={onClose}
@@ -52,7 +54,12 @@ export const DataEntryModal: React.FC<DataEntryModalProps> = ({ visible, date, i
                 <View style={styles.modalView}>
                     {/* Header */}
                     <View style={styles.header}>
-                        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                        <TouchableOpacity
+                            accessibilityRole="button"
+                            accessibilityLabel="Close"
+                            onPress={onClose}
+                            style={styles.closeButton}
+                        >
                             <Text style={styles.closeButtonText}>✕</Text>
                         </TouchableOpacity>
                         <Text style={styles.dateTitle}>{formattedDate}</Text>

@@ -360,6 +360,8 @@ export const LedgerScreen = () => {
                 </View>
                 <View style={styles.headerRight}>
                     <TouchableOpacity
+                        accessibilityRole="button"
+                        accessibilityLabel="Settings"
                         onPress={() => navigation.navigate('Settings', {
                             keyHex,
                             isSyncing,

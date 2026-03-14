@@ -1,0 +1,3 @@
+## 2024-06-25 - Screen-Reader Accessibility for Icon-only Buttons
+**Learning:** Found several icon-only buttons across main screens (Settings, Ledger, Data Entry) that were missing ARIA equivalents (`accessibilityLabel` in React Native). This causes screen readers to either read out raw Unicode symbols or ignore the button entirely, severely confusing visually impaired users trying to navigate core UI.
+**Action:** When creating or reviewing components with icon-only `TouchableOpacity` or `Pressable` wrappers, always include `accessibilityRole="button"` and a descriptive `accessibilityLabel` property.
