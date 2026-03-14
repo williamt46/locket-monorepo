@@ -31,6 +31,8 @@ verify-flow.js
 persistent data flow debug.*.md
 audit-report.md
 mcp_config.json
+archive/
+archives/
 
 # Hyperledger Fabric
 # The huge samples directory which contains generated crypto material
