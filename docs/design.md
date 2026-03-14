@@ -1,8 +1,17 @@
 # Design System: Locket UI
 **Project ID:** `12288066480715369169`
-**Device Type:** Mobile (iOS-primary, Android-compatible)
-**Color Mode:** Adaptive (Light & Dark)
-**Stitch Theme:** ROUND_TWELVE / Custom Color #006DC7 / Saturation 3
+
+---
+
+## Visual Reference
+
+The following screenshots illustrate the core design system components and atmosphere in both light and dark modes. Use these as the absolute visual source of truth for density, spacing, and color contrast.
+
+### Light Mode
+![Light Mode UI Reference](ui-kit/light_mode.png)
+
+### Dark Mode
+![Dark Mode UI Reference](ui-kit/dark_mode.png)
 
 ---
 
