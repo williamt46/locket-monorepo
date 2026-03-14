@@ -27,11 +27,6 @@ dev_logs.txt
 # Verification & Debug
 verify-batch.js
 verify-flow.js
-walkthrough*.md
-handoff_*.md
-*Handoff*.md
-implementation_plan*.md
-task.md
 *.resolved
 persistent data flow debug.*.md
 audit-report.md
@@ -67,6 +62,3 @@ apps/gateway/
 
 # Agent Workspace
 .agent/
-
-# Documents
-docs/

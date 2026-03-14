@@ -1,0 +1,210 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Locket UI Kit &amp; Design System</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#006EC7",
+                        "menstrual": "#D1495B",
+                        "follicular": "#2A9D8F",
+                        "ovulatory": "#FF9F00",
+                        "luteal": "#76489D",
+                        "sand": "#FDFBF9",
+                        "locket-blue": "#006EC7"
+                    },
+                    fontFamily: {
+                        "sans": ["SF Pro Display", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica", "Arial", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "lg": "12px",
+                        "xl": "16px",
+                    },
+                    boxShadow: {
+                        'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
+                    }
+                },
+            },
+        }
+    </script>
+<style type="text/tailwindcss">
+    @layer base {
+        body {
+            background-color: #FDFBF9;
+        }
+    }
+    .material-symbols-outlined {
+        font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+</style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="font-sans antialiased text-[#1A1A1A]">
+<div class="relative flex h-auto min-h-screen w-full flex-col max-w-md mx-auto overflow-x-hidden">
+<div class="flex items-center p-4 h-16 sticky top-0 z-10 bg-[#FDFBF9]/80 backdrop-blur-md">
+<button class="text-slate-900 flex size-10 items-center justify-center" style="">
+<span class="material-symbols-outlined text-[24px]" style="">arrow_back</span>
+</button>
+<h2 class="flex-1 text-center text-[17px] font-semibold tracking-tight pr-10" style="">Locket UI Kit - Light Mode</h2>
+</div>
+<div class="px-5 py-2 space-y-10">
+<section>
+<h2 class="text-primary text-[13px] font-bold uppercase tracking-[0.1em] mb-4 flex items-center gap-2" style="">
+<span class="material-symbols-outlined text-[18px]" style="">text_fields</span> TYPOGRAPHY
+            </h2>
+<div class="bg-white rounded-xl p-6 shadow-sm space-y-8">
+<div>
+<h1 class="text-[#1A1A1A] text-[32px] font-bold leading-tight tracking-tight" style="">Heading H1</h1>
+<p class="text-[#8E8E93] text-[11px] mt-1 font-mono uppercase tracking-wider" style="">32px / Bold / Tracking: Tight</p>
+</div>
+<div>
+<h2 class="text-[#1A1A1A] text-[24px] font-bold leading-tight tracking-tight" style="">Heading H2</h2>
+<p class="text-[#8E8E93] text-[11px] mt-1 font-mono uppercase tracking-wider" style="">24px / Bold / Tracking: Tight</p>
+</div>
+<div>
+<p class="text-[#1A1A1A] text-[16px] leading-[1.5] font-normal" style="">Body Regular: Designed for readability in long-form text, maintaining clear legibility across the app interface.</p>
+<p class="text-[#8E8E93] text-[11px] mt-1 font-mono uppercase tracking-wider" style="">16px / Regular / Leading: Relaxed</p>
+</div>
+<div>
+<p class="text-primary text-[14px] font-medium" style="">Label / Subtext</p>
+<p class="text-[#8E8E93] text-[11px] mt-1 font-mono uppercase tracking-wider" style="">14px / Medium</p>
+</div>
+</div>
+</section>
+<section>
+<h2 class="text-primary text-[13px] font-bold uppercase tracking-[0.1em] mb-4 flex items-center gap-2" style="">
+<span class="material-symbols-outlined text-[18px]" style="">palette</span> COLOR PALETTE
+            </h2>
+<div class="grid grid-cols-3 gap-y-8 gap-x-4">
+<div class="flex flex-col items-center gap-2">
+<div class="w-16 h-16 rounded-full bg-menstrual flex items-center justify-center text-white">
+<span class="material-symbols-outlined text-[24px]" style="">water_drop</span>
+</div>
+<div class="text-center">
+<p class="text-[12px] font-medium text-[#444]" style="">Menstrual</p>
+<p class="text-[10px] text-[#8E8E93] font-mono" style="">#D1495B</p>
+</div>
+</div>
+<div class="flex flex-col items-center gap-2">
+<div class="w-16 h-16 rounded-full bg-follicular flex items-center justify-center text-white">
+<span class="material-symbols-outlined text-[24px]" style="">psychiatry</span>
+</div>
+<div class="text-center">
+<p class="text-[12px] font-medium text-[#444]" style="">Follicular</p>
+<p class="text-[10px] text-[#8E8E93] font-mono" style="">#2A9D8F</p>
+</div>
+</div>
+<div class="flex flex-col items-center gap-2">
+<div class="w-16 h-16 rounded-full bg-ovulatory flex items-center justify-center text-white">
+<span class="material-symbols-outlined text-[24px]" style="">wb_sunny</span>
+</div>
+<div class="text-center">
+<p class="text-[12px] font-medium text-[#444]" style="">Ovulatory</p>
+<p class="text-[10px] text-[#8E8E93] font-mono" style="">#FF9F00</p>
+</div>
+</div>
+<div class="flex flex-col items-center gap-2">
+<div class="w-16 h-16 rounded-full bg-luteal flex items-center justify-center text-white">
+<span class="material-symbols-outlined text-[24px]" style="">mode_night</span>
+</div>
+<div class="text-center">
+<p class="text-[12px] font-medium text-[#444]" style="">Luteal</p>
+<p class="text-[10px] text-[#8E8E93] font-mono" style="">#76489D</p>
+</div>
+</div>
+<div class="flex flex-col items-center gap-2">
+<div class="w-16 h-16 rounded-full bg-locket-blue flex items-center justify-center text-white">
+<span class="material-symbols-outlined text-[24px]" style="">lock</span>
+</div>
+<div class="text-center">
+<p class="text-[12px] font-medium text-[#444]" style="">Locket Blue</p>
+<p class="text-[10px] text-[#8E8E93] font-mono" style="">#006EC7</p>
+</div>
+</div>
+</div>
+</section>
+<section>
+<h2 class="text-primary text-[13px] font-bold uppercase tracking-[0.1em] mb-4 flex items-center gap-2" style="">
+<span class="material-symbols-outlined text-[18px]" style="">widgets</span> COMPONENTS
+            </h2>
+<div class="space-y-4">
+<div class="bg-white rounded-xl p-6 shadow-sm space-y-6">
+<h3 class="text-[14px] font-medium text-[#1A1A1A]" style="">Safe-Touch Interactions</h3>
+<div class="space-y-4">
+<button class="w-full bg-primary text-white font-semibold py-[14px] px-4 rounded-lg active:scale-[0.98] transition-transform" style="">
+                            Primary Action
+                        </button>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#8E8E93] text-[20px]" style="">search</span>
+<input class="w-full bg-[#F2F2F7]/50 border-none text-[#1A1A1A] rounded-lg py-[14px] pl-12 pr-4 focus:ring-2 focus:ring-primary/20 outline-none placeholder:text-[#8E8E93]" placeholder="Soft text input..." type="text">
+</div>
+</div>
+</div>
+<div class="bg-white rounded-xl p-6 shadow-sm">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h3 class="text-[15px] font-bold text-[#1A1A1A]" style="">Data Focus Card</h3>
+<p class="text-[13px] text-[#8E8E93] mt-0.5" style="">16px radius, generous whitespace</p>
+</div>
+<div class="bg-[#E5F1FA] text-primary p-2 rounded-lg">
+<span class="material-symbols-outlined text-[18px]" style="">bar_chart</span>
+</div>
+</div>
+<div class="h-32 rounded-lg bg-[#F0F7FF] border border-[#D9E9F9] flex items-center justify-center">
+<span class="text-[#006EC7]/40 font-medium" style="">Content Area</span>
+</div>
+</div>
+<div class="bg-white rounded-xl p-6 shadow-sm">
+<h3 class="text-[14px] font-medium text-[#1A1A1A] mb-5" style="">Pill Elements (999px radius)</h3>
+<div class="flex flex-wrap gap-2.5">
+<button class="bg-[#FBEBEF] text-[#D1495B] px-5 py-2 rounded-full font-medium text-[13px] flex items-center gap-2" style="">
+<span class="material-symbols-outlined text-[16px]" style="">mood_bad</span>
+                            Cramps
+                        </button>
+<button class="bg-[#FFF4E5] text-[#FF9F00] px-5 py-2 rounded-full font-medium text-[13px] flex items-center gap-2" style="">
+<span class="material-symbols-outlined text-[16px]" style="">sentiment_satisfied</span>
+                            Happy
+                        </button>
+<button class="bg-[#F2F2F7] text-[#444] px-5 py-2 rounded-full font-medium text-[13px] flex items-center gap-2" style="">
+<span class="material-symbols-outlined text-[16px]" style="">add</span>
+                            Add Symptom
+                        </button>
+</div>
+</div>
+<div class="bg-white rounded-xl p-6 shadow-sm">
+<h3 class="text-[14px] font-medium text-[#1A1A1A] mb-5" style="">Security &amp; Iconography</h3>
+<div class="flex items-center gap-4 bg-[#F2F8FD] p-4 rounded-xl">
+<div class="bg-primary text-white w-10 h-10 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]" style="">lock</span>
+</div>
+<div>
+<h4 class="text-[14px] font-bold text-[#1A1A1A]" style="">Data Encrypted</h4>
+<p class="text-[12px] text-[#8E8E93]" style="">Your intimate data is safe.</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<div class="h-20"></div>
+</div>
+</div>
+</body></html>
