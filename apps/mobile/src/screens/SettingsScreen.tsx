@@ -111,7 +111,12 @@ export const SettingsScreen = () => {
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel="Go back"
+                    onPress={() => navigation.goBack()}
+                    style={styles.backButton}
+                >
                     <Text style={styles.backButtonText}>{'<'}</Text>
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Settings</Text>

@@ -86,7 +86,12 @@ export const ImportScreen = () => {
     return (
         <ScreenWrapper>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel="Go back"
+                    onPress={() => navigation.goBack()}
+                    style={styles.backButton}
+                >
                     <Text style={styles.backButtonText}>← Back</Text>
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Import Data</Text>
