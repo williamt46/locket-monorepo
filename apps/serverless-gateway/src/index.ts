@@ -18,6 +18,7 @@
 
 import express from 'express';
 import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 import { FabricService } from './FabricService';
 
 // CryptoService is loaded dynamically because umbral-pre WASM
@@ -27,6 +28,18 @@ let cryptoService: any;
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
+
+// ─── Security Middleware ─────────────────────────────────────────────────────
+// Rate limiter to prevent DoS attacks on the API gateway
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes)
+    standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+    legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+    message: { error: 'Too many requests from this IP, please try again after 15 minutes' }
+});
+app.use('/api/', limiter);
+
 
 // ─── Ephemeral Storage ───────────────────────────────────────────────────────
 // Maps userDid → { ciphertextB64, capsuleB64 }
@@ -89,7 +102,7 @@ app.post('/api/consent/grant', async (req, res) => {
         return res.status(201).json({ status: 'ConInSe Consent Token Generated' });
     } catch (e: any) {
         console.error('[Gateway] consent/grant error:', e.message);
-        return res.status(500).json({ error: e.message });
+        return res.status(500).json({ error: 'An internal error occurred while processing the request.' });
     }
 });
 
@@ -133,7 +146,7 @@ app.get('/api/data/request/:userDid/:recipientPublicKey', async (req, res) => {
         });
     } catch (e: any) {
         console.error('[Gateway] data/request error:', e.message);
-        return res.status(500).json({ error: e.message });
+        return res.status(500).json({ error: 'An internal error occurred while processing the request.' });
     }
 });
 
@@ -148,7 +161,7 @@ app.post('/api/anchor', async (req, res) => {
         return res.status(201).json({ txId, assetId: `anchor_${Date.now()}` }); // Note: actual ID generated in FabricService
     } catch (e: any) {
         console.error('[Gateway] anchor error:', e.message);
-        return res.status(500).json({ error: e.message });
+        return res.status(500).json({ error: 'An internal error occurred while processing the request.' });
     }
 });
 
@@ -164,7 +177,7 @@ app.post('/api/anchor/batch', async (req, res) => {
         return res.status(201).json({ status: 'Batch Anchored', results });
     } catch (e: any) {
         console.error('[Gateway] anchor/batch error:', e.message);
-        return res.status(500).json({ error: e.message });
+        return res.status(500).json({ error: 'An internal error occurred while processing the request.' });
     }
 });
 
@@ -179,7 +192,7 @@ app.get('/api/verify/:assetId', async (req, res) => {
         return res.json(asset);
     } catch (e: any) {
         console.error('[Gateway] verify error:', e.message);
-        return res.status(404).json({ error: e.message });
+        return res.status(404).json({ error: 'Resource not found.' });
     }
 });
 
