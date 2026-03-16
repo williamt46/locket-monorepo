@@ -192,7 +192,7 @@ export class FabricService {
      */
     async createAsset(userDid: string, dataHash: string): Promise<string> {
         this.ensureConnected();
-        const assetId = `anchor_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+        const assetId = `anchor_${crypto.randomUUID()}`;
         const resultBytes = await this.integrityContract!.submitTransaction(
             'CreateAsset',
             assetId,
@@ -210,7 +210,7 @@ export class FabricService {
 
         // Ensure every asset has an ID
         const finalAssets = assets.map(a => ({
-            assetId: a.assetId || `anchor_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+            assetId: a.assetId || `anchor_${crypto.randomUUID()}`,
             userDID: a.userDID,
             dataHash: a.dataHash
         }));
