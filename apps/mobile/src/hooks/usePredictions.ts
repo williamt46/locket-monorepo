@@ -3,24 +3,21 @@ import { UserConfig } from '../models/UserConfig';
 import { calculatePredictedPeriods, getLatestPeriodStart } from '../utils/PredictionEngine';
 
 export function usePredictions(decryptedData: Record<string, any>, config: UserConfig | null) {
-    const [futureData, setFutureData] = useState<Record<string, boolean>>({});
-
-    // Generate future predictions dynamically based on decrypted local data and UserConfig
-    useEffect(() => {
+    // ⚡ Bolt: Use useMemo instead of useState + useEffect to derive futureData
+    // This prevents a costly secondary re-render cycle in LedgerScreen whenever decryptedData or config changes.
+    // Derived state is calculated synchronously during render, avoiding the cascade effect.
+    const futureData = useMemo(() => {
         if (!config) {
-            setFutureData({});
-            return;
+            return {};
         }
 
         const latestStart = getLatestPeriodStart(decryptedData, config.lastPeriodDate);
-        const predictions = calculatePredictedPeriods(
+        return calculatePredictedPeriods(
             latestStart,
             config.cycleLength,
             config.periodLength,
             3 // Forecast next 3 cycles
         );
-
-        setFutureData(predictions);
     }, [decryptedData, config]);
 
     const calculateAverageCycle = (data: Record<string, { isPeriod: boolean }>): Record<number, number> => {
