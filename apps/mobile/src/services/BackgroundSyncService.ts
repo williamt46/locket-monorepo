@@ -2,7 +2,13 @@
 // Optimistic Sync Engine for anchoring local hashes to Hyperledger Fabric in batches
 
 import { BlockchainService } from './BlockchainService';
+import { SyncService } from './SyncService';
+import { LocketCryptoService } from '@locket/core-crypto';
+import * as SecureStore from 'expo-secure-store';
 import { StorageRecord } from '@locket/secure-storage';
+
+const PRE_KEYPAIR_KEY = 'locket_pre_keypair';
+const crypto = new LocketCryptoService();
 
 const SYNC_THRESHOLD = 7; // Sync every 7 events (aligns with period auto-fill)
 
@@ -14,8 +20,9 @@ export const BackgroundSyncService = {
      * Scans the ledger for unanchored ('local') records and anchors them in batches.
      * @param ledger The ledger instance from useLedger
      * @param onSyncComplete Optional callback to refresh UI
+     * @param keyHex Optional symmetric key to enable decoupled PRE upload
      */
-    async performSync(ledger: any, onSyncComplete?: () => void) {
+    async performSync(ledger: any, onSyncComplete?: () => void, keyHex?: string) {
         if (!ledger) {
             console.warn('[SyncEngine] Skipping performSync: Ledger not initialized.');
             return;
@@ -61,7 +68,7 @@ export const BackgroundSyncService = {
     /**
      * Bypasses the threshold and anchors all pending records immediately.
      */
-    async forceSync(ledger: any, onSyncComplete?: () => void) {
+    async forceSync(ledger: any, onSyncComplete?: () => void, keyHex?: string) {
         if (!ledger) {
             console.error('[SyncEngine] Cannot force sync: Ledger is null.');
             return;
@@ -93,7 +100,7 @@ export const BackgroundSyncService = {
         }
     },
 
-    async executeAnchorBatch(pending: StorageRecord[], ledger: any, onSyncComplete?: () => void) {
+    async executeAnchorBatch(pending: StorageRecord[], ledger: any, onSyncComplete?: () => void, keyHex?: string) {
         try {
             console.log(`[SyncEngine] Anchoring Batch: Tracking IDs [${pending.map(p => p.signature?.substring(0, 8)).join(', ')}]`);
 
@@ -120,6 +127,13 @@ export const BackgroundSyncService = {
 
                 await ledger.saveEvents(updatedRecords);
 
+                // --- NEW: Decoupled PRE Upload ---
+                // Trigger an optimistic baseline upload to the gateway so clinical data is always fresh.
+                // This ensures that even if consent is granted later, the gateway already has the latest ciphertext.
+                if (keyHex) {
+                    this.triggerDecoupledUpload(ledger, keyHex);
+                }
+
                 if (onSyncComplete) onSyncComplete();
             } else {
                 console.error('[SyncEngine] Batch anchor failed:', result.error);
@@ -132,5 +146,42 @@ export const BackgroundSyncService = {
     setSyncing(val: boolean) {
         this.isSyncing = val;
         this.onStatusChange(val);
+    },
+
+    /**
+     * Performs a decoupled upload of the entire ledger to the gateway.
+     * Decrypts local records using keyHex and re-encrypts for Gateway via SyncService.
+     */
+    async triggerDecoupledUpload(ledger: any, keyHex: string) {
+        try {
+            const keyPairStr = await SecureStore.getItemAsync(PRE_KEYPAIR_KEY);
+            if (!keyPairStr) {
+                console.log('[SyncEngine] PRE Upload skipped: No PRE keys found.');
+                return;
+            }
+
+            const { publicKeyB64 } = JSON.parse(keyPairStr);
+            const allEvents: StorageRecord[] = await ledger.loadEvents();
+
+            // Decrypt all events to create a fresh baseline for the provider
+            const decryptedData: any[] = [];
+            for (const record of allEvents) {
+                try {
+                    const decrypted = await crypto.decryptData(record.payload, keyHex);
+                    decryptedData.push(decrypted);
+                } catch (e) {
+                    console.error('[SyncEngine] Failed to decrypt record for PRE upload:', e);
+                }
+            }
+
+            const result = await SyncService.uploadBaselineCiphertext(decryptedData, publicKeyB64);
+            if (result.success) {
+                console.log(`[SyncEngine] Decoupled PRE baseline uploaded (${decryptedData.length} events).`);
+            } else {
+                console.error('[SyncEngine] Decoupled PRE upload failed:', result.error);
+            }
+        } catch (e) {
+            console.error('[SyncEngine] Unexpected error in decoupled upload:', e);
+        }
     }
 };

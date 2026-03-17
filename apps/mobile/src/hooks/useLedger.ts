@@ -63,7 +63,7 @@ export const useLedger = (keyHex?: string) => {
             console.log('[useLedger] Inscribed event at:', new Date(ts).toLocaleDateString());
 
             // Trigger optimistic sync check
-            BackgroundSyncService.performSync(ledger, refresh);
+            BackgroundSyncService.performSync(ledger, refresh, keyHex);
         } catch (e) {
             console.error('[useLedger] Inscription failed', e);
             throw e;
@@ -97,7 +97,7 @@ export const useLedger = (keyHex?: string) => {
             console.log(`[useLedger] Batch inscribed ${entries.length} entries successfully`);
 
             // Trigger optimistic sync check (should hit the 7-event threshold immediately)
-            BackgroundSyncService.performSync(ledger, refresh);
+            BackgroundSyncService.performSync(ledger, refresh, keyHex);
         } catch (e) {
             console.error('[useLedger] Batch inscription failed', e);
             throw e;
@@ -142,7 +142,7 @@ export const useLedger = (keyHex?: string) => {
     const triggerSync = useCallback(async () => {
         if (!isInitialized) return;
         console.log('[useLedger] Manual sync trigger requested');
-        await BackgroundSyncService.forceSync(ledger, refresh);
+        await BackgroundSyncService.forceSync(ledger, refresh, keyHex);
     }, [isInitialized, refresh]);
 
     const deleteByTimestamp = useCallback(async (ts: number) => {
