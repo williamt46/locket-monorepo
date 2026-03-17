@@ -361,6 +361,17 @@ export const LedgerScreen = () => {
                 <View style={styles.headerRight}>
                     <TouchableOpacity
                         accessibilityRole="button"
+                        accessibilityLabel="Share"
+                        onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            navigation.navigate('Consent');
+                        }}
+                        style={{ padding: 4, marginRight: 15 }}
+                    >
+                        <Text style={{ fontSize: 22, color: colors.charcoal }}>📤</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        accessibilityRole="button"
                         accessibilityLabel="Settings"
                         onPress={() => navigation.navigate('Settings', {
                             keyHex,

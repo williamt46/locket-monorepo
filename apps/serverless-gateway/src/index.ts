@@ -6,20 +6,23 @@
  * capsules using kFrags retrieved from the consent ledger.
  *
  * Routes:
- *   POST /api/data/upload           — App uploads base ciphertext
- *   POST /api/consent/grant         — App records consent on-chain
- *   GET  /api/data/request/:did/:pk — Provider requests re-encrypted data
+ *   POST /api/auth/register           — Register app session token
+ *   POST /api/data/upload             — App uploads base ciphertext
+ *   POST /api/consent/request         — Provider/partner requests consent (rate-limited per DID)
+ *   GET  /api/consent/pending/:userDid — App polls for pending requests (authenticated)
+ *   POST /api/consent/grant           — App records consent on-chain
+ *   GET  /api/data/request/:did/:pk   — Provider requests re-encrypted data
  *
  * Compatibility Routes:
- *   POST /api/anchor                — Legacy single anchor
- *   POST /api/anchor/batch          — Legacy batch anchor
- *   GET  /api/verify/:assetId       — Legacy asset verification
+ *   POST /api/anchor                  — Legacy single anchor
+ *   POST /api/anchor/batch            — Legacy batch anchor
+ *   GET  /api/verify/:assetId         — Legacy asset verification
  */
 
 import express from 'express';
 import cors from 'cors';
-import rateLimit from 'express-rate-limit';
 import { FabricService } from './FabricService';
+import { ConsentRequestStore, RateLimiter, SessionAuthStore } from './ConsentService';
 
 // CryptoService is loaded dynamically because umbral-pre WASM
 // needs async initialization in some environments.
@@ -29,16 +32,10 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-// ─── Security Middleware ─────────────────────────────────────────────────────
-// Rate limiter to prevent DoS attacks on the API gateway
-const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes)
-    standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-    legacyHeaders: false, // Disable the `X-RateLimit-*` headers
-    message: { error: 'Too many requests from this IP, please try again after 15 minutes' }
-});
-app.use('/api/', limiter);
+// ─── Consent + Security Services ─────────────────────────────────────────────
+const consentStore = new ConsentRequestStore();
+const rateLimiter = new RateLimiter({ maxRequests: 5, windowMs: 60 * 60 * 1000 }); // 5 req/hr/DID
+const sessionAuth = new SessionAuthStore();
 
 
 // ─── Ephemeral Storage ───────────────────────────────────────────────────────
@@ -50,6 +47,67 @@ const storage = new Map<string, { ciphertextB64: string; capsuleB64: string }>()
 const fabric = new FabricService();
 
 // ─── Routes ──────────────────────────────────────────────────────────────────
+
+/**
+ * POST /api/auth/register
+ * App registers a session token for authenticated polling.
+ */
+app.post('/api/auth/register', (req, res) => {
+    const { userDid } = req.body;
+    if (!userDid) {
+        return res.status(400).json({ error: 'Missing required field: userDid' });
+    }
+    const token = sessionAuth.register(userDid);
+    console.log(`[Gateway] Session registered for ${userDid}`);
+    return res.status(201).json({ token });
+});
+
+/**
+ * POST /api/consent/request
+ * Provider/partner submits a consent request. Rate-limited per recipientDID.
+ */
+app.post('/api/consent/request', (req, res) => {
+    const { userDID, recipientDID, recipientPublicKeyB64, displayName } = req.body;
+
+    if (!userDID || !recipientDID || !recipientPublicKeyB64) {
+        return res.status(400).json({ error: 'Missing required fields: userDID, recipientDID, recipientPublicKeyB64' });
+    }
+
+    // Per-DID rate limiting
+    if (!rateLimiter.isAllowed(recipientDID)) {
+        console.log(`[Gateway] Rate limited: ${recipientDID}`);
+        return res.status(429).json({ error: 'Too many consent requests from this DID. Try again later.' });
+    }
+    rateLimiter.record(recipientDID);
+
+    consentStore.addRequest({ userDID, recipientDID, recipientPublicKeyB64, displayName });
+    console.log(`[Gateway] Consent request from ${recipientDID} for ${userDID}`);
+    return res.status(201).json({ status: 'Consent request submitted' });
+});
+
+/**
+ * GET /api/consent/pending/:userDid
+ * App polls for pending consent requests. Requires session token auth.
+ */
+app.get('/api/consent/pending/:userDid', (req, res) => {
+    const { userDid } = req.params;
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Missing or invalid Authorization header' });
+    }
+
+    const token = authHeader.substring(7);
+    const authenticatedDid = sessionAuth.validate(token);
+
+    if (!authenticatedDid || authenticatedDid !== userDid) {
+        return res.status(401).json({ error: 'Invalid session token' });
+    }
+
+    const pending = consentStore.getPending(userDid);
+    return res.json({ pending });
+});
+
 
 /**
  * POST /api/data/upload
@@ -236,7 +294,10 @@ async function start() {
     app.listen(PORT, () => {
         console.log(`\n🔒 ConInSe PRE Proxy running on http://localhost:${PORT}`);
         console.log(`   Routes:`);
+        console.log(`     POST /api/auth/register`);
         console.log(`     POST /api/data/upload`);
+        console.log(`     POST /api/consent/request  (rate-limited per DID)`);
+        console.log(`     GET  /api/consent/pending/:userDid (authenticated)`);
         console.log(`     POST /api/consent/grant`);
         console.log(`     GET  /api/data/request/:userDid/:recipientPublicKey`);
         console.log(`     POST /api/anchor/batch (Legacy)`);
