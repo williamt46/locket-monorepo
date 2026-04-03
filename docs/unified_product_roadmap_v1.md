@@ -57,11 +57,13 @@ The core 0.9.x infrastructure successfully implemented the `@locket/crypto-engin
 ### Epic 4: Role-Based Consent & Sync
 *Overhaul the consent model so requestors ask and the sovereign user approves via in-app review cards.*
 
-- **Story 4.1:** As a User, I want to display a QR code or send a link containing my public ID, so that a doctor or partner can initiate an access request without my device needing camera permissions.
-- **Story 4.2:** As a User, I want to see a human-readable "Review Card" (e.g., "City Clinic requesting access"), so I know exactly who I am sharing data with before approving.
-- **Story 4.3:** As a User, I want to select specific access durations (24h, 7d, 30d, or Indefinite), so I can maintain granular control over my data's shelf-life.
-- **Story 4.4:** As a Developer, I want to rate-limit consent requests per recipient DID, so the system is protected against spam if a user's QR code or public identity is leaked.
-- **Story 4.5:** As a User, I want the background sync service to continuously encrypt and upload my ledger changes independently of any active consent handshakes, ensuring data is never stale.
+> **Status: SHIPPED — v0.1.0.0 (2026-04-03, branch `claude/sharp-kowalevski`)**
+
+- **Story 4.1:** ✅ As a User, I want to display a QR code or send a link containing my public ID, so that a doctor or partner can initiate an access request without my device needing camera permissions. — *Implemented: `ConsentScreen` QR tab + `share.html` landing page + URL param auto-fill in portals.*
+- **Story 4.2:** ✅ As a User, I want to see a human-readable "Review Card" (e.g., "City Clinic requesting access"), so I know exactly who I am sharing data with before approving. — *Implemented: `ConsentReviewCard` with displayName, duration pills, grant/deny haptics.*
+- **Story 4.3:** ✅ As a User, I want to select specific access durations (24h, 7d, 30d, or Indefinite), so I can maintain granular control over my data's shelf-life. — *Implemented: `ConsentDuration` type + pills in `ConsentReviewCard` + `expiresAt:null` for indefinite.*
+- **Story 4.4:** ✅ As a Developer, I want to rate-limit consent requests per recipient DID, so the system is protected against spam if a user's QR code or public identity is leaked. — *Implemented: 50/userDid eviction cap in gateway + `recipientPublicKeyB64` format validation. Provider portal auth (deeper fix) is P1 in TODOS.md.*
+- **Story 4.5:** ✅ As a User, I want the background sync service to continuously encrypt and upload my ledger changes independently of any active consent handshakes, ensuring data is never stale. — *Implemented: fire-and-forget `uploadBaselineCiphertext` in `BackgroundSyncService.executeAnchorBatch`.*
 
 ---
 
