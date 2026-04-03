@@ -140,6 +140,26 @@ export class FabricService {
     }
 
     /**
+     * Revoke consent on-chain via ConInSeContract:RevokeConsentEvent.
+     */
+    async revokeConsent(
+        userDid: string,
+        recipientPublicKey: string
+    ): Promise<void> {
+        this.ensureConnected();
+
+        console.log(`[FabricService] RevokeConsentEvent: ${userDid} → ${recipientPublicKey.substring(0, 16)}...`);
+
+        await this.consentContract!.submitTransaction(
+            'RevokeConsentEvent',
+            userDid,
+            recipientPublicKey
+        );
+
+        console.log('[FabricService] Consent revoked ✓');
+    }
+
+    /**
      * Verify consent on-chain via ConInSeContract:VerifyConsentEvent.
      * Uses evaluateTransaction (query — no ledger commit).
      */
