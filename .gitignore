@@ -64,3 +64,4 @@ apps/gateway/
 
 # Agent Workspace
 .agent/
+.gstack/
