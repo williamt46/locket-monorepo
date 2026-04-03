@@ -17,6 +17,7 @@ import { usePredictions } from '../hooks/usePredictions';
 
 import { Alert } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { SharedWithSection } from '../components/SharedWithSection';
 
 export const LedgerScreen = () => {
     const navigation = useNavigation<any>();
@@ -403,6 +404,9 @@ export const LedgerScreen = () => {
                 onClose={() => setModalVisible(false)}
                 onSave={handleSaveData}
             />
+
+            {/* Phase 6.5 — Active Shares */}
+            <SharedWithSection />
 
             {/* Anchored Footer Toggle */}
             <View style={styles.footerContainer}>
