@@ -197,6 +197,179 @@ fi
 # Summary
 # ─────────────────────────────────────────────
 echo ""
+echo "=== Phase 6.5: Reversed QR Consent Routes ==="
+echo ""
+
+# ─────────────────────────────────────────────
+# G6.5.1: POST /api/auth/register
+# ─────────────────────────────────────────────
+echo "[G6.5.1] Testing POST /api/auth/register..."
+REG_RESULT=$(curl -s -w "\n%{http_code}" -X POST "$GW/api/auth/register" \
+  -H "Content-Type: application/json" \
+  -d "{\"userDid\":\"$USER_DID\"}")
+
+HTTP_CODE=$(echo "$REG_RESULT" | tail -1)
+BODY=$(echo "$REG_RESULT" | sed '$d')
+
+if [ "$HTTP_CODE" = "200" ]; then
+  pass "Register returned 200"
+  SESSION_TOKEN=$(echo "$BODY" | node -e "process.stdin.on('data',d=>{const j=JSON.parse(d);console.log(j.sessionToken)})")
+  if [ -n "$SESSION_TOKEN" ]; then
+    pass "sessionToken present in response"
+  else
+    fail "sessionToken missing from response"
+    echo "  Body: $BODY"
+  fi
+else
+  fail "Expected 200, got $HTTP_CODE"
+  echo "  Body: $BODY"
+  # Can't run remaining 6.5 tests without a token
+  echo ""
+  echo "============================================"
+  echo "  Results: $PASS_COUNT passed, $FAIL_COUNT failed"
+  echo "============================================"
+  exit 1
+fi
+
+# ─────────────────────────────────────────────
+# G6.5.2: POST /api/consent/request
+# ─────────────────────────────────────────────
+echo "[G6.5.2] Testing POST /api/consent/request..."
+CONSENT_REQ_BODY=$(cat <<EOF
+{
+  "userDid": "$USER_DID",
+  "recipientDID": "did:locket:provider-shell-test",
+  "recipientPublicKeyB64": "$BOB_PK",
+  "displayName": "Shell Test Provider",
+  "requestedDuration": "24h"
+}
+EOF
+)
+
+CREQ_RESULT=$(curl -s -w "\n%{http_code}" -X POST "$GW/api/consent/request" \
+  -H "Content-Type: application/json" \
+  -d "$CONSENT_REQ_BODY")
+
+HTTP_CODE=$(echo "$CREQ_RESULT" | tail -1)
+BODY=$(echo "$CREQ_RESULT" | sed '$d')
+
+if [ "$HTTP_CODE" = "201" ]; then
+  pass "Consent request returned 201"
+  REQUEST_ID=$(echo "$BODY" | node -e "process.stdin.on('data',d=>{const j=JSON.parse(d);console.log(j.requestId)})")
+  if [ -n "$REQUEST_ID" ]; then
+    pass "requestId present in response"
+  else
+    fail "requestId missing from response"
+    echo "  Body: $BODY"
+  fi
+else
+  fail "Expected 201, got $HTTP_CODE"
+  echo "  Body: $BODY"
+fi
+
+# G6.5.2b: invalid duration rejected
+echo "[G6.5.2b] Testing POST /api/consent/request (invalid duration)..."
+BAD_DUR=$(curl -s -w "\n%{http_code}" -X POST "$GW/api/consent/request" \
+  -H "Content-Type: application/json" \
+  -d "{\"userDid\":\"$USER_DID\",\"recipientDID\":\"did:x\",\"recipientPublicKeyB64\":\"abc\",\"displayName\":\"X\",\"requestedDuration\":\"999d\"}")
+
+HTTP_CODE=$(echo "$BAD_DUR" | tail -1)
+if [ "$HTTP_CODE" = "400" ]; then
+  pass "Invalid duration correctly rejected (400)"
+else
+  fail "Expected 400 for invalid duration, got $HTTP_CODE"
+fi
+
+# ─────────────────────────────────────────────
+# G6.5.3: GET /api/consent/pending/:userDid (happy path)
+# ─────────────────────────────────────────────
+echo "[G6.5.3] Testing GET /api/consent/pending/:userDid (authenticated)..."
+PENDING_RESULT=$(curl -s -w "\n%{http_code}" \
+  -H "Authorization: Bearer $SESSION_TOKEN" \
+  "$GW/api/consent/pending/$USER_DID")
+
+HTTP_CODE=$(echo "$PENDING_RESULT" | tail -1)
+BODY=$(echo "$PENDING_RESULT" | sed '$d')
+
+if [ "$HTTP_CODE" = "200" ]; then
+  pass "Pending list returned 200"
+  if echo "$BODY" | grep -q '"requests"'; then
+    pass "requests array present"
+  else
+    fail "requests field missing"
+    echo "  Body: $BODY"
+  fi
+else
+  fail "Expected 200, got $HTTP_CODE"
+  echo "  Body: $BODY"
+fi
+
+# G6.5.3b: no auth → 401
+echo "[G6.5.3b] Testing GET /api/consent/pending/:userDid (no auth)..."
+NOAUTH_RESULT=$(curl -s -w "\n%{http_code}" "$GW/api/consent/pending/$USER_DID")
+HTTP_CODE=$(echo "$NOAUTH_RESULT" | tail -1)
+if [ "$HTTP_CODE" = "401" ]; then
+  pass "Unauthenticated request correctly rejected (401)"
+else
+  fail "Expected 401 without auth, got $HTTP_CODE"
+fi
+
+# ─────────────────────────────────────────────
+# G6.5.4: POST /api/consent/revoke/:requestId
+# ─────────────────────────────────────────────
+echo "[G6.5.4] Testing POST /api/consent/revoke/:requestId..."
+if [ -n "$REQUEST_ID" ]; then
+  REVOKE_BODY=$(cat <<EOF
+{
+  "userDid": "$USER_DID",
+  "recipientPublicKeyB64": "$BOB_PK"
+}
+EOF
+)
+
+  REVOKE_RESULT=$(curl -s -w "\n%{http_code}" -X POST \
+    "$GW/api/consent/revoke/$REQUEST_ID" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $SESSION_TOKEN" \
+    -d "$REVOKE_BODY")
+
+  HTTP_CODE=$(echo "$REVOKE_RESULT" | tail -1)
+  BODY=$(echo "$REVOKE_RESULT" | sed '$d')
+
+  if [ "$HTTP_CODE" = "200" ]; then
+    pass "Revoke returned 200"
+  else
+    fail "Expected 200, got $HTTP_CODE"
+    echo "  Body: $BODY"
+  fi
+
+  # Confirm no longer in pending list
+  AFTER_REVOKE=$(curl -s \
+    -H "Authorization: Bearer $SESSION_TOKEN" \
+    "$GW/api/consent/pending/$USER_DID")
+
+  if echo "$AFTER_REVOKE" | grep -q "$REQUEST_ID"; then
+    fail "Revoked request still appears in pending list"
+  else
+    pass "Revoked request absent from pending list"
+  fi
+else
+  fail "Skipping revoke test — no REQUEST_ID available"
+fi
+
+# ─────────────────────────────────────────────
+# G6.5.5: GET /health includes pendingRequests count
+# ─────────────────────────────────────────────
+echo "[G6.5.5] Testing GET /health includes pendingRequests..."
+HEALTH=$(curl -s "$GW/health")
+if echo "$HEALTH" | grep -q '"pendingRequests"'; then
+  pass "pendingRequests field present in /health"
+else
+  fail "pendingRequests missing from /health"
+  echo "  Body: $HEALTH"
+fi
+
+echo ""
 echo "============================================"
 echo "  Results: $PASS_COUNT passed, $FAIL_COUNT failed"
 echo "============================================"
@@ -206,4 +379,4 @@ if [ "$FAIL_COUNT" -gt 0 ]; then
 fi
 
 echo ""
-echo "=== Phase 5: ALL CHECKPOINTS PASSED ==="
+echo "=== Phase 5 + 6.5: ALL CHECKPOINTS PASSED ==="
