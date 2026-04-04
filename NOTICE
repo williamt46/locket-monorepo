@@ -1,0 +1,7 @@
+Locket includes educational health content adapted from the Euki iOS project.
+
+Euki iOS
+Copyright (C) Euki-Inc
+License: GNU General Public License v3.0
+Source: https://github.com/Euki-Inc/Euki-iOS
+Adaptation: Content organized into TypeScript modules for offline bundling.
