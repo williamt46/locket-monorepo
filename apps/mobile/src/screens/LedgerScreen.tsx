@@ -6,7 +6,6 @@ import { typography } from '../theme/typography';
 import { IntegritySeal } from '../components/IntegritySeal';
 import { HorizontalCalendar } from '../components/HorizontalCalendar';
 import { VerticalYearView } from '../components/VerticalYearView';
-import { DataEntryModal } from '../components/DataEntryModal';
 import * as Haptics from 'expo-haptics';
 import { useLedger } from '../hooks/useLedger';
 import { SecureKeyService } from '../services/SecureKeyService';
@@ -85,10 +84,6 @@ export const LedgerScreen = () => {
     console.warn(`[LedgerScreen] Render. Total Events: ${events.length}, Initialized: ${isInitialized}`);
 
 
-
-    // Modal State
-    const [modalVisible, setModalVisible] = useState(false);
-    const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
     // Current Date State
     const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
@@ -245,88 +240,18 @@ export const LedgerScreen = () => {
         }
     }, [isInitialized, keyHex, config, events.length, isSyncing, batchInscribe]);
 
-    const { futureData, cycleStats } = usePredictions(decryptedData, config);
+    const { futureData, cycleStats, currentPhase, dayInCycle } = usePredictions(decryptedData, config);
 
     const handleToggleDate = (monthIndex: number, day: number) => {
-        // Open Modal instead of direct toggle
         const date = new Date(currentYear, monthIndex, day);
-        setSelectedDate(date);
-        setModalVisible(true);
-    };
-
-    const handleSaveData = async (modalData: { isStart?: boolean; isEnd?: boolean; note?: string; delete?: boolean }) => {
-        if (!selectedDate || !keyHex) return;
-
-        const year = selectedDate.getFullYear();
-        const month = selectedDate.getMonth();
-        const day = selectedDate.getDate();
-
-        if (modalData.delete) {
-            try {
-                const ts = selectedDate.getTime();
-                const dateStr = selectedDate.toLocaleDateString();
-                await deleteByTimestamp(ts);
-                console.log('[LedgerScreen] Deleted data for:', dateStr);
-            } catch (e) {
-                console.error('Delete failed', e);
-            }
-            setModalVisible(false);
-            return;
-        }
-
-        try {
-            console.log('[LedgerScreen] Saving data:', modalData, 'for date:', selectedDate.toLocaleDateString());
-            const length = config?.periodLength || 5;
-
-            if (modalData.isStart) {
-                // Batch Inscribe based on user's periodLength
-                const batch = [];
-                for (let i = 0; i < length; i++) {
-                    const d = new Date(year, month, day + i);
-                    const record: any = {
-                        ts: d.getTime(),
-                        isPeriod: true,
-                        isStart: i === 0,
-                        isEnd: i === length - 1,
-                    };
-                    if (i === 0 && modalData.note) {
-                        record.note = modalData.note;
-                    }
-                    batch.push(record);
-                }
-                await batchInscribe(batch);
-                console.log(`[LedgerScreen] Inscribed batch of ${batch.length} days starting from ${selectedDate.toLocaleDateString()}`);
-            } else if (modalData.isEnd) {
-                const batch = [];
-                // End date is selectedDate, so we want (length) days leading UP to it
-                const startDate = new Date(year, month, day - (length - 1));
-                for (let i = 0; i < length; i++) {
-                    const d = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() + i);
-                    const record: any = {
-                        ts: d.getTime(),
-                        isPeriod: true,
-                        isStart: i === 0,
-                        isEnd: i === length - 1,
-                    };
-                    if (i === length - 1 && modalData.note) {
-                        record.note = modalData.note;
-                    }
-                    batch.push(record);
-                }
-                await batchInscribe(batch);
-                console.log(`[LedgerScreen] Inscribed batch of ${batch.length} days ending at ${selectedDate.toLocaleDateString()}`);
-            } else {
-                await inscribe({
-                    ts: selectedDate.getTime(),
-                    note: modalData.note,
-                    isPeriod: true
-                });
-            }
-        } catch (e) {
-            console.error('Save failed', e);
-        }
-
-        setModalVisible(false);
+        navigation.navigate('Log', {
+            date: date.toISOString(),
+            initialData: decryptedData[`${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`],
+            keyHex,
+            currentPhase,
+            // Note: inscribe and deleteByTimestamp are NOT passed — LogScreen calls useLedger(keyHex) directly.
+            // Passing functions via route.params causes React Navigation non-serializable warnings and breaks deep linking.
+        });
     };
 
     // Aggregate Integrity Status
@@ -359,6 +284,18 @@ export const LedgerScreen = () => {
                     <Text style={styles.headerTitle}>Locket</Text>
                 </View>
                 <View style={styles.headerRight}>
+                    <TouchableOpacity
+                        accessibilityRole="button"
+                        accessibilityLabel="Cycle Insights"
+                        onPress={() => navigation.navigate('CycleInsights', {
+                            currentPhase,
+                            dayInCycle,
+                            cycleStats,
+                        })}
+                        style={{ padding: 4, marginRight: 8 }}
+                    >
+                        <Text style={{ fontSize: 14, fontFamily: typography.body, color: colors.locketBlue, fontWeight: '500' }}>Insights →</Text>
+                    </TouchableOpacity>
                     <TouchableOpacity
                         accessibilityRole="button"
                         accessibilityLabel="Settings"
@@ -394,15 +331,6 @@ export const LedgerScreen = () => {
                     />
                 )}
             </View>
-
-            {/* Data Entry Modal */}
-            <DataEntryModal
-                visible={modalVisible}
-                date={selectedDate}
-                initialData={selectedDate ? decryptedData[`${selectedDate.getFullYear()}-${selectedDate.getMonth()}-${selectedDate.getDate()}`] : undefined}
-                onClose={() => setModalVisible(false)}
-                onSave={handleSaveData}
-            />
 
             {/* Anchored Footer Toggle */}
             <View style={styles.footerContainer}>
