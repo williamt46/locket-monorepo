@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculatePredictedPeriods, getLatestPeriodStart } from '../../src/utils/PredictionEngine';
+import { calculatePredictedPeriods, getLatestPeriodStart, getCurrentPhase } from '../../src/utils/PredictionEngine';
 
 describe('PredictionEngine -> calculatePredictedPeriods', () => {
     it('predicts standard boundaries correctly', () => {
@@ -85,5 +85,72 @@ describe('PredictionEngine -> getLatestPeriodStart', () => {
 
         // Month 3 array is April, so '2026-04-05' string
         expect(getLatestPeriodStart(data, '2026-01-15')).toBe('2026-04-05');
+    });
+});
+
+describe('PredictionEngine -> getCurrentPhase', () => {
+    it('returns unknown for malformed input', () => {
+        const result = getCurrentPhase('2026-1-5', 28, 5); // not zero-padded → malformed
+        expect(result.phase).toBe('unknown');
+        expect(result.dayInCycle).toBe(0);
+    });
+
+    it('returns unknown for non-ISO input', () => {
+        const result = getCurrentPhase('bad-date', 28, 5);
+        expect(result.phase).toBe('unknown');
+    });
+
+    it('returns menstrual phase on day 0 (period start)', () => {
+        const today = new Date('2026-04-01');
+        const result = getCurrentPhase('2026-04-01', 28, 5, today);
+        expect(result.phase).toBe('menstrual');
+        expect(result.dayInCycle).toBe(0);
+    });
+
+    it('returns menstrual phase on last day of period', () => {
+        const today = new Date('2026-04-05');
+        const result = getCurrentPhase('2026-04-01', 28, 5, today);
+        expect(result.phase).toBe('menstrual');
+        expect(result.dayInCycle).toBe(4);
+    });
+
+    it('returns follicular phase after period ends', () => {
+        // cycleLength=28, periodLength=5, follicularEnd = floor(28*0.45) = 12
+        // day 6 → after period (5 days), before follicularEnd (12)
+        const today = new Date('2026-04-07');
+        const result = getCurrentPhase('2026-04-01', 28, 5, today);
+        expect(result.phase).toBe('follicular');
+        expect(result.dayInCycle).toBe(6);
+    });
+
+    it('returns ovulatory phase in the middle of cycle', () => {
+        // follicularEnd = floor(28*0.45) = 12, ovulatoryEnd = floor(28*0.55) = 15
+        // day 13 → ovulatory
+        const today = new Date('2026-04-14');
+        const result = getCurrentPhase('2026-04-01', 28, 5, today);
+        expect(result.phase).toBe('ovulatory');
+        expect(result.dayInCycle).toBe(13);
+    });
+
+    it('returns luteal phase in the second half of cycle', () => {
+        // day 20 → luteal (after ovulatoryEnd=15)
+        const today = new Date('2026-04-21');
+        const result = getCurrentPhase('2026-04-01', 28, 5, today);
+        expect(result.phase).toBe('luteal');
+        expect(result.dayInCycle).toBe(20);
+    });
+
+    it('returns unknown when dayInCycle exceeds cycleLength', () => {
+        // day 30 > cycleLength 28
+        const today = new Date('2026-05-01');
+        const result = getCurrentPhase('2026-04-01', 28, 5, today);
+        expect(result.phase).toBe('unknown');
+    });
+
+    it('returns unknown when today is before period start', () => {
+        const today = new Date('2026-03-31');
+        const result = getCurrentPhase('2026-04-01', 28, 5, today);
+        expect(result.phase).toBe('unknown');
+        expect(result.dayInCycle).toBeLessThan(0);
     });
 });
