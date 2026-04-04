@@ -43,14 +43,77 @@ export function getLatestPeriodStart(
             highestTimestamp = entry.ts;
 
             const d = new Date(entry.ts);
-            const y = d.getFullYear();
-            // Month is 0-indexed in JS date, need 1-indexed for string builder to match 'configLastDate' standard (YYYY-MM-DD)
-            const m = (d.getMonth() + 1).toString().padStart(2, '0');
-            const day = d.getDate().toString().padStart(2, '0');
+            const y = d.getUTCFullYear();
+            // Use UTC methods to match the UTC-based consumption in getCurrentPhase (avoids off-by-one near midnight in non-UTC timezones)
+            const m = (d.getUTCMonth() + 1).toString().padStart(2, '0');
+            const day = d.getUTCDate().toString().padStart(2, '0');
 
             latestDateStr = `${y}-${m}-${day}`;
         }
     }
 
     return latestDateStr || configLastDate;
+}
+
+export type CyclePhase = 'menstrual' | 'follicular' | 'ovulatory' | 'luteal' | 'unknown';
+
+/**
+ * Returns the current cycle phase and day-in-cycle for a user.
+ *
+ * @param latestPeriodStart - ISO date string "YYYY-MM-DD" (1-indexed month, zero-padded).
+ *   This is the format returned by `getLatestPeriodStart`. Do NOT pass raw ledger keys
+ *   (which use 0-indexed months: "YYYY-M-D"). Malformed input returns phase: 'unknown'.
+ * @param cycleLength - Typical cycle length in days.
+ * @param periodLength - Typical period length in days.
+ * @param today - Defaults to new Date(). Injectable for testing.
+ */
+export function getCurrentPhase(
+  latestPeriodStart: string,
+  cycleLength: number,
+  periodLength: number,
+  today: Date = new Date()
+): { phase: CyclePhase; dayInCycle: number } {
+  // Guard against degenerate config values (short cycle or period >= cycle)
+  if (!cycleLength || cycleLength <= 0 || !periodLength || periodLength >= cycleLength) {
+    return { phase: 'unknown', dayInCycle: 0 };
+  }
+
+  // Validate ISO format YYYY-MM-DD
+  const ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
+  if (!ISO_RE.test(latestPeriodStart)) {
+    return { phase: 'unknown', dayInCycle: 0 };
+  }
+
+  const [yStr, mStr, dStr] = latestPeriodStart.split('-');
+  const startUTC = Date.UTC(+yStr, +mStr - 1, +dStr);
+  if (isNaN(startUTC)) {
+    return { phase: 'unknown', dayInCycle: 0 };
+  }
+
+  const todayUTC = Date.UTC(
+    today.getUTCFullYear(),
+    today.getUTCMonth(),
+    today.getUTCDate()
+  );
+
+  const dayInCycle = Math.floor((todayUTC - startUTC) / (1000 * 60 * 60 * 24));
+
+  if (dayInCycle < 0 || dayInCycle > cycleLength) {
+    return { phase: 'unknown', dayInCycle };
+  }
+
+  if (dayInCycle < periodLength) {
+    return { phase: 'menstrual', dayInCycle };
+  }
+
+  const follicularEnd = Math.floor(cycleLength * 0.45);
+  const ovulatoryEnd = Math.floor(cycleLength * 0.55);
+
+  if (dayInCycle < follicularEnd) {
+    return { phase: 'follicular', dayInCycle };
+  }
+  if (dayInCycle < ovulatoryEnd) {
+    return { phase: 'ovulatory', dayInCycle };
+  }
+  return { phase: 'luteal', dayInCycle };
 }
