@@ -6,7 +6,7 @@
     "scripts": {
         "build": "tsc",
         "start": "node dist/index.js",
-        "dev": "ts-node src/index.ts"
+        "dev": "bash ../../network/validate-fabric-env.sh && ts-node src/index.ts"
     },
     "dependencies": {
         "@grpc/grpc-js": "^1.12.0",
