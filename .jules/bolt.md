@@ -1,3 +1,0 @@
-## 2024-03-07 - [Deriving futureData]
-**Learning:** In highly visual screens (like `LedgerScreen` with its `HorizontalCalendar`), using `useState` and `useEffect` to manage derived state like predictions (`futureData`) causes a double-render penalty whenever the source data (`decryptedData` or `config`) changes. This is because the effect runs *after* the initial render, queues a state update, and forces another full render of the heavy child components.
-**Action:** Always derive synchronous state directly during render using `useMemo` when calculating predictions or aggregating data based on props/context in this architecture. This avoids the cascade effect and keeps the UI snappy.
