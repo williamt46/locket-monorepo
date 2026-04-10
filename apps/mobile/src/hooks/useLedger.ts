@@ -121,23 +121,26 @@ export const useLedger = (keyHex?: string) => {
     }, [isInitialized]);
 
     const superNuke = useCallback(async () => {
-        if (!isInitialized) return;
         setIsBusy(true);
         try {
-            // This is the "Nuclear Option" - wipes data AND keys
-            await ledger.nuke();
+            // This is the "Nuclear Option" - wipes data AND keys.
+            // Must NOT guard on isInitialized — factory reset can be triggered before init completes.
+            if (ledger) {
+                await ledger.nuke();
+            }
             const { SecureKeyService } = require('../services/SecureKeyService');
             await SecureKeyService.nukeKey();
+            // Reset the module-level singleton so the next init() creates a fresh ledger instance.
+            ledger = null;
             setEvents([]);
+            setIsInitialized(false);
             console.log('[useLedger] SUPER NUKE: Data and Keys wiped.');
-            // Reload app or state would be needed, but we'll at least clear the ledger
-            await refresh(true);
         } catch (e) {
             console.error('[useLedger] Super Nuke failed', e);
         } finally {
             setIsBusy(false);
         }
-    }, [isInitialized, refresh]);
+    }, []);
 
     const triggerSync = useCallback(async () => {
         if (!isInitialized) return;
@@ -162,11 +165,13 @@ export const useLedger = (keyHex?: string) => {
     }, [isInitialized, refresh]);
 
     useEffect(() => {
-        init();
+        if (!isInitialized) {
+            init();
+        }
         return () => {
             BackgroundSyncService.onStatusChange = () => { };
         };
-    }, []);
+    }, [isInitialized]);
 
     const importData = useCallback(async (rawString: string) => {
         if (!isInitialized) throw new Error('Ledger not initialized');

@@ -125,9 +125,9 @@ export const LedgerScreen = () => {
                 const clearAll = async () => {
                     setKeyHex(undefined);
                     await superNuke();
-                    SecureKeyService.getOrGenerateKey().then((val) => {
-                        setKeyHex(val);
-                    });
+                    // Generate a fresh key only after nuke is confirmed complete.
+                    const newKey = await SecureKeyService.getOrGenerateKey();
+                    setKeyHex(newKey);
                     Alert.alert('Reset Complete', 'Your local ledger has been wiped.');
                 };
                 clearAll();
