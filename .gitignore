@@ -64,3 +64,12 @@ apps/gateway/
 
 # Agent Workspace
 .agent/
+.gstack/
+.jules/
+.Jules/ 
+
+
+# Local-only Documentation
+docs/local-only/
+docs/*.private.md
+
