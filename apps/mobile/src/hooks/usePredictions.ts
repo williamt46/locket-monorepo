@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { UserConfig } from '../models/UserConfig';
-import { calculatePredictedPeriods, getLatestPeriodStart } from '../utils/PredictionEngine';
+import { calculatePredictedPeriods, getLatestPeriodStart, getCurrentPhase } from '../utils/PredictionEngine';
+import type { CyclePhase } from '../utils/PredictionEngine';
 
 export function usePredictions(decryptedData: Record<string, any>, config: UserConfig | null) {
     // ⚡ Bolt: Use useMemo instead of useState + useEffect to derive futureData
@@ -87,5 +88,11 @@ export function usePredictions(decryptedData: Record<string, any>, config: UserC
 
     const cycleStats = useMemo(() => calculateAverageCycle(decryptedData), [decryptedData]);
 
-    return { futureData, cycleStats };
+    const { phase: currentPhase, dayInCycle } = useMemo(() => {
+        if (!config) return { phase: 'unknown' as CyclePhase, dayInCycle: 0 };
+        const latestStart = getLatestPeriodStart(decryptedData, config.lastPeriodDate);
+        return getCurrentPhase(latestStart, config.cycleLength, config.periodLength);
+    }, [decryptedData, config]);
+
+    return { futureData, cycleStats, currentPhase, dayInCycle };
 }

@@ -7,6 +7,8 @@ import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { ConsentScreen } from '../screens/ConsentScreen';
 import { ImportScreen } from '../screens/ImportScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
+import { LogScreen } from '../screens/LogScreen';
+import { CycleInsightsScreen } from '../screens/CycleInsightsScreen';
 import { getUserConfig } from '../services/StorageService';
 import { colors } from '../theme/colors';
 
@@ -42,6 +44,8 @@ export const AppNavigator = () => {
                 <Stack.Screen name="Import" component={ImportScreen} />
                 <Stack.Screen name="Settings" component={SettingsScreen} />
                 <Stack.Screen name="Consent" component={ConsentScreen} />
+                <Stack.Screen name="Log" component={LogScreen} />
+                <Stack.Screen name="CycleInsights" component={CycleInsightsScreen} />
             </Stack.Navigator>
         </NavigationContainer>
     );
