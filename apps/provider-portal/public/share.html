@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Locket — Shared Health Data</title>
+  <style>
+    :root {
+      --bg:          #FDFBF9;
+      --blue:        #006EC7;
+      --blue-tint:   #E5F1FA;
+      --terracota:   #D1495B;
+      --text:        #1A1A1A;
+      --subtext:     #6B6B6B;
+      --card:        #FFFFFF;
+      --input-bg:    #F2F2F7;
+      --radius:      12px;
+      --card-radius: 16px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+      color: var(--text);
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: var(--card-radius);
+      padding: 2rem;
+      max-width: 400px;
+      width: 100%;
+      box-shadow: 0 4px 20px -2px rgba(0,0,0,0.07);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.25rem;
+      text-align: center;
+    }
+
+    .logo {
+      width: 64px;
+      height: 64px;
+      background: var(--blue);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+    }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.3;
+    }
+
+    p.sub {
+      font-size: 14px;
+      color: var(--subtext);
+      line-height: 1.5;
+    }
+
+    .payload-chip {
+      background: var(--blue-tint);
+      color: var(--blue);
+      border-radius: var(--radius);
+      padding: 8px 14px;
+      font-size: 12px;
+      font-weight: 500;
+      word-break: break-all;
+      text-align: left;
+      width: 100%;
+    }
+
+    .btn-primary {
+      background: var(--blue);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      text-decoration: none;
+      display: block;
+    }
+
+    .btn-primary:hover { opacity: 0.9; }
+
+    .store-row {
+      display: flex;
+      gap: 0.75rem;
+      justify-content: center;
+      width: 100%;
+    }
+
+    .store-badge {
+      flex: 1;
+      background: var(--input-bg);
+      border-radius: var(--radius);
+      padding: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+      text-decoration: none;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .store-badge .store-icon { font-size: 20px; }
+
+    .divider {
+      width: 100%;
+      border: none;
+      border-top: 1px solid var(--input-bg);
+    }
+
+    .desktop-msg {
+      font-size: 13px;
+      color: var(--subtext);
+    }
+
+    #deeplink-section { display: none; }
+    #desktop-section  { display: none; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">🔒</div>
+
+    <h1 id="heading">Opening Locket…</h1>
+    <p class="sub" id="subtext">Preparing your secure health data share.</p>
+
+    <!-- Shown on mobile: deep-link button + app store badges -->
+    <section id="deeplink-section">
+      <a id="deeplink-btn" href="#" class="btn-primary">Open in Locket</a>
+      <hr class="divider" style="margin-top:0.5rem" />
+      <p class="desktop-msg">Don't have Locket yet?</p>
+      <div class="store-row">
+        <a class="store-badge" href="https://apps.apple.com/app/locket" target="_blank" rel="noopener">
+          <span class="store-icon">🍎</span>App Store
+        </a>
+        <a class="store-badge" href="https://play.google.com/store/apps/details?id=health.locket" target="_blank" rel="noopener">
+          <span class="store-icon">▶</span>Google Play
+        </a>
+      </div>
+    </section>
+
+    <!-- Shared payload info (shown when params present) -->
+    <div class="payload-chip" id="payload-chip" style="display:none">
+      Loading share data…
+    </div>
+
+    <!-- Shown on desktop: redirect notice -->
+    <section id="desktop-section">
+      <p class="sub">You're on a desktop browser. Opening the provider portal…</p>
+    </section>
+  </div>
+
+  <script>
+    (function () {
+      var params  = new URLSearchParams(window.location.search);
+      var did     = params.get('d') || '';
+      var keyB64u = params.get('k') || '';
+
+      // Show share payload chip
+      if (did || keyB64u) {
+        var chip = document.getElementById('payload-chip');
+        chip.textContent = 'DID: ' + did.slice(0, 16) + (did.length > 16 ? '…' : '');
+        chip.style.display = 'block';
+      }
+
+      // Build deep-link URL  (locket:// scheme)
+      var deepLink = 'locket://share?d=' + encodeURIComponent(did) + '&k=' + encodeURIComponent(keyB64u);
+
+      // UA detection — iOS or Android
+      var ua = navigator.userAgent || '';
+      var isMobile = /iPhone|iPad|iPod|Android/i.test(ua);
+
+      if (isMobile) {
+        document.getElementById('heading').textContent  = 'Open in Locket';
+        document.getElementById('subtext').textContent  =
+          'Tap the button below to view the shared data securely inside the Locket app.';
+
+        var dlBtn = document.getElementById('deeplink-btn');
+        dlBtn.href = deepLink;
+
+        document.getElementById('deeplink-section').style.display = 'flex';
+        document.getElementById('deeplink-section').style.flexDirection = 'column';
+        document.getElementById('deeplink-section').style.gap = '0.75rem';
+        document.getElementById('deeplink-section').style.width = '100%';
+
+        // Attempt automatic deep-link after short delay
+        setTimeout(function () { window.location.href = deepLink; }, 600);
+
+      } else {
+        // Desktop — redirect to provider portal with params preserved
+        document.getElementById('heading').textContent  = 'Redirecting…';
+        document.getElementById('desktop-section').style.display = 'block';
+
+        setTimeout(function () {
+          window.location.href = '/?' + params.toString();
+        }, 1200);
+      }
+    })();
+  </script>
+</body>
+</html>

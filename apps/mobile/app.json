@@ -30,12 +30,6 @@
     "plugins": [
       "expo-secure-store",
       "expo-sqlite",
-      [
-        "expo-camera",
-        {
-          "cameraPermission": "Allow Locket to scan QR codes for clinical consent."
-        }
-      ]
     ]
   }
 }

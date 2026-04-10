@@ -2,6 +2,7 @@
 // Optimistic Sync Engine for anchoring local hashes to Hyperledger Fabric in batches
 
 import { BlockchainService } from './BlockchainService';
+import { SyncService } from './SyncService';
 import { StorageRecord } from '@locket/secure-storage';
 
 const SYNC_THRESHOLD = 7; // Sync every 7 events (aligns with period auto-fill)
@@ -12,10 +13,20 @@ export const BackgroundSyncService = {
 
     /**
      * Scans the ledger for unanchored ('local') records and anchors them in batches.
+     * C2: userDid + ownerPublicKeyB64 are now required to trigger the decoupled
+     * ciphertext upload after a successful anchor batch (stale data fix).
+     *
      * @param ledger The ledger instance from useLedger
+     * @param userDid The patient's DID — needed to index upload at the gateway
+     * @param ownerPublicKeyB64 The patient's PRE public key — needed for encryption
      * @param onSyncComplete Optional callback to refresh UI
      */
-    async performSync(ledger: any, onSyncComplete?: () => void) {
+    async performSync(
+        ledger: any,
+        userDid?: string,
+        ownerPublicKeyB64?: string,
+        onSyncComplete?: () => void
+    ) {
         if (!ledger) {
             console.warn('[SyncEngine] Skipping performSync: Ledger not initialized.');
             return;
@@ -50,7 +61,7 @@ export const BackgroundSyncService = {
                 return;
             }
 
-            await this.executeAnchorBatch(pending, ledger, onSyncComplete);
+            await this.executeAnchorBatch(pending, ledger, userDid, ownerPublicKeyB64, onSyncComplete);
 
         } catch (e) {
             console.error('[SyncEngine] Sync cycle failed:', e);
@@ -61,7 +72,12 @@ export const BackgroundSyncService = {
     /**
      * Bypasses the threshold and anchors all pending records immediately.
      */
-    async forceSync(ledger: any, onSyncComplete?: () => void) {
+    async forceSync(
+        ledger: any,
+        userDid?: string,
+        ownerPublicKeyB64?: string,
+        onSyncComplete?: () => void
+    ) {
         if (!ledger) {
             console.error('[SyncEngine] Cannot force sync: Ledger is null.');
             return;
@@ -86,14 +102,20 @@ export const BackgroundSyncService = {
                 return;
             }
 
-            await this.executeAnchorBatch(pending, ledger, onSyncComplete);
+            await this.executeAnchorBatch(pending, ledger, userDid, ownerPublicKeyB64, onSyncComplete);
         } catch (e) {
             console.error('[SyncEngine] Force sync failed:', e);
             this.setSyncing(false);
         }
     },
 
-    async executeAnchorBatch(pending: StorageRecord[], ledger: any, onSyncComplete?: () => void) {
+    async executeAnchorBatch(
+        pending: StorageRecord[],
+        ledger: any,
+        userDid?: string,
+        ownerPublicKeyB64?: string,
+        onSyncComplete?: () => void
+    ) {
         try {
             console.log(`[SyncEngine] Anchoring Batch: Tracking IDs [${pending.map(p => p.signature?.substring(0, 8)).join(', ')}]`);
 
@@ -119,6 +141,19 @@ export const BackgroundSyncService = {
                 }
 
                 await ledger.saveEvents(updatedRecords);
+
+                // C2: Decouple ciphertext upload from consent grant (stale data fix).
+                // After a successful anchor batch, push fresh ciphertext to the gateway
+                // so providers never decrypt stale data.
+                if (userDid && ownerPublicKeyB64) {
+                    const allEvents = await ledger.loadEvents();
+                    SyncService.uploadBaselineCiphertext(allEvents, ownerPublicKeyB64, userDid)
+                        .then(r => {
+                            if (!r.success) console.warn('[SyncEngine] Ciphertext upload failed (non-fatal):', r.error);
+                            else console.log('[SyncEngine] Ciphertext upload complete ✓');
+                        })
+                        .catch(e => console.warn('[SyncEngine] Ciphertext upload threw (non-fatal):', e));
+                }
 
                 if (onSyncComplete) onSyncComplete();
             } else {
