@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, Alert, TouchableOpacity, Vibration } from 'react-native';
-import { Camera, CameraView } from 'expo-camera';
+import React, { useState } from 'react';
+import { StyleSheet, Text, View, Alert, TouchableOpacity, TextInput } from 'react-native';
 import { ScreenWrapper } from '../components/ScreenWrapper';
 import { SyncService } from '../services/SyncService';
 import { CryptoService } from '@locket/crypto-engine';
@@ -11,8 +10,8 @@ import { colors } from '../theme/colors';
 const PRE_KEYPAIR_KEY = 'locket_pre_keypair';
 
 export const ConsentScreen = ({ navigation }: any) => {
-    const [hasPermission, setHasPermission] = useState<boolean | null>(null);
-    const [scanned, setScanned] = useState(false);
+    const [payloadText, setPayloadText] = useState('');
+    const [processing, setProcessing] = useState(false);
     const [duration, setDuration] = useState('24h');
 
     const styles = StyleSheet.create({
@@ -37,23 +36,29 @@ export const ConsentScreen = ({ navigation }: any) => {
             opacity: 0.6,
             textAlign: 'center',
         },
-        cameraContainer: {
-            flex: 1,
-            borderRadius: 24,
-            overflow: 'hidden',
-            position: 'relative',
-            backgroundColor: colors.watermark,
+        payloadInput: {
+            borderWidth: 1,
+            borderColor: colors.watermark,
+            borderRadius: 12,
+            padding: 12,
+            fontSize: 13,
+            fontFamily: 'monospace',
+            color: colors.charcoal,
+            minHeight: 100,
+            marginBottom: 24,
+            textAlignVertical: 'top',
         },
-        overlay: {
-            ...StyleSheet.absoluteFillObject,
-            backgroundColor: 'rgba(0,0,0,0.6)',
-            justifyContent: 'center',
+        submitButton: {
+            backgroundColor: colors.inkBlue,
+            paddingVertical: 16,
+            borderRadius: 12,
             alignItems: 'center',
+            marginBottom: 12,
         },
-        overlayText: {
+        submitButtonText: {
             color: colors.paper,
-            fontSize: 18,
-            fontWeight: 'bold',
+            fontWeight: '700',
+            fontSize: 16,
         },
         controls: {
             marginTop: 24,
@@ -101,15 +106,6 @@ export const ConsentScreen = ({ navigation }: any) => {
         },
     });
 
-    useEffect(() => {
-        const getCameraPermissions = async () => {
-            const { status } = await Camera.requestCameraPermissionsAsync();
-            setHasPermission(status === 'granted');
-        };
-
-        getCameraPermissions();
-    }, []);
-
     const getOwnerSecretKey = async () => {
         let keyPairStr = await SecureStore.getItemAsync(PRE_KEYPAIR_KEY);
         if (!keyPairStr) {
@@ -122,30 +118,25 @@ export const ConsentScreen = ({ navigation }: any) => {
         return JSON.parse(keyPairStr).secretKeyB64;
     };
 
-    const handleBarCodeScanned = async ({ type, data }: any) => {
-        if (scanned) return;
-        setScanned(true);
-
-        // Haptic feedback
-        Vibration.vibrate();
-
+    const handleSubmitPayload = async () => {
+        if (processing) return;
+        setProcessing(true);
         try {
-            const payload = JSON.parse(data);
+            const payload = JSON.parse(payloadText.trim());
             if (!payload.recipientPublicKeyB64 || !payload.recipientDID) {
-                throw new Error("Invalid QR code from clinic.");
+                throw new Error("Missing required fields.");
             }
-
             Alert.alert(
                 "Verify Clinical Consent",
                 `Grant data access to ${payload.recipientDID} for ${duration}?`,
                 [
-                    { text: "Cancel", style: "cancel", onPress: () => setScanned(false) },
+                    { text: "Cancel", style: "cancel", onPress: () => setProcessing(false) },
                     { text: "Confirm", onPress: () => executeGrant(payload) }
                 ]
             );
         } catch (error) {
-            Alert.alert("Scan Error", "Invalid QR code. Please scan a valid Locket Gateway QR.");
-            setScanned(false);
+            Alert.alert("Invalid Payload", "Paste a valid Locket Gateway JSON payload.");
+            setProcessing(false);
         }
     };
 
@@ -168,39 +159,38 @@ export const ConsentScreen = ({ navigation }: any) => {
             }
         } catch (error: any) {
             Alert.alert("Gateway Error", error.message);
-            setScanned(false);
+            setProcessing(false);
         }
     };
-
-    if (hasPermission === null) {
-        return <View style={styles.container}><Text>Requesting camera permission...</Text></View>;
-    }
-    if (hasPermission === false) {
-        return <View style={styles.container}><Text>No access to camera</Text></View>;
-    }
 
     return (
         <ScreenWrapper>
             <View style={styles.container}>
                 <View style={styles.header}>
-                    <Text style={styles.title}>Scan Clinic QR</Text>
-                    <Text style={styles.subtitle}>Point your camera at the clinician's screen</Text>
+                    <Text style={styles.title}>Enter Clinic Payload</Text>
+                    <Text style={styles.subtitle}>Paste the JSON payload from the clinician's screen</Text>
                 </View>
 
-                <View style={styles.cameraContainer}>
-                    <CameraView
-                        onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
-                        barcodeScannerSettings={{
-                            barcodeTypes: ["qr"],
-                        }}
-                        style={StyleSheet.absoluteFillObject}
-                    />
-                    {scanned && (
-                        <View style={styles.overlay}>
-                            <Text style={styles.overlayText}>Processing QR...</Text>
-                        </View>
-                    )}
-                </View>
+                <TextInput
+                    style={styles.payloadInput}
+                    value={payloadText}
+                    onChangeText={setPayloadText}
+                    placeholder='{"recipientPublicKeyB64": "...", "recipientDID": "..."}'
+                    placeholderTextColor={colors.watermark}
+                    multiline
+                    autoCorrect={false}
+                    autoCapitalize="none"
+                />
+
+                <TouchableOpacity
+                    style={styles.submitButton}
+                    onPress={handleSubmitPayload}
+                    disabled={processing || !payloadText.trim()}
+                >
+                    <Text style={styles.submitButtonText}>
+                        {processing ? 'Processing...' : 'Submit'}
+                    </Text>
+                </TouchableOpacity>
 
                 <View style={styles.controls}>
                     <Text style={styles.label}>Access Duration:</Text>
