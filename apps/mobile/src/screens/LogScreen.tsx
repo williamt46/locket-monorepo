@@ -340,7 +340,7 @@ export const LogScreen: React.FC = () => {
                           );
                         })}
                       </View>
-                      {lastTappedSymptom && chips.some((c) => c.key === lastTappedSymptom) && (
+                      {lastTappedSymptom && selectedSymptoms.has(lastTappedSymptom) && chips.some((c) => c.key === lastTappedSymptom) && (
                         <TouchableOpacity
                           onPress={() => handleWhyPress(lastTappedSymptom)}
                           accessibilityRole="link"
