@@ -125,6 +125,16 @@ export const LogScreen: React.FC = () => {
     }
   })();
 
+  const phaseTintColor = (() => {
+    switch (currentPhase) {
+      case 'menstrual': return colors.warmTerracottaTint;
+      case 'follicular': return colors.arcticTealTint;
+      case 'ovulatory': return colors.orangePeelTint;
+      case 'luteal': return colors.deepReflectiveVioletTint;
+      default: return colors.locketBlueTint;
+    }
+  })();
+
   const toggleCategory = (cat: AccordionCategory) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setOpenCategory((prev) => (prev === cat ? null : cat));
@@ -260,7 +270,7 @@ export const LogScreen: React.FC = () => {
             {BLEEDING_OPTIONS.map(({ key, label }) => (
               <TouchableOpacity
                 key={key}
-                style={[styles.chip, bleeding === key && styles.chipSelected]}
+                style={[styles.chip, bleeding === key && { backgroundColor: phaseTintColor, borderColor: phaseColor }]}
                 onPress={() => {
                   LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
                   setBleeding((prev) => (prev === key ? null : key));
@@ -270,7 +280,7 @@ export const LogScreen: React.FC = () => {
                 accessibilityState={{ checked: bleeding === key }}
                 accessibilityLabel={label}
               >
-                <Text style={[styles.chipText, bleeding === key && styles.chipTextSelected]}>{label}</Text>
+                <Text style={[styles.chipText, bleeding === key && { color: phaseColor }]}>{label}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -280,13 +290,13 @@ export const LogScreen: React.FC = () => {
               {(['small', 'large'] as const).map((c) => (
                 <TouchableOpacity
                   key={c}
-                  style={[styles.chip, clots === c && styles.chipSelected]}
+                  style={[styles.chip, clots === c && { backgroundColor: phaseTintColor, borderColor: phaseColor }]}
                   onPress={() => setClots((prev) => (prev === c ? null : c))}
                   accessibilityRole="checkbox"
                   accessibilityState={{ checked: clots === c }}
                   accessibilityLabel={c === 'small' ? 'Small clots' : 'Large clots'}
                 >
-                  <Text style={[styles.chipText, clots === c && styles.chipTextSelected]}>
+                  <Text style={[styles.chipText, clots === c && { color: phaseColor }]}>
                     {c === 'small' ? 'Small clots' : 'Large clots'}
                   </Text>
                 </TouchableOpacity>
@@ -327,13 +337,13 @@ export const LogScreen: React.FC = () => {
                           return (
                             <TouchableOpacity
                               key={key}
-                              style={[styles.chip, selected && styles.chipSelected]}
+                              style={[styles.chip, selected && { backgroundColor: phaseTintColor, borderColor: phaseColor }]}
                               onPress={() => toggleSymptom(key)}
                               accessibilityRole="checkbox"
                               accessibilityState={{ checked: selected }}
                               accessibilityLabel={chipLabel}
                             >
-                              <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
+                              <Text style={[styles.chipText, selected && { color: phaseColor }]}>
                                 {chipLabel}
                               </Text>
                             </TouchableOpacity>
@@ -501,18 +511,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'transparent',
   },
-  chipSelected: {
-    backgroundColor: colors.warmTerracottaTint,
-    borderColor: colors.warmTerracotta,
-  },
+  // chipSelected and chipTextSelected are applied dynamically via phaseColor
   chipText: {
     fontFamily: typography.body,
     fontSize: 13,
     fontWeight: '500',
     color: '#4A4A4A',
-  },
-  chipTextSelected: {
-    color: colors.warmTerracotta,
   },
   accordionSection: {
     borderRadius: 12,
