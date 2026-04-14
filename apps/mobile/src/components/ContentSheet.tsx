@@ -160,8 +160,12 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   closeButton: {
-    padding: 4,
-    marginTop: -2,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -10,
+    marginRight: -10,
   },
   closeText: {
     fontSize: 16,

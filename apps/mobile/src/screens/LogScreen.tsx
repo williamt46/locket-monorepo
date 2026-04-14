@@ -425,8 +425,10 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E0E0E0',
   },
   closeBtn: {
-    padding: 4,
-    width: 32,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   closeBtnText: {
     fontSize: 16,
