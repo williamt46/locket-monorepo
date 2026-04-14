@@ -413,7 +413,7 @@ export const LogScreen: React.FC = () => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#FDFBF9',
+    backgroundColor: colors.paper,
   },
   header: {
     flexDirection: 'row',

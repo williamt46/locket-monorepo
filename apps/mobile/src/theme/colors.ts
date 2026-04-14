@@ -1,5 +1,5 @@
 export const colors = {
-    paper: '#FDFBF7',
+    paper: '#FDFBF9',
     inkBlue: '#004080', // Past (Permanent)
     charcoal: '#2D2D2D', // Default Text
     graphite: '#4A4A4A', // Current (Sketch)
