@@ -1,0 +1,288 @@
+/**
+ * Locket Design System — CSS Custom Properties
+ * Philosophy: Empathetic Intimacy
+ * Version: 1.0
+ */
+
+/* ─────────────────────────────────────────────
+   GOOGLE FONTS (Web font for Product Website)
+   ───────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap');
+
+/* ─────────────────────────────────────────────
+   BASE COLOR TOKENS (Light Mode)
+   ───────────────────────────────────────────── */
+:root {
+  /* Foundation — confirmed from live screens & CycleTrendsScreen.html */
+  --paper:            #FDFBF9;   /* Sun-Baked Sand — page background (corrected from #FDFBF7) */
+  --card-white:       #FFFFFF;
+  --ink:              #1B1C1B;   /* On-surface — primary text (corrected from #1A1A1A) */
+  --charcoal:         #2D2D2D;   /* Legacy alias — prefer --ink */
+  --graphite:         #4A4A4A;
+  --ink-blue:         #004080;
+  --watermark:        #E6E2D8;
+  --fog:              #717783;   /* MD3 outline — secondary text (corrected from #8E8E93) */
+  --neutral-whisper:  #8E8E93;   /* Legacy alias — iOS default */
+  --pale-lavender:    #F2F2F7;
+  --gold:             #D4AF37;
+  --alert:            #C0392B;   /* Destructive actions, danger zone */
+
+  /* Cycle Phase Colors */
+  --menstrual:        #D1495B;
+  --menstrual-tint:   #FBEBEF;
+  --follicular:       #2A9D8F;
+  --follicular-tint:  #E8F5F4;
+  --ovulatory:        #FF9F00;
+  --ovulatory-tint:   #FFF4E5;
+  --luteal:           #76489D;
+  --luteal-tint:      #EDE5F5;
+
+  /* Trust & Primary Action */
+  --locket-blue:      #006EC7;   /* Primary action — use for buttons, active nav, links */
+  --locket-blue-tint: #E5F1FA;   /* Icon badge bg, positive tint */
+  --locket-blue-bg:   #F2F8FD;   /* Encryption badge container */
+  --md3-primary:      #00569D;   /* MD3 primary container — text selection ONLY; do not use for UI */
+  --locket-navy:      #1A2332;   /* Dark mark inner well + lockup-dark bg; deep navy distinct from dark mode bg */
+
+  /* ─────────────────────────────────────────────
+     SEMANTIC COLOR TOKENS (Light Mode)
+     ───────────────────────────────────────────── */
+  --bg-page:          var(--paper);
+  --bg-card:          var(--card-white);
+  --bg-inset:         var(--pale-lavender);
+  --bg-nav:           rgba(253, 251, 247, 0.80);
+
+  --text-primary:     var(--ink);
+  --text-body:        var(--graphite);
+  --text-secondary:   var(--fog);
+  --text-action:      var(--locket-blue);
+  --text-inverse:     #FFFFFF;
+
+  --shadow-card:      0 4px 20px -2px rgba(0, 0, 0, 0.05);
+  --shadow-soft:      0 2px 8px rgba(0, 0, 0, 0.05);
+  --shadow-float:     0 4px 16px rgba(0, 0, 0, 0.20);
+
+  --border-hairline:  #E0E0E0;
+  --border-subtle:    #F2F2F7;
+
+  /* ─────────────────────────────────────────────
+     BORDER RADIUS TOKENS
+     ───────────────────────────────────────────── */
+  --radius-s:     4px;
+  --radius-m:     8px;
+  --radius-btn:   12px;   /* Safe-Touch — buttons & inputs */
+  --radius-card:  16px;   /* Data Focus Cards */
+  --radius-pill:  999px;  /* Chips & tags */
+  --radius-seal:  50%;    /* Integrity Seal, encryption badge */
+
+  /* ─────────────────────────────────────────────
+     SPACING TOKENS
+     ───────────────────────────────────────────── */
+  --space-xs:     4px;
+  --space-s:      8px;
+  --space-m:      16px;
+  --space-l:      24px;
+  --space-xl:     32px;
+  --space-2xl:    40px;
+  --page-x:       20px;   /* horizontal page margin */
+
+  /* ─────────────────────────────────────────────
+     TYPOGRAPHY TOKENS
+     ───────────────────────────────────────────── */
+
+  /* Font Families */
+  --font-heading: "Public Sans", "Avenir Next", system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  --font-body:    "Public Sans", "Helvetica Neue", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono:    ui-monospace, "SF Mono", Menlo, Monaco, "Courier New", monospace;
+
+  /* Font Sizes */
+  --text-h1:        32px;
+  --text-h2:        24px;
+  --text-nav:       17px;
+  --text-card-title: 15px;
+  --text-body:      16px;
+  --text-label:     14px;
+  --text-section:   13px;
+  --text-pill:      13px;
+  --text-caption:   12px;
+  --text-meta:      11px;
+  --text-swatch:    10px;
+
+  /* Line Heights */
+  --leading-tight:   1.2;
+  --leading-normal:  1.4;
+  --leading-relaxed: 1.5;
+
+  /* Letter Spacing */
+  --tracking-tight:  -0.01em;
+  --tracking-normal: 0;
+  --tracking-wide:   0.1em;   /* section headers */
+  --tracking-wider:  0.12em;  /* meta/spec text */
+
+  /* ─────────────────────────────────────────────
+     ANIMATION TOKENS
+     ───────────────────────────────────────────── */
+  --ease-standard:   cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast:   150ms;
+  --duration-medium: 300ms;
+  --press-scale:     0.98;
+}
+
+/* ─────────────────────────────────────────────
+   DARK MODE TOKEN OVERRIDES
+   ───────────────────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-page:   #252628;
+    --bg-card:   #323336;
+    --bg-inset:  #1C1C1E;
+    --bg-nav:    rgba(37, 38, 40, 0.80);
+
+    --text-primary:   #FFFFFF;
+    --text-body:      #EBEBF5;
+    --text-secondary: #A0A0A5;
+    --text-action:    var(--locket-blue);
+
+    --shadow-card:   0 4px 20px -2px rgba(0, 0, 0, 0.20);
+    --shadow-soft:   0 2px 8px rgba(0, 0, 0, 0.20);
+
+    --border-hairline: rgba(255,255,255,0.05);
+    --border-subtle:   rgba(255,255,255,0.05);
+
+    --menstrual-tint:  rgba(209, 73, 91, 0.20);
+    --follicular-tint: rgba(42, 157, 143, 0.20);
+    --ovulatory-tint:  rgba(255, 159, 0, 0.20);
+    --luteal-tint:     rgba(118, 72, 157, 0.20);
+    --locket-blue-tint: rgba(0, 110, 199, 0.20);
+    --locket-blue-bg:  var(--bg-inset);
+  }
+}
+
+/* ─────────────────────────────────────────────
+   BASE SEMANTIC STYLES
+   ───────────────────────────────────────────── */
+body {
+  font-family:        var(--font-body);
+  font-size:          var(--text-body);
+  line-height:        var(--leading-relaxed);
+  color:              var(--text-primary);
+  background-color:   var(--bg-page);
+  -webkit-font-smoothing: antialiased;
+  text-rendering:     optimizeLegibility;
+}
+
+h1 {
+  font-family:   var(--font-heading);
+  font-size:     var(--text-h1);
+  font-weight:   700;
+  line-height:   var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  color:         var(--text-primary);
+}
+
+h2 {
+  font-family:   var(--font-heading);
+  font-size:     var(--text-h2);
+  font-weight:   700;
+  line-height:   var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  color:         var(--text-primary);
+}
+
+p {
+  font-size:    var(--text-body);
+  font-weight:  400;
+  line-height:  var(--leading-relaxed);
+  color:        var(--text-body);
+}
+
+/* ─────────────────────────────────────────────
+   COMPONENT PATTERNS
+   ───────────────────────────────────────────── */
+
+/* Section Header (ALL CAPS, Locket Blue, wide tracking) */
+.section-header {
+  font-family:    var(--font-heading);
+  font-size:      var(--text-section);
+  font-weight:    700;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color:          var(--locket-blue);
+  display:        flex;
+  align-items:    center;
+  gap:            var(--space-s);
+  margin-bottom:  var(--space-m);
+}
+
+/* Data Focus Card */
+.card {
+  background:    var(--bg-card);
+  border-radius: var(--radius-card);
+  padding:       var(--space-l);
+  box-shadow:    var(--shadow-card);
+}
+
+/* Primary Button */
+.btn-primary {
+  background:    var(--locket-blue);
+  color:         #FFFFFF;
+  font-family:   var(--font-body);
+  font-size:     var(--text-label);
+  font-weight:   600;
+  border:        none;
+  border-radius: var(--radius-btn);
+  padding:       14px var(--space-l);
+  width:         100%;
+  cursor:        pointer;
+  transition:    transform var(--duration-fast) var(--ease-standard);
+}
+.btn-primary:active {
+  transform: scale(var(--press-scale));
+}
+
+/* Input */
+.input {
+  background:    rgba(242, 242, 247, 0.50);
+  border:        none;
+  border-radius: var(--radius-btn);
+  padding:       14px var(--space-m);
+  font-family:   var(--font-body);
+  font-size:     var(--text-body);
+  color:         var(--text-primary);
+  width:         100%;
+  outline:       none;
+  transition:    box-shadow var(--duration-fast) var(--ease-standard);
+}
+.input:focus {
+  box-shadow: 0 0 0 3px rgba(0, 110, 199, 0.20);
+}
+
+/* Pill / Chip */
+.chip {
+  display:       inline-flex;
+  align-items:   center;
+  gap:           var(--space-xs);
+  padding:       7px 14px;
+  border-radius: var(--radius-pill);
+  font-family:   var(--font-body);
+  font-size:     var(--text-pill);
+  font-weight:   500;
+  background:    var(--pale-lavender);
+  color:         var(--text-body);
+  border:        1px solid transparent;
+  cursor:        pointer;
+}
+
+/* Material Symbols two-tier system — confirmed from CycleTrendsScreen.html
+   • Outlined (FILL:0) — UI/structural icons: chevron, nav, action
+   • Rounded (FILL:1) — semantic/phase icons: water_drop, psychiatry, mood */
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  vertical-align: middle;
+}
+.material-symbols-rounded {
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  vertical-align: middle;
+}

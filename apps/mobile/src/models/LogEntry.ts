@@ -1,14 +1,13 @@
 export type BleedingIntensity = 'spotting' | 'light' | 'medium' | 'heavy';
 export type SymptomKey =
-  | 'cramps'
-  | 'bloating'
-  | 'nausea_fatigue'
-  | 'mood_low'
-  | 'mood_anxious'
-  | 'mood_irritable'
-  | 'acne'
-  | 'headache'
-  | 'back_pain';
+  // Physical
+  | 'cramps' | 'bloating' | 'nausea_fatigue' | 'headache' | 'back_pain' | 'acne' | 'breast_tenderness'
+  // Mood
+  | 'mood_low' | 'mood_anxious' | 'mood_irritable' | 'mood_happy' | 'mood_energized' | 'mood_calm'
+  // Sex
+  | 'sex_protected' | 'sex_unprotected' | 'sex_high_drive' | 'sex_low_drive'
+  // Triggers
+  | 'trigger_stress' | 'trigger_poor_sleep' | 'trigger_alcohol' | 'trigger_caffeine' | 'trigger_intense_exercise';
 
 export interface LogEntry {
   event: 'period_start' | 'period_end' | 'manual_entry';

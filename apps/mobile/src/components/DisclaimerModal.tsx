@@ -17,18 +17,17 @@ interface DisclaimerModalProps {
 }
 
 export const DisclaimerModal: React.FC<DisclaimerModalProps> = ({ onDismissed }) => {
-  // Start visible=true so the gate is active before the async SecureStore check resolves.
-  // Once confirmed "already seen", we hide it. This prevents content being visible before the gate loads.
-  const [visible, setVisible] = useState(true);
+  // Start hidden. Show only after confirming the disclaimer hasn't been seen.
+  // This prevents a flash of the modal on every screen mount for returning users.
+  const [visible, setVisible] = useState(false);
 
   useEffect(() => {
     SecureStore.getItemAsync(DISCLAIMER_KEY)
       .then((val) => {
-        if (val) setVisible(false); // Already seen — hide immediately
-        // If not seen, stays visible (already true)
+        if (!val) setVisible(true); // Not seen yet — show it
       })
       .catch(() => {
-        // SecureStore unavailable — keep visible (show disclaimer by default)
+        setVisible(true); // SecureStore unavailable — show by default
       });
   }, []);
 
@@ -56,7 +55,8 @@ export const DisclaimerModal: React.FC<DisclaimerModalProps> = ({ onDismissed })
           <Text style={styles.body}>
             The educational content in Locket is provided for informational purposes only and
             is not a substitute for professional medical advice, diagnosis, or treatment.
-            Always consult a qualified healthcare provider with questions about your health.
+            Always consult a qualified healthcare provider with questions about your health.{'\n\n'}
+            All content is delivered on-device. Locket never transmits your health data or reading activity.
           </Text>
           <TouchableOpacity
             style={styles.button}

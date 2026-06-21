@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: "Public Sans", system-ui, sans-serif; background: #FDFBF9; padding: 20px; color: #1B1C1B; }
+.material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+.material-symbols-rounded { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+h2 { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 14px; }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 20px; }
+.variant-label { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #006EC7; margin-bottom: 8px; }
+.variant-hint { font-size: 10px; color: #717783; margin-top: 8px; line-height: 1.4; font-style: italic; }
+
+/* V1: White with icon badge */
+.card-white { background: #FFFFFF; border-radius: 16px; padding: 18px; box-shadow: 0 4px 20px -2px rgba(0,0,0,0.05); }
+.badge-icon { width: 40px; height: 40px; border-radius: 12px; background: #E5F1FA; display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
+.badge-icon .material-symbols-outlined { color: #006EC7; font-size: 20px; }
+.stat-label { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #006EC7; margin-bottom: 2px; }
+.stat-value { font-size: 22px; font-weight: 700; }
+.stat-sub { font-size: 11px; color: #717783; margin-top: 2px; }
+
+/* V2: White with left border accent */
+.card-border { background: #FFFFFF; border-radius: 16px; padding: 18px; box-shadow: 0 4px 20px -2px rgba(0,0,0,0.05); border-left: 3px solid #2A9D8F; }
+.phase-chip { display: inline-flex; align-items: center; gap: 4px; background: #E8F5F4; color: #2A9D8F; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; margin-bottom: 10px; }
+.phase-chip .material-symbols-rounded { font-size: 12px; }
+.card-title { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+.card-body { font-size: 12.5px; color: #4A4A4A; line-height: 1.5; }
+
+/* V3: Full-tint (phase-colored bg) */
+.card-tint { background: #E8F5F4; border-radius: 16px; padding: 18px; }
+.card-tint .phase-label { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #2A9D8F; margin-bottom: 6px; }
+.card-tint .tint-title { font-size: 15px; font-weight: 700; color: #1B1C1B; margin-bottom: 4px; }
+.card-tint .tint-body { font-size: 12.5px; color: #2D2D2D; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<h2>Three card variants — use by context</h2>
+
+<div class="grid">
+
+  <div>
+    <div class="variant-label">V1 · White + icon badge</div>
+    <div class="card-white">
+      <div class="badge-icon"><span class="material-symbols-outlined">timeline</span></div>
+      <div class="stat-label">Avg Cycle</div>
+      <div class="stat-value">28 days</div>
+      <div class="stat-sub">consistent with last 6 months</div>
+    </div>
+    <div class="variant-hint">Dashboards, stat grids, neutral content. Default card.</div>
+  </div>
+
+  <div>
+    <div class="variant-label">V2 · White + left border</div>
+    <div class="card-border">
+      <div class="phase-chip"><span class="material-symbols-rounded">eco</span>Follicular</div>
+      <div class="card-title">Energy Rising</div>
+      <div class="card-body">Your body is preparing for ovulation. Estrogen climbs; expect better focus and stamina.</div>
+    </div>
+    <div class="variant-hint">Phase insights in lists — subtle phase-color anchor without changing surface.</div>
+  </div>
+
+  <div>
+    <div class="variant-label">V3 · Full phase tint</div>
+    <div class="card-tint">
+      <div class="phase-label">Follicular Phase</div>
+      <div class="tint-title">Day 9 of 28</div>
+      <div class="tint-body">Your body is preparing for ovulation. Estrogen climbs; expect better focus and stamina.</div>
+    </div>
+    <div class="variant-hint">Hero/featured phase cards. Use only one per screen — high visual weight.</div>
+  </div>
+
+</div>
+
+<div style="background:#FFFFFF;border-radius:12px;padding:14px 16px;box-shadow:0 4px 20px -2px rgba(0,0,0,0.05);font-size:11.5px;line-height:1.6;color:#4A4A4A;">
+  <strong style="color:#1B1C1B;">Selection rule —</strong>
+  V1 for neutral data (stats, lists, non-phase content).
+  V2 when you need phase context in a list without color-dominating the row.
+  V3 for a single featured cell (e.g. "Today's phase" hero). Never combine V2 and V3 on the same screen.
+</div>
+
+</body>
+</html>

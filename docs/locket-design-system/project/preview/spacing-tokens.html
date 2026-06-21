@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: "Public Sans", system-ui, sans-serif; background: #FDFBF7; padding: 20px; }
+.section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #006EC7; margin-bottom: 12px; }
+.space-grid { display: flex; align-items: flex-end; gap: 16px; margin-bottom: 24px; }
+.space-item { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.space-block { background: #006EC7; opacity: 0.5; border-radius: 2px; width: 14px; }
+.space-label { font-size: 9px; font-family: monospace; color: #8E8E93; }
+.space-val { font-size: 10px; font-weight: 600; color: #2D2D2D; }
+.radius-grid { display: flex; align-items: center; gap: 14px; }
+.radius-item { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.radius-box { width: 44px; height: 44px; background: #E5F1FA; border: 2px solid #006EC7; }
+.radius-label { font-size: 10px; font-weight: 600; color: #2D2D2D; }
+.radius-val { font-size: 9px; font-family: monospace; color: #8E8E93; }
+</style>
+</head>
+<body>
+  <div class="section-label">Spacing Scale</div>
+  <div class="space-grid">
+    <div class="space-item"><div class="space-block" style="height:4px;"></div><div class="space-val">xs</div><div class="space-label">4px</div></div>
+    <div class="space-item"><div class="space-block" style="height:8px;"></div><div class="space-val">s</div><div class="space-label">8px</div></div>
+    <div class="space-item"><div class="space-block" style="height:16px;"></div><div class="space-val">m</div><div class="space-label">16px</div></div>
+    <div class="space-item"><div class="space-block" style="height:24px;"></div><div class="space-val">l</div><div class="space-label">24px</div></div>
+    <div class="space-item"><div class="space-block" style="height:32px;"></div><div class="space-val">xl</div><div class="space-label">32px</div></div>
+    <div class="space-item"><div class="space-block" style="height:40px;"></div><div class="space-val">2xl</div><div class="space-label">40px</div></div>
+    <div class="space-item"><div class="space-block" style="height:20px;background:#D1495B;opacity:0.6;"></div><div class="space-val">page-x</div><div class="space-label">20px</div></div>
+  </div>
+
+  <div class="section-label">Border Radius Scale</div>
+  <div class="radius-grid">
+    <div class="radius-item"><div class="radius-box" style="border-radius:4px;"></div><div class="radius-label">s</div><div class="radius-val">4px</div></div>
+    <div class="radius-item"><div class="radius-box" style="border-radius:8px;"></div><div class="radius-label">m</div><div class="radius-val">8px</div></div>
+    <div class="radius-item"><div class="radius-box" style="border-radius:12px;"></div><div class="radius-label">btn</div><div class="radius-val">12px</div></div>
+    <div class="radius-item"><div class="radius-box" style="border-radius:16px;"></div><div class="radius-label">card</div><div class="radius-val">16px</div></div>
+    <div class="radius-item"><div class="radius-box" style="border-radius:999px;width:52px;"></div><div class="radius-label">pill</div><div class="radius-val">999px</div></div>
+    <div class="radius-item"><div class="radius-box" style="border-radius:50%;"></div><div class="radius-label">seal</div><div class="radius-val">50%</div></div>
+  </div>
+</body>
+</html>

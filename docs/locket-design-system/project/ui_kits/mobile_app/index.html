@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Locket — Mobile UI Kit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; padding: 0; }
+  body {
+    font-family: "Public Sans", -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+    background: #1A1A1E;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh;
+  }
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    line-height: 1;
+    display: inline-block;
+    user-select: none;
+  }
+  @keyframes locketPulse {
+    0%, 100% { transform: scale(1); }
+    50%       { transform: scale(1.5); }
+  }
+  /* Phone frame */
+  .phone {
+    width: 393px;
+    height: 852px;
+    background: #FDFBF7;
+    border-radius: 48px;
+    box-shadow:
+      0 0 0 10px #2A2A2E,
+      0 0 0 12px #3A3A3E,
+      0 40px 80px rgba(0,0,0,0.7),
+      inset 0 0 0 1px rgba(255,255,255,0.06);
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+  .phone.dark-mode {
+    background: #1C1C1E;
+  }
+  /* Status bar */
+  .status-bar {
+    height: 52px;
+    background: rgba(253,251,247,0.95);
+    display: flex;
+    align-items: flex-end;
+    padding: 0 28px 8px;
+    justify-content: space-between;
+    flex-shrink: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #2D2D2D;
+    position: relative;
+    z-index: 20;
+  }
+  .status-bar.dark-mode {
+    background: rgba(37,38,40,0.95);
+    color: #FFFFFF;
+  }
+  .notch {
+    position: absolute;
+    top: 10px; left: 50%; transform: translateX(-50%);
+    width: 120px; height: 34px;
+    background: #1A1A1E;
+    border-radius: 20px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .camera { width: 12px; height: 12px; border-radius: 50%; background: #0A0A0F; border: 2px solid #2A2A2E; }
+  .status-icons { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+  /* Screen container */
+  .screen-container {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+  /* Home indicator */
+  .home-indicator {
+    height: 32px;
+    background: rgba(253,251,247,0.95);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .home-indicator.dark-mode {
+    background: rgba(37,38,40,0.95);
+  }
+  .home-bar {
+    width: 120px; height: 5px;
+    background: #2D2D2D;
+    border-radius: 999px;
+    opacity: 0.2;
+  }
+  .home-bar.dark-mode {
+    background: #FFFFFF;
+  }
+  /* Sidebar nav */
+  .sidebar {
+    position: fixed; right: 24px; top: 50%; transform: translateY(-50%);
+    display: flex; flex-direction: column; gap: 8px; z-index: 100;
+  }
+  .nav-dot {
+    width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.3);
+    cursor: pointer; transition: all 200ms; border: none; padding: 0;
+  }
+  .nav-dot.active { background: #006EC7; transform: scale(1.3); }
+  .screen-label {
+    position: fixed; right: 44px; top: 50%; transform: translateY(-50%);
+    display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+  }
+  .label-item {
+    height: 10px; display: flex; align-items: center; justify-content: flex-end;
+  }
+  .label-text {
+    font-family: "Public Sans", sans-serif;
+    font-size: 10px; color: rgba(255,255,255,0.4); white-space: nowrap;
+    transition: opacity 200ms;
+  }
+  /* Transition */
+  .screen-slide {
+    animation: slideIn 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  @keyframes slideIn {
+    from { transform: translateX(30px); opacity: 0; }
+    to   { transform: translateX(0);    opacity: 1; }
+  }
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="status-bar">
+    <span>9:41</span>
+    <div class="notch">
+      <div class="camera"></div>
+    </div>
+    <div class="status-icons">
+      <span class="material-symbols-outlined" style="font-size:15px;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 20;">signal_cellular_alt</span>
+      <span class="material-symbols-outlined" style="font-size:15px;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 20;">wifi</span>
+      <span class="material-symbols-outlined" style="font-size:15px;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 20;">battery_full</span>
+    </div>
+  </div>
+
+  <div class="screen-container" id="app-root"></div>
+
+  <div class="home-indicator">
+    <div class="home-bar"></div>
+  </div>
+</div>
+
+<!-- Sidebar nav -->
+<div class="sidebar" id="sidebar"></div>
+
+<!-- Load components -->
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="Shared.jsx"></script>
+<script type="text/babel" src="AuthScreen.jsx"></script>
+<script type="text/babel" src="LedgerScreen.jsx"></script>
+<script type="text/babel" src="LogScreen.jsx"></script>
+<script type="text/babel" src="InsightsScreen.jsx"></script>
+<script type="text/babel" src="SettingsScreen.jsx"></script>
+
+<script type="text/babel">
+const SCREENS = ['Auth','Ledger','Log','Insights','Settings'];
+
+const App = () => {
+  const saved = (() => { try { return localStorage.getItem('locket_screen') || 'Insights'; } catch { return 'Insights'; } })();
+  const [screen, setScreenRaw] = React.useState(saved);
+  const [logDate, setLogDate]  = React.useState(new Date().toISOString());
+
+  const setScreen = (s) => {
+    try { localStorage.setItem('locket_screen', s); } catch {}
+    setScreenRaw(s);
+  };
+
+  const openLog = (dayOrIso) => {
+    if (typeof dayOrIso === 'string' && dayOrIso.includes('T')) {
+      setLogDate(dayOrIso);
+    } else {
+      const now = new Date();
+      const d = new Date(now.getFullYear(), now.getMonth(), dayOrIso || now.getDate());
+      setLogDate(d.toISOString());
+    }
+    setScreen('Log');
+  };
+
+  const screens = {
+    Auth:     <AuthScreen onUnlock={() => setScreen('Insights')} />,
+    Ledger:   <LedgerScreen onInsights={() => setScreen('Insights')} onSettings={() => setScreen('Settings')} onDayPress={openLog} />,
+    Log:      <LogScreen date={logDate} phase="menstrual" onBack={() => setScreen('Ledger')} onSave={() => setScreen('Ledger')} />,
+    Insights: <InsightsScreen onCalendar={() => setScreen('Ledger')} onSettings={() => setScreen('Settings')} onDayPress={openLog} />,
+    Settings: <SettingsScreen onBack={() => setScreen('Insights')} sealStatus="secure" />,
+  };
+
+  return (
+    <div key={screen} className="screen-slide" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {screens[screen]}
+    </div>
+  );
+};
+
+// Sidebar nav dots (rendered outside React)
+const renderSidebar = (active, setScreen) => {
+  const sidebar = document.getElementById('sidebar');
+  const labels  = ['Lock', 'Ledger', 'Log', 'Insights', 'Settings'];
+  sidebar.innerHTML = '';
+  SCREENS.forEach((s, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'nav-dot' + (s === active ? ' active' : '');
+    btn.title = labels[i];
+    btn.onclick = () => setScreen(s);
+    sidebar.appendChild(btn);
+  });
+};
+
+// Wire up
+const root = ReactDOM.createRoot(document.getElementById('app-root'));
+let currentScreen = (() => { try { return localStorage.getItem('locket_screen') || 'Insights'; } catch { return 'Insights'; } })();
+const setScreenGlobal = (s) => {
+  currentScreen = s;
+  try { localStorage.setItem('locket_screen', s); } catch {}
+  renderSidebar(s, setScreenGlobal);
+  root.render(<AppWithNav initialScreen={s} onChange={setScreenGlobal} />);
+};
+
+const AppWithNav = ({ initialScreen, onChange }) => {
+  const [screen, setScreenLocal] = React.useState(initialScreen);
+  const [logDate, setLogDate] = React.useState(new Date().toISOString());
+
+  // ── Tweakable controls — four expressive levers that reshape the feel ──
+  const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+    "phase": "follicular",
+    "atmosphere": "frosted",
+    "saturation": "balanced",
+    "darkMode": false
+  }/*EDITMODE-END*/;
+
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+
+  // Saturation — three palettes for the phase colors
+  const PHASE_PALETTES = {
+    whisper: {
+      menstrual:  '#E6989E', menstrualTint:  '#FBEBEF',
+      follicular: '#79C2B8', follicularTint: '#E8F5F4',
+      ovulatory:  '#FFC76B', ovulatoryTint:  '#FFF4E5',
+      luteal:     '#A483BE', lutealTint:     '#EDE5F5',
+    },
+    balanced: {
+      menstrual:  '#D1495B', menstrualTint:  '#F8E5E7',
+      follicular: '#2A9D8F', follicularTint: '#E4F3F1',
+      ovulatory:  '#FF9F00', ovulatoryTint:  '#FFF2E0',
+      luteal:     '#76489D', lutealTint:     '#EDE7F2',
+    },
+    vivid: {
+      menstrual:  '#B82C40', menstrualTint:  '#FBD5D9',
+      follicular: '#1E7A6E', follicularTint: '#D4ECE8',
+      ovulatory:  '#E08C00', ovulatoryTint:  '#FFE8C2',
+      luteal:     '#5A3478', lutealTint:     '#E2D5EB',
+    },
+  };
+
+  // Atmosphere — chrome material treatment
+  const ATMOSPHERES = {
+    frosted: {
+      pageBg: '#FDFBF9',
+      pillBg: 'rgba(255,255,255,0.62)',
+      pillBlur: 'blur(16px)',
+      pillShadow: '0 2px 12px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.06)',
+      textPrimary: '#1B1C1B',
+      textSecondary: '#717783',
+      cardBg: '#FFFFFF',
+    },
+    solid: {
+      pageBg: '#F2F2F7',
+      pillBg: '#FFFFFF',
+      pillBlur: 'none',
+      pillShadow: '0 4px 16px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.06)',
+      textPrimary: '#1B1C1B',
+      textSecondary: '#717783',
+      cardBg: '#FFFFFF',
+    },
+    paper: {
+      pageBg: '#F5EFE0',
+      pillBg: '#FBF5E6',
+      pillBlur: 'none',
+      pillShadow: '0 1px 4px rgba(120,90,40,0.18), 0 0 0 1px rgba(120,90,40,0.10)',
+      textPrimary: '#1B1C1B',
+      textSecondary: '#717783',
+      cardBg: '#FBF5E6',
+    },
+  };
+
+  // Dark mode atmospheres
+  const DARK_ATMOSPHERES = {
+    frosted: {
+      pageBg: '#252628',
+      pillBg: 'rgba(50,51,54,0.62)',
+      pillBlur: 'blur(16px)',
+      pillShadow: '0 2px 12px rgba(0,0,0,0.40), 0 0 0 1px rgba(255,255,255,0.08)',
+      textPrimary: '#FFFFFF',
+      textSecondary: '#A0A0A5',
+      cardBg: '#323336',
+    },
+    solid: {
+      pageBg: '#1C1C1E',
+      pillBg: '#323336',
+      pillBlur: 'none',
+      pillShadow: '0 4px 16px rgba(0,0,0,0.40), 0 0 0 1px rgba(255,255,255,0.08)',
+      textPrimary: '#FFFFFF',
+      textSecondary: '#A0A0A5',
+      cardBg: '#323336',
+    },
+    paper: {
+      pageBg: '#1F1A14',
+      pillBg: '#2A2218',
+      pillBlur: 'none',
+      pillShadow: '0 1px 4px rgba(0,0,0,0.60), 0 0 0 1px rgba(255,255,255,0.06)',
+      textPrimary: '#FFFFFF',
+      textSecondary: '#A0A0A5',
+      cardBg: '#2A2218',
+    },
+  };
+
+  const palette = PHASE_PALETTES[t.saturation] || PHASE_PALETTES.balanced;
+  const atmosphereMap = t.darkMode ? DARK_ATMOSPHERES : ATMOSPHERES;
+  const surface = atmosphereMap[t.atmosphere] || atmosphereMap.frosted;
+
+  const go = (s) => { setScreenLocal(s); onChange(s); };
+
+  const openLog = (dayOrIso) => {
+    if (typeof dayOrIso === 'string' && dayOrIso.includes('T')) {
+      setLogDate(dayOrIso);
+    } else {
+      const now = new Date();
+      const d = new Date(now.getFullYear(), now.getMonth(), dayOrIso || now.getDate());
+      setLogDate(d.toISOString());
+    }
+    go('Log');
+  };
+
+  const screens = {
+    Auth:     <AuthScreen onUnlock={() => go('Insights')} />,
+    Ledger:   <LedgerScreen onInsights={() => go('Insights')} onSettings={() => go('Settings')} onDayPress={openLog} surface={surface} />,
+    Log:      <LogScreen date={logDate} phase={t.phase} onBack={() => go('Ledger')} onSave={() => go('Ledger')} />,
+    Insights: <InsightsScreen onCalendar={() => go('Ledger')} onSettings={() => go('Settings')} onDayPress={openLog} phase={t.phase} onPhaseChange={(p) => setTweak('phase', p)} palette={palette} surface={surface} />,
+    Settings: <SettingsScreen onBack={() => go('Insights')} sealStatus="secure" />,
+  };
+
+  React.useEffect(() => { renderSidebar(screen, go); }, [screen]);
+
+  // Apply dark mode class to phone frame
+  React.useEffect(() => {
+    const phone = document.querySelector('.phone');
+    const statusBar = document.querySelector('.status-bar');
+    const homeIndicator = document.querySelector('.home-indicator');
+    const homeBar = document.querySelector('.home-bar');
+    
+    if (t.darkMode) {
+      phone?.classList.add('dark-mode');
+      statusBar?.classList.add('dark-mode');
+      homeIndicator?.classList.add('dark-mode');
+      homeBar?.classList.add('dark-mode');
+    } else {
+      phone?.classList.remove('dark-mode');
+      statusBar?.classList.remove('dark-mode');
+      homeIndicator?.classList.remove('dark-mode');
+      homeBar?.classList.remove('dark-mode');
+    }
+  }, [t.darkMode]);
+
+  const ThemeCtx = window.ThemeContext;
+
+  return (
+    <ThemeCtx.Provider value={{ dark: t.darkMode }}>
+      <div key={screen} className="screen-slide" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {screens[screen]}
+      </div>
+      <TweaksPanel title="Locket Tweaks">
+        <TweakSection label="Theme">
+          <TweakToggle label="Dark mode" value={t.darkMode}
+            onChange={(v) => setTweak('darkMode', v)} />
+        </TweakSection>
+        <TweakSection label="Cycle phase">
+          <TweakSelect label="Current" value={t.phase}
+            options={['menstrual','follicular','ovulatory','luteal']}
+            onChange={(v) => setTweak('phase', v)} />
+        </TweakSection>
+        <TweakSection label="Atmosphere">
+          <TweakRadio label="Material" value={t.atmosphere}
+            options={['frosted','solid','paper']}
+            onChange={(v) => setTweak('atmosphere', v)} />
+          <TweakRadio label="Saturation" value={t.saturation}
+            options={['whisper','balanced','vivid']}
+            onChange={(v) => setTweak('saturation', v)} />
+        </TweakSection>
+      </TweaksPanel>
+    </ThemeCtx.Provider>
+  );
+};
+
+renderSidebar(currentScreen, setScreenGlobal);
+root.render(<AppWithNav initialScreen={currentScreen} onChange={setScreenGlobal} />);
+</script>
+
+</body>
+</html>

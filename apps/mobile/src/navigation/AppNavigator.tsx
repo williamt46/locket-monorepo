@@ -9,6 +9,7 @@ import { ImportScreen } from '../screens/ImportScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { LogScreen } from '../screens/LogScreen';
 import { CycleInsightsScreen } from '../screens/CycleInsightsScreen';
+import { AddSymptomsScreen } from '../screens/AddSymptomsScreen';
 import { getUserConfig } from '../services/StorageService';
 import { colors } from '../theme/colors';
 
@@ -46,6 +47,7 @@ export const AppNavigator = () => {
                 <Stack.Screen name="Consent" component={ConsentScreen} />
                 <Stack.Screen name="Log" component={LogScreen} />
                 <Stack.Screen name="CycleInsights" component={CycleInsightsScreen} />
+                <Stack.Screen name="AddSymptoms" component={AddSymptomsScreen} />
             </Stack.Navigator>
         </NavigationContainer>
     );

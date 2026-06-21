@@ -106,7 +106,7 @@ export const ContentSheet: React.FC<ContentSheetProps> = ({ visible, item, onClo
           {/* Attribution footer */}
           <View style={styles.footer}>
             <Text style={styles.footerText}>
-              Content from Euki · GPL-3.0 · locket.health is privacy-first and offline
+              Educational content from Euki (open-source, GPL-3.0) · Delivered offline · No tracking
             </Text>
           </View>
         </View>
@@ -160,8 +160,12 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   closeButton: {
-    padding: 4,
-    marginTop: -2,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -10,
+    marginRight: -10,
   },
   closeText: {
     fontSize: 16,

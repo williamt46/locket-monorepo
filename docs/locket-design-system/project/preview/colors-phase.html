@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@400,1&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: "Public Sans", system-ui, sans-serif; background: #FDFBF7; padding: 20px; }
+.material-symbols-outlined { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; font-size: 22px; }
+.grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+.phase { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.circle { width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; }
+.tint { width: 56px; height: 24px; border-radius: 8px; margin-top: -2px; }
+.label { font-size: 11px; font-weight: 600; color: #2D2D2D; text-align: center; }
+.hex { font-size: 9px; font-family: monospace; color: #8E8E93; }
+</style>
+</head>
+<body>
+<div class="grid">
+  <div class="phase">
+    <div class="circle" style="background:#D1495B;"><span class="material-symbols-outlined">water_drop</span></div>
+    <div class="tint" style="background:#FBEBEF;"></div>
+    <div class="label">Menstrual</div>
+    <div class="hex">#D1495B</div>
+  </div>
+  <div class="phase">
+    <div class="circle" style="background:#2A9D8F;"><span class="material-symbols-outlined">psychiatry</span></div>
+    <div class="tint" style="background:#E8F5F4;"></div>
+    <div class="label">Follicular</div>
+    <div class="hex">#2A9D8F</div>
+  </div>
+  <div class="phase">
+    <div class="circle" style="background:#FF9F00;"><span class="material-symbols-outlined">wb_sunny</span></div>
+    <div class="tint" style="background:#FFF4E5;"></div>
+    <div class="label">Ovulatory</div>
+    <div class="hex">#FF9F00</div>
+  </div>
+  <div class="phase">
+    <div class="circle" style="background:#76489D;"><span class="material-symbols-outlined">mode_night</span></div>
+    <div class="tint" style="background:#EDE5F5;"></div>
+    <div class="label">Luteal</div>
+    <div class="hex">#76489D</div>
+  </div>
+  <div class="phase">
+    <div class="circle" style="background:#006EC7;"><span class="material-symbols-outlined">lock</span></div>
+    <div class="tint" style="background:#E5F1FA;"></div>
+    <div class="label">Locket Blue</div>
+    <div class="hex">#006EC7</div>
+  </div>
+</div>
+</body>
+</html>

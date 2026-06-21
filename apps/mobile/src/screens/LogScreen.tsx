@@ -10,50 +10,34 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  LayoutAnimation,
-  UIManager,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
-import { ContentSheet } from '../components/ContentSheet';
 import { DisclaimerModal } from '../components/DisclaimerModal';
-import { useEukiContent } from '../hooks/useEukiContent';
+import { PeriodConfirmModal } from '../components/PeriodConfirmModal';
 import { useLedger } from '../hooks/useLedger';
 import type { BleedingIntensity, SymptomKey } from '../models/LogEntry';
-import type { EukiItem } from '@locket/shared';
 
 // LayoutAnimation is enabled inside the component via useEffect to avoid
 // mutating global UIManager state at module evaluation time.
 
-type AccordionCategory = 'symptoms' | 'mood' | 'sex' | 'triggers';
-
-const CATEGORY_CONFIG: Record<AccordionCategory, { label: string; icon: string }> = {
-  symptoms: { label: 'SYMPTOMS', icon: '💊' },
-  mood: { label: 'MOOD', icon: '😊' },
-  sex: { label: 'SEX', icon: '❤️' },
-  triggers: { label: 'TRIGGERS', icon: '⚡' },
+const SYMPTOM_LABELS: Record<SymptomKey, string> = {
+  cramps: 'Cramps', bloating: 'Bloating', nausea_fatigue: 'Nausea / Fatigue',
+  headache: 'Headache', back_pain: 'Back Pain', acne: 'Acne', breast_tenderness: 'Breast Tenderness',
+  mood_low: 'Low', mood_anxious: 'Anxious', mood_irritable: 'Irritable',
+  mood_happy: 'Happy', mood_energized: 'Energized', mood_calm: 'Calm',
+  sex_protected: 'Protected Sex', sex_unprotected: 'Unprotected Sex',
+  sex_high_drive: 'High Drive', sex_low_drive: 'Low Drive',
+  trigger_stress: 'Stress', trigger_poor_sleep: 'Poor Sleep',
+  trigger_alcohol: 'Alcohol', trigger_caffeine: 'Caffeine',
+  trigger_intense_exercise: 'Intense Exercise',
 };
 
-const CATEGORY_CHIPS: Record<AccordionCategory, Array<{ key: SymptomKey; label: string }>> = {
-  symptoms: [
-    { key: 'cramps', label: 'Cramps' },
-    { key: 'bloating', label: 'Bloating' },
-    { key: 'nausea_fatigue', label: 'Nausea / Fatigue' },
-  ],
-  mood: [
-    { key: 'mood_low', label: 'Low mood' },
-    { key: 'mood_anxious', label: 'Anxious' },
-    { key: 'mood_irritable', label: 'Irritable' },
-  ],
-  sex: [],
-  triggers: [
-    { key: 'acne', label: 'Acne' },
-    { key: 'headache', label: 'Headache' },
-    { key: 'back_pain', label: 'Back pain' },
-  ],
-};
+// Fallback period length when UserConfig isn't plumbed through route params (matches UserConfig default).
+const DEFAULT_PERIOD_LENGTH = 5;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 const BLEEDING_OPTIONS: Array<{ key: BleedingIntensity; label: string }> = [
   { key: 'spotting', label: 'Spotting' },
@@ -67,19 +51,17 @@ export const LogScreen: React.FC = () => {
   const route = useRoute<any>();
   const insets = useSafeAreaInsets();
 
-  const { date, initialData, keyHex, currentPhase } = route.params ?? {};
+  const { date, initialData, keyHex, currentPhase, periodLength } = route.params ?? {};
+
+  // Period length used to auto-fill a full period span when a boundary (start/end) is marked.
+  // Plumbed from LedgerScreen's UserConfig; falls back to the config default.
+  const effectivePeriodLength = Math.max(1, periodLength ?? DEFAULT_PERIOD_LENGTH);
 
   // Guard: if critical params are missing (e.g. deep link / state restoration), bail immediately
   // Must be before any hook calls to satisfy Rules of Hooks — hooks below are called unconditionally.
   // Call useLedger directly — avoids passing non-serializable functions via route params
-  const { inscribe, deleteByTimestamp } = useLedger(keyHex);
+  const { inscribe, batchInscribe, deleteByTimestamp } = useLedger(keyHex);
 
-  // Enable LayoutAnimation on Android inside effect to avoid global UIManager mutation at module scope
-  useEffect(() => {
-    if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-      UIManager.setLayoutAnimationEnabledExperimental(true);
-    }
-  }, []);
 
   // Bleeding state
   const [bleeding, setBleeding] = useState<BleedingIntensity | null>(
@@ -101,19 +83,31 @@ export const LogScreen: React.FC = () => {
   // Note
   const [note, setNote] = useState<string>(initialData?.note ?? '');
 
-  // Accordion open state
-  const [openCategory, setOpenCategory] = useState<AccordionCategory | null>(null);
-
-  // Content sheet state
-  const [contentItem, setContentItem] = useState<EukiItem | null>(null);
-  const [contentSheetVisible, setContentSheetVisible] = useState(false);
-  const [lastTappedSymptom, setLastTappedSymptom] = useState<SymptomKey | null>(null);
 
   // Save state — use ref for instant lock (prevents double-tap before state re-render)
   const [saving, setSaving] = useState(false);
   const isSavingRef = useRef(false);
+  // Ask the "start of period?" handshake at most once per screen visit (avoids nagging).
+  const periodHandshakeAskedRef = useRef(false);
+  // Holds the flow level that triggered the period-start handshake; non-null shows the modal.
+  const [periodPrompt, setPeriodPrompt] = useState<BleedingIntensity | null>(null);
 
-  const { getSymptomContent } = useEukiContent(currentPhase ?? null, 0);
+  // Bleeding selection with a Confirmation Handshake instead of silent auto-marking.
+  // Clinical rationale: spotting is breakthrough bleeding (IUD / perimenopause / stress) and
+  // does NOT signify a cycle start, so it is excluded. Light/Medium/Heavy on a day that isn't
+  // already a period day prompts the user — auto-marking would corrupt cycle-length predictions.
+  const handleBleedingSelect = (key: BleedingIntensity) => {
+    const next = bleeding === key ? null : key;
+    setBleeding(next);
+    if (clots) setClots(null);
+
+    const isMenstrualFlow = next === 'light' || next === 'medium' || next === 'heavy';
+    const alreadyPeriodDay = isStart || isEnd || !!initialData?.isPeriod;
+    if (isMenstrualFlow && !alreadyPeriodDay && !periodHandshakeAskedRef.current) {
+      periodHandshakeAskedRef.current = true;
+      setPeriodPrompt(next);
+    }
+  };
 
   const phaseColor = (() => {
     switch (currentPhase) {
@@ -125,31 +119,23 @@ export const LogScreen: React.FC = () => {
     }
   })();
 
-  const toggleCategory = (cat: AccordionCategory) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setOpenCategory((prev) => (prev === cat ? null : cat));
-  };
-
-  const toggleSymptom = (key: SymptomKey) => {
-    setSelectedSymptoms((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
-      return next;
-    });
-    setLastTappedSymptom(key);
-  };
-
-  const handleWhyPress = (key: SymptomKey) => {
-    const item = getSymptomContent(key);
-    if (item) {
-      setContentItem(item);
-      setContentSheetVisible(true);
+  const phaseTintColor = (() => {
+    switch (currentPhase) {
+      case 'menstrual': return colors.warmTerracottaTint;
+      case 'follicular': return colors.arcticTealTint;
+      case 'ovulatory': return colors.orangePeelTint;
+      case 'luteal': return colors.deepReflectiveVioletTint;
+      default: return colors.locketBlueTint;
     }
-  };
+  })();
+
+  // Consume symptoms returned from AddSymptomsScreen
+  useEffect(() => {
+    if (route.params?.updatedSymptoms) {
+      setSelectedSymptoms(new Set(route.params.updatedSymptoms as SymptomKey[]));
+      navigation.setParams({ updatedSymptoms: undefined });
+    }
+  }, [route.params?.updatedSymptoms]);
 
   const handleSave = async () => {
     // Guard: missing params (deep link / state restoration)
@@ -162,21 +148,67 @@ export const LogScreen: React.FC = () => {
     try {
       const ts = new Date(date).getTime();
       if (isNaN(ts)) throw new Error('Invalid date param');
-      const record: any = {
-        ts,
-        isPeriod: isStart || isEnd || false,
-        isStart,
-        isEnd,
-        note: note.trim() || undefined,
+
+      // Day-specific data lives only on the tapped day. Cleared fields are written
+      // explicitly (null / []) rather than omitted, so the per-day merge in LedgerScreen
+      // treats this as the authoritative latest state and last-write-wins holds.
+      const dayData = {
+        note: note.trim() || null,
+        bleeding: bleeding ? { intensity: bleeding, ...(clots ? { clots } : {}) } : null,
+        symptoms: Array.from(selectedSymptoms),
       };
-      if (bleeding) {
-        record.bleeding = { intensity: bleeding, ...(clots ? { clots } : {}) };
+
+      if (isStart || isEnd) {
+        // Auto-fill a full period span of `effectivePeriodLength` days so the cycle engine
+        // gets a real isStart anchor (cycle length = start → next start). Marking the End
+        // derives the start backwards; marking the Start fills forwards. Start/End are
+        // mutually exclusive in the UI, so they can never both be set here.
+        const len = effectivePeriodLength;
+        const startTs = isStart ? ts : ts - (len - 1) * DAY_MS;
+        const ordOf = (t: number) => Math.round(t / DAY_MS);
+        const spanLo = ordOf(startTs);
+        const spanHi = ordOf(startTs + (len - 1) * DAY_MS);
+
+        // Span-clearing on re-mark: if the new span overlaps or is directly contiguous with an
+        // existing period run, neutralise that run's days that fall OUTSIDE the new span (the
+        // orphans left behind when a boundary moves). We extend left/right through contiguous
+        // existing period days, then write isPeriod:false for the orphans. Non-contiguous runs
+        // (gap ≥ 1 empty day) are genuinely separate periods and left untouched.
+        const existingPeriodDays = (route.params?.existingPeriodDays as number[] | undefined) ?? [];
+        const ordToTs = new Map<number, number>();
+        existingPeriodDays.forEach((t) => ordToTs.set(ordOf(t), t));
+        let lo = spanLo;
+        let hi = spanHi;
+        while (ordToTs.has(lo - 1)) lo--;
+        while (ordToTs.has(hi + 1)) hi++;
+
+        const neutralize: any[] = [];
+        for (let o = lo; o <= hi; o++) {
+          if ((o < spanLo || o > spanHi) && ordToTs.has(o)) {
+            // Period flag off; day data omitted so any logged symptoms on the day survive the merge.
+            neutralize.push({ ts: ordToTs.get(o), isPeriod: false, isStart: false, isEnd: false });
+          }
+        }
+
+        const span = Array.from({ length: len }, (_, i) => {
+          const dayTs = startTs + i * DAY_MS;
+          const isAnchor = dayTs === ts; // the tapped day carries the user's bleeding/symptoms/note
+          // Non-anchor span days omit day data so a day absorbed into the period keeps its own
+          // previously-logged symptoms/notes (the per-day merge keeps fields this event doesn't set).
+          return isAnchor
+            ? { ts: dayTs, isPeriod: true, isStart: i === 0, isEnd: i === len - 1, ...dayData }
+            : { ts: dayTs, isPeriod: true, isStart: i === 0, isEnd: i === len - 1 };
+        });
+
+        await batchInscribe([...neutralize, ...span]);
+      } else {
+        // No period boundary marked. Preserve the day's existing period status so editing only
+        // symptoms/notes doesn't silently un-period a mid-span day (isPeriod true, not a boundary).
+        // A day whose boundary was just un-marked (initialData had isStart/isEnd, now both off)
+        // correctly drops out of the period. Non-period days stay non-period.
+        const wasMidSpanPeriodDay = !!(initialData?.isPeriod && !initialData?.isStart && !initialData?.isEnd);
+        await inscribe({ ts, isPeriod: wasMidSpanPeriodDay, isStart: false, isEnd: false, ...dayData });
       }
-      const symptomsArr = Array.from(selectedSymptoms);
-      if (symptomsArr.length > 0) {
-        record.symptoms = symptomsArr;
-      }
-      await inscribe(record);
       saved = true;
     } catch (e) {
       Alert.alert('Error', 'Could not save. Please try again.');
@@ -237,7 +269,7 @@ export const LogScreen: React.FC = () => {
         <View style={styles.periodRow}>
           <TouchableOpacity
             style={[styles.periodBtn, isStart && { backgroundColor: phaseColor, borderColor: phaseColor }]}
-            onPress={() => setIsStart((v) => !v)}
+            onPress={() => { setIsStart((v) => !v); setIsEnd(false); }}
             accessibilityRole="button"
             accessibilityLabel={isStart ? 'Period start marked' : 'Mark period start'}
           >
@@ -245,7 +277,7 @@ export const LogScreen: React.FC = () => {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.periodBtn, isEnd && { backgroundColor: phaseColor, borderColor: phaseColor }]}
-            onPress={() => setIsEnd((v) => !v)}
+            onPress={() => { setIsEnd((v) => !v); setIsStart(false); }}
             accessibilityRole="button"
             accessibilityLabel={isEnd ? 'Period end marked' : 'Mark period end'}
           >
@@ -260,17 +292,13 @@ export const LogScreen: React.FC = () => {
             {BLEEDING_OPTIONS.map(({ key, label }) => (
               <TouchableOpacity
                 key={key}
-                style={[styles.chip, bleeding === key && styles.chipSelected]}
-                onPress={() => {
-                  LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                  setBleeding((prev) => (prev === key ? null : key));
-                  if (clots) setClots(null);
-                }}
+                style={[styles.chip, bleeding === key && { backgroundColor: phaseTintColor, borderColor: phaseColor }]}
+                onPress={() => handleBleedingSelect(key)}
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: bleeding === key }}
                 accessibilityLabel={label}
               >
-                <Text style={[styles.chipText, bleeding === key && styles.chipTextSelected]}>{label}</Text>
+                <Text style={[styles.chipText, bleeding === key && { color: phaseColor }]}>{label}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -280,13 +308,13 @@ export const LogScreen: React.FC = () => {
               {(['small', 'large'] as const).map((c) => (
                 <TouchableOpacity
                   key={c}
-                  style={[styles.chip, clots === c && styles.chipSelected]}
+                  style={[styles.chip, clots === c && { backgroundColor: phaseTintColor, borderColor: phaseColor }]}
                   onPress={() => setClots((prev) => (prev === c ? null : c))}
                   accessibilityRole="checkbox"
                   accessibilityState={{ checked: clots === c }}
                   accessibilityLabel={c === 'small' ? 'Small clots' : 'Large clots'}
                 >
-                  <Text style={[styles.chipText, clots === c && styles.chipTextSelected]}>
+                  <Text style={[styles.chipText, clots === c && { color: phaseColor }]}>
                     {c === 'small' ? 'Small clots' : 'Large clots'}
                   </Text>
                 </TouchableOpacity>
@@ -295,67 +323,48 @@ export const LogScreen: React.FC = () => {
           )}
         </View>
 
-        {/* 4-category accordion */}
-        {(Object.keys(CATEGORY_CONFIG) as AccordionCategory[]).map((cat) => {
-          const isOpen = openCategory === cat;
-          const chips = CATEGORY_CHIPS[cat];
-          const { label, icon } = CATEGORY_CONFIG[cat];
-
-          return (
-            <View key={cat} style={styles.accordionSection}>
-              <TouchableOpacity
-                style={styles.accordionHeader}
-                onPress={() => toggleCategory(cat)}
-                accessibilityRole="button"
-                accessibilityLabel={`${label}, ${isOpen ? 'expanded' : 'collapsed'}`}
-                accessibilityState={{ expanded: isOpen }}
-              >
-                <Text style={styles.accordionIcon}>{icon}</Text>
-                <Text style={styles.accordionLabel}>{label}</Text>
-                <Text style={[styles.chevron, isOpen && styles.chevronOpen]}>›</Text>
-              </TouchableOpacity>
-
-              {isOpen && (
-                <View style={styles.accordionBody}>
-                  {chips.length === 0 ? (
-                    <Text style={styles.comingSoon}>Coming soon</Text>
-                  ) : (
-                    <>
-                      <View style={styles.chipRow}>
-                        {chips.map(({ key, label: chipLabel }) => {
-                          const selected = selectedSymptoms.has(key);
-                          return (
-                            <TouchableOpacity
-                              key={key}
-                              style={[styles.chip, selected && styles.chipSelected]}
-                              onPress={() => toggleSymptom(key)}
-                              accessibilityRole="checkbox"
-                              accessibilityState={{ checked: selected }}
-                              accessibilityLabel={chipLabel}
-                            >
-                              <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
-                                {chipLabel}
-                              </Text>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
-                      {lastTappedSymptom && chips.some((c) => c.key === lastTappedSymptom) && (
-                        <TouchableOpacity
-                          onPress={() => handleWhyPress(lastTappedSymptom)}
-                          accessibilityRole="link"
-                          accessibilityLabel="Why does this happen?"
-                        >
-                          <Text style={styles.whyLink}>Why does this happen? →</Text>
-                        </TouchableOpacity>
-                      )}
-                    </>
-                  )}
+        {/* Symptoms — navigates to AddSymptomsScreen for full library */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionHeader}>SYMPTOMS</Text>
+            <TouchableOpacity
+              onPress={() =>
+                navigation.navigate('AddSymptoms', {
+                  initialSymptoms: [...selectedSymptoms],
+                  currentPhase: currentPhase ?? 'unknown',
+                  phaseColor,
+                  phaseTintColor,
+                  date,
+                  keyHex,
+                })
+              }
+              accessibilityRole="button"
+              accessibilityLabel={selectedSymptoms.size > 0 ? 'Edit symptoms' : 'Add symptoms'}
+            >
+              <Text style={[styles.addSymptomsLink, { color: phaseColor }]}>
+                {selectedSymptoms.size > 0 ? 'Edit →' : '+ Add'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+          {selectedSymptoms.size > 0 ? (
+            <View style={styles.chipRow}>
+              {[...selectedSymptoms].map((key) => (
+                <View
+                  key={key}
+                  style={[styles.chip, { backgroundColor: phaseTintColor, borderColor: phaseColor }]}
+                >
+                  <Text style={[styles.chipText, { color: phaseColor }]}>
+                    {SYMPTOM_LABELS[key] ?? key}
+                  </Text>
                 </View>
-              )}
+              ))}
             </View>
-          );
-        })}
+          ) : (
+            <Text style={styles.noSymptomsText}>
+              Tap + Add to log symptoms, mood, sex &amp; triggers
+            </Text>
+          )}
+        </View>
 
         {/* Notes */}
         <View style={styles.section}>
@@ -397,15 +406,17 @@ export const LogScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      {/* ContentSheet (iOS only) */}
-      <ContentSheet
-        visible={contentSheetVisible}
-        item={contentItem}
-        onClose={() => setContentSheetVisible(false)}
-      />
-
       {/* DisclaimerModal (one-time gate) */}
       <DisclaimerModal />
+
+      {/* Period-start confirmation handshake (triggered by Light/Medium/Heavy flow) */}
+      <PeriodConfirmModal
+        visible={periodPrompt !== null}
+        intensity={periodPrompt}
+        dateLabel={displayDate}
+        onConfirm={() => { setIsStart(true); setIsEnd(false); setPeriodPrompt(null); }}
+        onDismiss={() => setPeriodPrompt(null)}
+      />
     </KeyboardAvoidingView>
   );
 };
@@ -413,7 +424,7 @@ export const LogScreen: React.FC = () => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#FDFBF9',
+    backgroundColor: colors.paper,
   },
   header: {
     flexDirection: 'row',
@@ -425,8 +436,10 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E0E0E0',
   },
   closeBtn: {
-    padding: 4,
-    width: 32,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   closeBtnText: {
     fontSize: 16,
@@ -483,7 +496,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.locketBlue,
     letterSpacing: 0.1 * 13,
-    marginBottom: 10,
   },
   chipRow: {
     flexDirection: 'row',
@@ -499,72 +511,29 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'transparent',
   },
-  chipSelected: {
-    backgroundColor: colors.warmTerracottaTint,
-    borderColor: colors.warmTerracotta,
-  },
+  // chipSelected and chipTextSelected are applied dynamically via phaseColor
   chipText: {
     fontFamily: typography.body,
     fontSize: 13,
     fontWeight: '500',
     color: '#4A4A4A',
   },
-  chipTextSelected: {
-    color: colors.warmTerracotta,
-  },
-  accordionSection: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
-    marginBottom: 8,
-  },
-  accordionHeader: {
+  sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    justifyContent: 'space-between',
+    marginBottom: 10,
   },
-  accordionIcon: {
-    fontSize: 16,
-    marginRight: 10,
-  },
-  accordionLabel: {
-    flex: 1,
-    fontFamily: typography.heading,
+  addSymptomsLink: {
+    fontFamily: typography.body,
     fontSize: 13,
-    fontWeight: '700',
-    color: colors.locketBlue,
-    letterSpacing: 0.1 * 13,
+    fontWeight: '600',
   },
-  chevron: {
-    fontSize: 18,
-    color: '#8E8E93',
-    transform: [{ rotate: '0deg' }],
-  },
-  chevronOpen: {
-    transform: [{ rotate: '90deg' }],
-  },
-  accordionBody: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-  },
-  comingSoon: {
+  noSymptomsText: {
     fontFamily: typography.body,
     fontSize: 13,
     color: '#8E8E93',
     fontStyle: 'italic',
-  },
-  whyLink: {
-    fontFamily: typography.body,
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.locketBlue,
-    marginTop: 4,
   },
   notesInput: {
     backgroundColor: '#FFFFFF',

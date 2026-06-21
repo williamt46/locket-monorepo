@@ -129,7 +129,7 @@ app.get('/api/data/request/:userDid/:recipientPublicKey', async (req, res) => {
         }
 
         // 3. Proxy Re-Encryption (PRE Step 4) — blind capsule transformation
-        const { cfragB64 } = cryptoService.proxyReEncrypt(
+        const { cfragB64 } = await cryptoService.proxyReEncrypt(
             data.capsuleB64,
             consent.kFragBase64!
         );

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: "Public Sans", system-ui, sans-serif; background: #FDFBF9; padding: 22px; color: #1B1C1B; }
+.kicker { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #006EC7; margin-bottom: 6px; }
+h2 { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 16px; }
+.row { display: flex; gap: 20px; align-items: flex-start; }
+.col-demo { flex: 1.4; display: flex; flex-direction: column; gap: 10px; }
+.col-spec { flex: 1; background: #FFFFFF; border-radius: 16px; padding: 16px 18px; box-shadow: 0 4px 20px -2px rgba(0,0,0,0.05); }
+.card { background: #FFFFFF; border-radius: 16px; padding: 14px 16px; box-shadow: 0 4px 20px -2px rgba(0,0,0,0.05); }
+.bar-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.bar-title { font-size: 13px; font-weight: 700; color: #1B1C1B; }
+.bar-sub { font-size: 11px; color: #717783; margin-top: 1px; }
+.chev { font-size: 16px; color: #717783; }
+.seg-bar { display: grid; gap: 2px; width: 100%; }
+.seg { height: 10px; border-radius: 999px; }
+.seg.menstrual  { background: #D1495B; }
+.seg.follicular { background: #2A9D8F; }
+.seg.ovulatory  { background: #FF9F00; }
+.seg.luteal     { background: #76489D; }
+.seg.future     { background: #F2F2F7; }
+.today-marker { position: relative; }
+.today-marker::after { content: ''; position: absolute; right: -3px; top: -4px; width: 4px; height: 18px; background: #1B1C1B; border-radius: 2px; }
+.legend { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+.leg-item { display: flex; align-items: center; gap: 5px; font-size: 10.5px; color: #4A4A4A; }
+.leg-dot { width: 8px; height: 8px; border-radius: 50%; }
+.spec-title { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #006EC7; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+.spec-title .material-symbols-outlined { font-size: 13px; }
+.spec-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #F2F2F7; font-size: 11px; }
+.spec-row:last-child { border-bottom: none; }
+.spec-key { color: #717783; }
+.spec-val { font-weight: 600; font-family: "SF Mono", monospace; font-size: 10.5px; }
+.note { font-size: 10.5px; color: #4A4A4A; line-height: 1.5; margin-top: 12px; padding-top: 12px; border-top: 1px solid #F2F2F7; }
+</style>
+</head>
+<body>
+
+<div class="kicker">Canonical component · confirmed from live screens</div>
+<h2>Phase Segmented Bar</h2>
+
+<div class="row">
+
+  <div class="col-demo">
+
+    <div class="card">
+      <div class="bar-row">
+        <div>
+          <div class="bar-title">Current cycle · 34 days</div>
+          <div class="bar-sub">Started Nov 10 · with predictions</div>
+        </div>
+        <span class="chev material-symbols-outlined">chevron_right</span>
+      </div>
+      <!-- 5 menstrual, 12 follicular, 3 ovulatory, 9 luteal, 5 future -->
+      <div class="seg-bar" style="grid-template-columns: repeat(34, 1fr);">
+        <div class="seg menstrual"></div><div class="seg menstrual"></div><div class="seg menstrual"></div><div class="seg menstrual"></div><div class="seg menstrual"></div>
+        <div class="seg follicular"></div><div class="seg follicular"></div><div class="seg follicular"></div><div class="seg follicular"></div><div class="seg follicular"></div><div class="seg follicular"></div><div class="seg follicular"></div><div class="seg follicular"></div><div class="seg follicular"></div><div class="seg follicular"></div><div class="seg follicular"></div><div class="seg follicular"></div>
+        <div class="seg ovulatory"></div><div class="seg ovulatory"></div><div class="seg ovulatory"></div>
+        <div class="seg luteal"></div><div class="seg luteal"></div><div class="seg luteal"></div><div class="seg luteal"></div><div class="seg luteal"></div><div class="seg luteal today-marker"></div><div class="seg luteal"></div><div class="seg luteal"></div><div class="seg luteal"></div>
+        <div class="seg future"></div><div class="seg future"></div><div class="seg future"></div><div class="seg future"></div><div class="seg future"></div>
+      </div>
+      <div class="legend">
+        <div class="leg-item"><div class="leg-dot" style="background:#D1495B;"></div>Menstrual 5d</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#2A9D8F;"></div>Follicular 12d</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#FF9F00;"></div>Ovulatory 3d</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#76489D;"></div>Luteal 9d</div>
+        <div class="leg-item" style="color:#717783;"><div class="leg-dot" style="background:#F2F2F7;border:1px solid #E6E2D8;"></div>Predicted 5d</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="bar-row">
+        <div>
+          <div class="bar-title">28 days</div>
+          <div class="bar-sub">Started Oct 12 · complete</div>
+        </div>
+        <span class="chev material-symbols-outlined">chevron_right</span>
+      </div>
+      <div class="seg-bar" style="grid-template-columns: repeat(28, 1fr);">
+        <div class="seg menstrual"></div><div class="seg menstrual"></div><div class="seg menstrual"></div><div class="seg menstrual"></div><div class="seg menstrual"></div>
+        <div class="seg follicular"></div><div class="seg follicular"></div><div class="seg follicular"></div><div class="seg follicular"></div><div class="seg follicular"></div><div class="seg follicular"></div><div class="seg follicular"></div><div class="seg follicular"></div><div class="seg follicular"></div>
+        <div class="seg ovulatory"></div><div class="seg ovulatory"></div><div class="seg ovulatory"></div>
+        <div class="seg luteal"></div><div class="seg luteal"></div><div class="seg luteal"></div><div class="seg luteal"></div><div class="seg luteal"></div><div class="seg luteal"></div><div class="seg luteal"></div><div class="seg luteal"></div><div class="seg luteal"></div><div class="seg luteal"></div><div class="seg luteal"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="col-spec">
+    <div class="spec-title"><span class="material-symbols-outlined">straighten</span>Spec</div>
+    <div class="spec-row"><span class="spec-key">Layout</span><span class="spec-val">CSS Grid</span></div>
+    <div class="spec-row"><span class="spec-key">Columns</span><span class="spec-val">repeat(N, 1fr)</span></div>
+    <div class="spec-row"><span class="spec-key">Segment gap</span><span class="spec-val">2px</span></div>
+    <div class="spec-row"><span class="spec-key">Height</span><span class="spec-val">10px</span></div>
+    <div class="spec-row"><span class="spec-key">Radius</span><span class="spec-val">999px</span></div>
+    <div class="spec-row"><span class="spec-key">Menstrual</span><span class="spec-val" style="color:#D1495B;">#D1495B</span></div>
+    <div class="spec-row"><span class="spec-key">Follicular</span><span class="spec-val" style="color:#2A9D8F;">#2A9D8F</span></div>
+    <div class="spec-row"><span class="spec-key">Ovulatory</span><span class="spec-val" style="color:#FF9F00;">#FF9F00</span></div>
+    <div class="spec-row"><span class="spec-key">Luteal</span><span class="spec-val" style="color:#76489D;">#76489D</span></div>
+    <div class="spec-row"><span class="spec-key">Predicted</span><span class="spec-val" style="color:#717783;">#F2F2F7</span></div>
+    <div class="spec-row"><span class="spec-key">Today marker</span><span class="spec-val">4×18 #1B1C1B</span></div>
+    <p class="note">N = cycle length in days. One segment per day. Predicted days use Pale Lavender to communicate uncertainty without color-absence.</p>
+  </div>
+
+</div>
+
+</body>
+</html>

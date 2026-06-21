@@ -19,6 +19,7 @@
     "vitest": "^4.0.18"
   },
   "dependencies": {
+    "@expo/vector-icons": "^15.0.3",
     "react-dom": "19.1.0",
     "react-native-web": "^0.21.0"
   },

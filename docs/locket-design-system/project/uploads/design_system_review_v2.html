@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Locket Design System — Revised Review v2</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+  <style>
+    /* ─── TOKENS ─────────────────────────────────────────────── */
+    :root {
+      /* Confirmed from real screens */
+      --sand:        #FDFBF9;
+      --white:       #FFFFFF;
+      --ink:         #1B1C1B;   /* on-surface from prototype, not #1A1A1A */
+      --blue:        #006EC7;   /* locket-blue — action blue */
+      --primary:     #00569D;   /* primary in MD3 layer — slightly darker */
+      --blue-tint:   #E5F1FA;
+      --fog:         #717783;   /* outline from prototype, not #8E8E93 */
+      --lavender:    #F2F2F7;
+      --divider:     #F2F2F7;
+      --terracotta:  #D1495B;
+      --terra-tint:  #FBEBEF;
+      --teal:        #2A9D8F;
+      --teal-tint:   #E8F5F4;
+      --amber:       #FF9F00;
+      --amber-tint:  #FFF4E5;
+      --violet:      #76489D;
+      --violet-tint: #EDE5F5;
+      --dark-bg:     #252628;
+      --dark-card:   #323336;
+      --shadow-sm:   0 4px 20px -2px rgba(0,0,0,0.05);
+      --r-btn:       12px;
+      --r-card:      16px;
+      --r-icon:      12px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Public Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--sand);
+      color: var(--ink);
+      font-size: 16px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ─── PAGE HEADER ────────────────────────────────────────── */
+    .page-header {
+      background: var(--dark-bg);
+      padding: 64px 24px 48px;
+      text-align: center;
+    }
+    .page-header .kicker {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.12em;
+      text-transform: uppercase; color: var(--blue); margin-bottom: 16px;
+    }
+    .page-header h1 {
+      font-size: 30px; font-weight: 700; color: #fff;
+      letter-spacing: -0.02em; margin-bottom: 8px;
+    }
+    .page-header .version {
+      display: inline-block;
+      background: rgba(0,110,199,0.2); border: 1px solid rgba(0,110,199,0.4);
+      color: #60A5FA; font-size: 11px; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      padding: 3px 10px; border-radius: 999px; margin-bottom: 12px;
+    }
+    .page-header p {
+      font-size: 14px; color: #EBEBF5; max-width: 500px; margin: 0 auto;
+    }
+
+    /* ─── LAYOUT ─────────────────────────────────────────────── */
+    .content-wrap { max-width: 760px; margin: 0 auto; padding: 0 24px 80px; }
+    .section { margin-top: 56px; }
+    .section-label {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.12em;
+      text-transform: uppercase; color: var(--blue); margin-bottom: 20px;
+    }
+    .section-label .material-symbols-rounded { font-size: 15px; }
+    h2 { font-size: 21px; font-weight: 700; color: var(--ink); margin-bottom: 8px; letter-spacing: -0.01em; }
+    h3 { font-size: 14px; font-weight: 700; color: var(--ink); margin: 18px 0 5px; }
+    p { color: #444; margin-bottom: 12px; font-size: 14px; line-height: 1.65; }
+    p:last-child { margin-bottom: 0; }
+
+    code {
+      background: var(--lavender); border-radius: 4px;
+      padding: 1px 5px; font-size: 11.5px;
+      font-family: 'SF Mono', 'Fira Code', monospace; color: #00569D;
+    }
+    .page-divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(0,0,0,0.08), transparent);
+      margin: 56px 0 0;
+    }
+
+    /* ─── CALLOUT CARDS ──────────────────────────────────────── */
+    .card { background: var(--white); border-radius: var(--r-card); padding: 20px 22px; box-shadow: var(--shadow-sm); margin-bottom: 14px; }
+    .card.warn  { border-left: 3px solid var(--terracotta); }
+    .card.ok    { border-left: 3px solid var(--teal); }
+    .card.note  { border-left: 3px solid var(--blue); }
+    .card.gap   { border-left: 3px solid var(--amber); }
+    .card.new   { border-left: 3px solid var(--violet); }
+    .conflict-label { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 5px; }
+    .conflict-label.red   { color: var(--terracotta); }
+    .conflict-label.teal  { color: var(--teal); }
+    .conflict-label.blue  { color: var(--blue); }
+    .conflict-label.amber { color: var(--amber); }
+    .conflict-label.violet{ color: var(--violet); }
+
+    /* ─── TABLES ─────────────────────────────────────────────── */
+    .tbl { width: 100%; border-collapse: collapse; font-size: 13px; margin: 16px 0 24px; }
+    .tbl th { text-align: left; padding: 7px 12px; background: var(--blue-tint); color: var(--blue); font-weight: 700; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; }
+    .tbl td { padding: 10px 12px; border-bottom: 1px solid var(--lavender); vertical-align: top; line-height: 1.5; }
+    .tbl tr:last-child td { border-bottom: none; }
+    .tbl .c1 { color: var(--teal); }
+    .tbl .c2 { color: var(--terracotta); }
+    .tbl .c3 { color: var(--fog); font-style: italic; }
+    .tbl td strong { color: var(--ink); }
+
+    /* ─── ASSET LIST ─────────────────────────────────────────── */
+    .asset-list { list-style: none; display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
+    .asset-list li { display: flex; align-items: flex-start; gap: 12px; background: var(--white); border-radius: var(--r-card); padding: 16px 20px; box-shadow: var(--shadow-sm); }
+    .asset-num { width: 28px; height: 28px; border-radius: 50%; background: var(--blue-tint); color: var(--blue); font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+    .asset-list li h4 { font-size: 13px; font-weight: 700; margin-bottom: 3px; color: var(--ink); }
+    .asset-list li p { font-size: 12px; color: var(--fog); margin: 0; }
+
+    /* ─────────────────────────────────────────────────────────── */
+    /* COMPONENT REFERENCE SPECS                                    */
+    /* ─────────────────────────────────────────────────────────── */
+    .comp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 20px; }
+    .comp-block { background: var(--white); border-radius: var(--r-card); padding: 20px; box-shadow: var(--shadow-sm); }
+    .comp-title { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--blue); margin-bottom: 14px; display: flex; align-items: center; gap: 6px; }
+    .comp-title .material-symbols-rounded { font-size: 13px; }
+    .spec-row { display: flex; justify-content: space-between; align-items: baseline; padding: 5px 0; border-bottom: 1px solid var(--divider); font-size: 12px; }
+    .spec-row:last-child { border-bottom: none; }
+    .spec-key { color: var(--fog); }
+    .spec-val { font-weight: 600; color: var(--ink); font-family: 'SF Mono', monospace; font-size: 11px; }
+
+    /* ─────────────────────────────────────────────────────────── */
+    /* TEST OUTPUT CONTAINERS                                       */
+    /* ─────────────────────────────────────────────────────────── */
+    .test-output-wrap { margin-top: 40px; }
+    .test-output-label { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+    .output-badge { background: var(--dark-bg); color: #EBEBF5; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; }
+    .output-title { font-size: 17px; font-weight: 700; color: var(--ink); }
+    .output-frame { background: var(--sand); border-radius: 20px; padding: 32px 24px; border: 1px solid rgba(0,0,0,0.06); overflow: hidden; }
+    .output-frame.dark-frame { background: var(--dark-bg); }
+    .output-critique { margin-top: 16px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    .critique-box { background: var(--white); border-radius: var(--r-card); padding: 16px; box-shadow: var(--shadow-sm); }
+    .critique-box h5 { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px; }
+    .critique-box.on-brand h5 { color: var(--teal); }
+    .critique-box.generic h5  { color: var(--amber); }
+    .critique-box.improve h5  { color: var(--blue); }
+    .critique-box p { font-size: 12px; color: #555; margin: 0; line-height: 1.5; }
+
+    /* ─────────────────────────────────────────────────────────── */
+    /* TEST OUTPUT 1: CYCLE TRENDS (rebuilt from real code)         */
+    /* ─────────────────────────────────────────────────────────── */
+    .phone-wrap {
+      max-width: 390px;
+      margin: 0 auto;
+      background: var(--sand);
+      border-radius: 28px;
+      overflow: hidden;
+      border: 1px solid rgba(0,0,0,0.07);
+    }
+
+    /* Tab nav — underline style (as in CycleTrendsScreen.html) */
+    .tab-nav-underline {
+      position: sticky; top: 0; z-index: 10;
+      background: rgba(253,251,249,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--divider);
+      display: flex;
+    }
+    .tab-underline-item {
+      flex: 1; padding: 14px 4px 10px;
+      font-size: 13px; font-weight: 600;
+      text-align: center; color: var(--fog);
+      border-bottom: 2px solid transparent;
+      transition: color 0.15s;
+    }
+    .tab-underline-item.active {
+      color: var(--blue); font-weight: 700;
+      border-bottom-color: var(--blue);
+    }
+
+    .phone-body { padding: 20px 16px 28px; }
+
+    /* Stat card grid */
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 32px; }
+    .stat-card {
+      background: var(--white);
+      border-radius: var(--r-card);
+      padding: 16px;
+      box-shadow: var(--shadow-sm);
+    }
+    .stat-icon {
+      width: 40px; height: 40px;
+      border-radius: var(--r-icon);
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 14px;
+    }
+    .stat-icon .material-symbols-outlined,
+    .stat-icon .material-symbols-rounded { font-size: 20px; }
+    .stat-label { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--blue); margin-bottom: 2px; }
+    .stat-value { font-size: 22px; font-weight: 700; color: var(--ink); margin-bottom: 1px; }
+    .stat-sub { font-size: 11px; color: var(--fog); }
+
+    /* Section header */
+    .section-hdr {
+      display: flex; align-items: center; gap: 6px; margin-bottom: 14px;
+    }
+    .section-hdr .material-symbols-outlined { font-size: 16px; color: var(--blue); }
+    .section-hdr span { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--blue); }
+
+    /* Cycle history list */
+    .cycle-list {
+      background: var(--white);
+      border-radius: var(--r-card);
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .cycle-row {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--divider);
+    }
+    .cycle-row:last-child { border-bottom: none; }
+    .cycle-row-top {
+      display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
+    }
+    .cycle-row-title { font-size: 14px; font-weight: 700; color: var(--ink); }
+    .cycle-row-sub { font-size: 11px; color: var(--fog); margin-top: 1px; }
+    .material-symbols-outlined.chevron { font-size: 18px; color: var(--fog); }
+
+    /* Phase segmented bar — the key visual component */
+    .phase-bar {
+      display: grid;
+      height: 10px;
+      gap: 2px;
+      width: 100%;
+    }
+    .phase-seg {
+      border-radius: 999px;
+    }
+    .seg-menstrual  { background: var(--terracotta); }
+    .seg-follicular { background: var(--teal); }
+    .seg-ovulatory  { background: var(--amber); }
+    .seg-luteal     { background: var(--violet); }
+    .seg-future     { background: var(--lavender); }
+
+    .view-all-btn {
+      width: 100%; padding: 14px; text-align: center;
+      font-size: 13px; font-weight: 600; color: var(--blue);
+      background: none; border: none; cursor: pointer;
+    }
+
+    /* ─────────────────────────────────────────────────────────── */
+    /* TEST OUTPUT 2: SHARE ACCESS FLOW                            */
+    /* ─────────────────────────────────────────────────────────── */
+    .share-phone {
+      max-width: 390px;
+      margin: 0 auto;
+      background: var(--sand);
+      border-radius: 28px;
+      overflow: hidden;
+      border: 1px solid rgba(0,0,0,0.07);
+    }
+
+    /* Nav bar with back */
+    .nav-bar {
+      display: flex; align-items: center; justify-content: center;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--divider);
+      background: rgba(253,251,249,0.85);
+      backdrop-filter: blur(12px);
+      position: relative;
+    }
+    .nav-back {
+      position: absolute; left: 16px;
+      font-size: 13px; font-weight: 500; color: var(--blue);
+      display: flex; align-items: center; gap: 2px;
+    }
+    .nav-title { font-size: 15px; font-weight: 700; color: var(--ink); letter-spacing: -0.01em; }
+
+    /* Pill tab switcher (as in Share Access real screen) */
+    .tab-pills {
+      display: flex; gap: 4px;
+      padding: 12px 16px;
+    }
+    .tab-pill {
+      flex: 1; padding: 8px 4px;
+      border-radius: 999px; font-size: 13px; font-weight: 500;
+      text-align: center; color: var(--fog);
+      border: none; background: none; cursor: pointer;
+    }
+    .tab-pill.active {
+      background: var(--blue); color: #fff; font-weight: 600;
+    }
+
+    /* Error state banner */
+    .error-banner {
+      margin: 0 16px 16px;
+      background: var(--terracotta); color: #fff;
+      border-radius: var(--r-btn);
+      padding: 12px 16px;
+      font-size: 13px; font-weight: 500;
+      text-align: center;
+    }
+
+    /* Empty state */
+    .empty-state {
+      padding: 32px 24px;
+      text-align: center;
+    }
+    .empty-icon { font-size: 40px; margin-bottom: 12px; }
+    .empty-title { font-size: 16px; font-weight: 700; color: var(--ink); margin-bottom: 6px; }
+    .empty-body { font-size: 13px; color: var(--fog); line-height: 1.5; max-width: 240px; margin: 0 auto; }
+
+    /* Active shares list */
+    .share-list { padding: 4px 16px 16px; }
+    .share-item {
+      background: var(--white); border-radius: var(--r-card);
+      padding: 14px 16px;
+      display: flex; align-items: center; gap: 12px;
+      box-shadow: var(--shadow-sm); margin-bottom: 8px;
+    }
+    .avatar {
+      width: 40px; height: 40px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; color: #fff; flex-shrink: 0;
+    }
+    .share-name { font-size: 14px; font-weight: 700; color: var(--ink); }
+    .share-badge {
+      display: inline-block; margin-top: 3px;
+      background: var(--blue-tint); color: var(--blue);
+      font-size: 11px; font-weight: 500;
+      padding: 2px 8px; border-radius: 999px;
+    }
+    .share-badge.active-badge {
+      background: #E8F5F4; color: var(--teal);
+    }
+    .revoke-btn {
+      margin-left: auto; font-size: 13px; font-weight: 500;
+      color: var(--terracotta); background: none; border: none; cursor: pointer; flex-shrink: 0;
+    }
+
+    /* ─────────────────────────────────────────────────────────── */
+    /* TEST OUTPUT 3: LANDING PAGE HERO (revised)                   */
+    /* ─────────────────────────────────────────────────────────── */
+    .hero-frame {
+      background: var(--dark-bg);
+      border-radius: 20px;
+      padding: 64px 48px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-frame::before {
+      content: '';
+      position: absolute; top: -100px; left: 50%; transform: translateX(-50%);
+      width: 600px; height: 400px;
+      background: radial-gradient(ellipse at center, rgba(0,110,199,0.12) 0%, transparent 65%);
+      pointer-events: none;
+    }
+    .hero-eyebrow {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(0,110,199,0.15); border: 1px solid rgba(0,110,199,0.3);
+      border-radius: 999px; padding: 5px 14px;
+      font-size: 11px; font-weight: 600; color: #60A5FA; margin-bottom: 28px;
+    }
+    .hero-eyebrow .material-symbols-rounded { font-size: 13px; }
+    .hero-headline {
+      font-size: 40px; font-weight: 700; color: #fff;
+      letter-spacing: -0.03em; line-height: 1.1;
+      margin-bottom: 18px;
+      max-width: 500px; margin-left: auto; margin-right: auto;
+    }
+    .hero-headline .accent { color: var(--blue); }
+    .hero-sub {
+      font-size: 15px; color: #EBEBF5;
+      max-width: 420px; margin: 0 auto 36px;
+      line-height: 1.65;
+    }
+    .hero-ctas { display: flex; gap: 10px; justify-content: center; margin-bottom: 40px; }
+    .btn-primary {
+      background: var(--blue); color: #fff; border: none;
+      border-radius: var(--r-btn); padding: 13px 26px;
+      font-size: 14px; font-weight: 600; cursor: pointer;
+      font-family: 'Public Sans', sans-serif;
+      letter-spacing: -0.01em;
+      transition: transform 0.12s, box-shadow 0.12s;
+    }
+    .btn-primary:hover { transform: scale(0.98); box-shadow: 0 6px 20px -4px rgba(0,110,199,0.5); }
+    .btn-ghost {
+      background: rgba(255,255,255,0.06); color: #EBEBF5;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: var(--r-btn); padding: 13px 26px;
+      font-size: 14px; font-weight: 500; cursor: pointer;
+      font-family: 'Public Sans', sans-serif;
+    }
+
+    /* Phase bar as hero visual */
+    .hero-phase-demo {
+      max-width: 340px; margin: 0 auto 16px;
+    }
+    .hero-phase-label-row {
+      display: flex; justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .hero-phase-label {
+      font-size: 9px; font-weight: 600; letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .hero-phase-bar {
+      display: grid;
+      grid-template-columns: 5fr 12fr 3fr 11fr;
+      gap: 3px; height: 8px;
+    }
+    .hero-phase-seg { border-radius: 999px; }
+    .trust-pills {
+      display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;
+    }
+    .trust-pill {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 999px; padding: 5px 12px;
+      font-size: 11px; font-weight: 500; color: #A0A0A5;
+    }
+    .trust-pill .material-symbols-rounded { font-size: 12px; color: var(--blue); }
+
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- PAGE HEADER                                                   -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="page-header">
+  <div class="version">Revised — v2</div>
+  <div class="kicker">Locket · Design System Audit</div>
+  <h1>Source Review & Test Outputs</h1>
+  <p>Updated with 6 real product screenshots, the CycleTrendsScreen prototype, and the live mobile codebase. Material deviations from v1 are flagged.</p>
+</div>
+
+<div class="content-wrap">
+
+  <!-- ─── SECTION 1: WHAT WE NOW HAVE ───────────────────────── -->
+  <div class="section">
+    <div class="section-label">
+      <span class="material-symbols-rounded">inventory_2</span>
+      Source inventory (v2)
+    </div>
+    <h2>What I'm Working From</h2>
+    <table class="tbl">
+      <thead><tr><th>Source</th><th>What it contributed</th><th>Trust level</th></tr></thead>
+      <tbody>
+        <tr><td><strong>design.md</strong></td><td>Full visual spec — colors, typography, components, spacing</td><td class="c1">Aspirational spec (intended state)</td></tr>
+        <tr><td><strong>ui-kit/light_mode.png, dark_mode.png</strong></td><td>Rendered UI kit — confirms tokens visually, shows spec in isolation</td><td class="c1">Spec rendered, not real app</td></tr>
+        <tr><td><strong>src/theme/*.ts</strong></td><td>Token files — color, typography, layout</td><td class="c2">Partial, behind spec, contains old palette</td></tr>
+        <tr><td><strong>src/components/*.tsx</strong></td><td>5 real components — PhaseInsightCard, IntegritySeal, ScreenWrapper, StepWelcome, onboarding</td><td class="c2">Deviates from spec in icon style, card pattern, font stack</td></tr>
+        <tr><td><strong>6 real product screenshots</strong></td><td>Period logging, Cycle Trends, Cycle Insights, Share Access (3 states)</td><td class="c1">Ground truth — what the app actually looks like</td></tr>
+        <tr><td><strong>CycleTrendsScreen.html</strong></td><td>Full HTML prototype with Tailwind config, exact tokens, complete segmented-bar component code</td><td class="c1">Highest fidelity source for web/prototype conventions</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ─── SECTION 2: CONFIRMED SYSTEM ───────────────────────── -->
+  <div class="section">
+    <div class="section-label">
+      <span class="material-symbols-rounded">check_circle</span>
+      Confirmed design system
+    </div>
+    <h2>What the Real App Actually Uses</h2>
+    <p>These patterns appear consistently across the live screenshots and the prototype source code. They can be treated as canonical — prefer them over the spec where they diverge.</p>
+
+    <div class="comp-grid">
+      <div class="comp-block">
+        <div class="comp-title"><span class="material-symbols-rounded">palette</span> Color tokens (confirmed)</div>
+        <div class="spec-row"><span class="spec-key">Action blue</span><span class="spec-val">#006EC7</span></div>
+        <div class="spec-row"><span class="spec-key">MD3 primary</span><span class="spec-val">#00569D ⚠</span></div>
+        <div class="spec-row"><span class="spec-key">Background</span><span class="spec-val">#FDFBF9</span></div>
+        <div class="spec-row"><span class="spec-key">On-surface</span><span class="spec-val">#1B1C1B ⚠</span></div>
+        <div class="spec-row"><span class="spec-key">Divider / Outline</span><span class="spec-val">#F2F2F7 / #717783</span></div>
+        <div class="spec-row"><span class="spec-key">Menstrual</span><span class="spec-val">#D1495B</span></div>
+        <div class="spec-row"><span class="spec-key">Follicular</span><span class="spec-val">#2A9D8F</span></div>
+        <div class="spec-row"><span class="spec-key">Ovulatory</span><span class="spec-val">#FF9F00</span></div>
+        <div class="spec-row"><span class="spec-key">Luteal</span><span class="spec-val">#76489D</span></div>
+        <div class="spec-row"><span class="spec-key">Error / Revoke</span><span class="spec-val">#D1495B (terracotta)</span></div>
+      </div>
+      <div class="comp-block">
+        <div class="comp-title"><span class="material-symbols-rounded">text_fields</span> Typography (confirmed)</div>
+        <div class="spec-row"><span class="spec-key">Web/prototype font</span><span class="spec-val">Public Sans ⚠</span></div>
+        <div class="spec-row"><span class="spec-key">Native app spec</span><span class="spec-val">SF Pro / Helvetica Neue</span></div>
+        <div class="spec-row"><span class="spec-key">H1</span><span class="spec-val">24px / 700</span></div>
+        <div class="spec-row"><span class="spec-key">Section label</span><span class="spec-val">11px / 700 / 0.1em UC</span></div>
+        <div class="spec-row"><span class="spec-key">Body</span><span class="spec-val">14–15px / 400</span></div>
+        <div class="spec-row"><span class="spec-key">Caption</span><span class="spec-val">11–12px / 400</span></div>
+        <div class="spec-row"><span class="spec-key">Active tab</span><span class="spec-val">14px / 700</span></div>
+        <div class="spec-row"><span class="spec-key">Inactive tab</span><span class="spec-val">14px / 600 / fog color</span></div>
+      </div>
+      <div class="comp-block">
+        <div class="comp-title"><span class="material-symbols-rounded">space_dashboard</span> Spacing & radii (confirmed)</div>
+        <div class="spec-row"><span class="spec-key">Page padding H</span><span class="spec-val">20px (px-5)</span></div>
+        <div class="spec-row"><span class="spec-key">Card radius</span><span class="spec-val">16px (rounded-2xl)</span></div>
+        <div class="spec-row"><span class="spec-key">Button / input radius</span><span class="spec-val">12px (rounded-xl) ⚠</span></div>
+        <div class="spec-row"><span class="spec-key">Icon badge radius</span><span class="spec-val">12px (rounded-xl)</span></div>
+        <div class="spec-row"><span class="spec-key">Pill radius</span><span class="spec-val">999px (full)</span></div>
+        <div class="spec-row"><span class="spec-key">Card shadow</span><span class="spec-val">0 4px 20px -2px rgba(0,0,0,.05)</span></div>
+        <div class="spec-row"><span class="spec-key">Section spacing</span><span class="spec-val">space-y-10 (40px)</span></div>
+        <div class="spec-row"><span class="spec-key">Card padding</span><span class="spec-val">20–24px</span></div>
+      </div>
+      <div class="comp-block">
+        <div class="comp-title"><span class="material-symbols-rounded">smart_button</span> Icon conventions (confirmed)</div>
+        <div class="spec-row"><span class="spec-key">Library</span><span class="spec-val">Material Symbols</span></div>
+        <div class="spec-row"><span class="spec-key">UI icons (nav, chevron)</span><span class="spec-val">Outlined / FILL:0</span></div>
+        <div class="spec-row"><span class="spec-key">Phase / semantic icons</span><span class="spec-val">Rounded / FILL:1 ⚠</span></div>
+        <div class="spec-row"><span class="spec-key">Weight</span><span class="spec-val">400</span></div>
+        <div class="spec-row"><span class="spec-key">Optical size</span><span class="spec-val">24</span></div>
+        <div class="spec-row"><span class="spec-key">Icon badge size</span><span class="spec-val">40×40px container, 20px icon</span></div>
+        <div class="spec-row"><span class="spec-key">Inline size</span><span class="spec-val">16–18px</span></div>
+      </div>
+    </div>
+
+    <div class="card ok" style="margin-top:16px;">
+      <div class="conflict-label teal">New canonical component — confirmed from prototype + screenshots</div>
+      <h3 style="margin-top:0">Phase Segmented Bar</h3>
+      <p>This is Locket's most visually distinctive UI element. A full-width grid of pill-shaped segments, one per cycle day, color-coded by phase. Gap: 2px between segments, height: 10px, border-radius: 999px. Future/unknown days use <code>#F2F2F7</code> (Pale Lavender Mist). The grid uses CSS <code>grid-template-columns: repeat(N, 1fr)</code> where N is the cycle length. This component does not exist in design.md — it was discovered from the real screens and confirmed in CycleTrendsScreen.html source.</p>
+    </div>
+
+    <div class="card note" style="margin-top: 8px;">
+      <div class="conflict-label blue">New confirmed component — Tab Navigation</div>
+      <h3 style="margin-top:0">Two tab styles are in production simultaneously</h3>
+      <p><strong>Underline tabs</strong> (Cycle Trends, CycleTrendsScreen.html): active tab gets Locket Blue text + 2px bottom border. <strong>Pill tabs</strong> (Share Access — all three states): active tab gets Locket Blue filled pill with white text. Neither style is in design.md. Both are real and established — they appear to serve different contexts (top-level navigation vs. sub-section switching) but this isn't documented anywhere.</p>
+    </div>
+  </div>
+
+  <!-- ─── SECTION 3: REVISED CONFLICTS ──────────────────────── -->
+  <div class="section">
+    <div class="section-label">
+      <span class="material-symbols-rounded">warning</span>
+      Conflicts — revised with real screen data
+    </div>
+    <h2>What Changed From Round 1</h2>
+    <p>Several conflicts from the first review are either resolved or reframed by the real screens.</p>
+
+    <div class="card warn">
+      <div class="conflict-label red">New conflict (critical) — A third primary blue</div>
+      <h3 style="margin-top:0">The prototype runs MD3's <code>primary: #00569D</code> alongside <code>locket-blue: #006EC7</code></h3>
+      <p>The CycleTrendsScreen.html Tailwind config declares both. <code>#00569D</code> is the MD3 primary container color — it's 17% darker than Locket Blue and is used for text selection highlight (<code>selection:bg-primary/20</code>). On screen they appear close enough to be indistinguishable, but they're different tokens with different semantic roles. If MD3's <code>primary</code> gets applied to UI elements that should use <code>locket-blue</code>, the blues will read as inconsistent. The nav underline in CycleTrendsScreen.html uses <code>border-locket-blue</code> correctly, but the MD3 token could contaminate other components silently.</p>
+    </div>
+
+    <div class="card warn">
+      <div class="conflict-label red">New conflict — Public Sans used in prototype, not in mobile app code</div>
+      <h3 style="margin-top:0">Three different font choices across three surfaces</h3>
+      <p>design.md specifies SF Pro Display (iOS heading). <code>typography.ts</code> uses Avenir Next (heading) / Helvetica Neue (body). CycleTrendsScreen.html loads Public Sans from Google Fonts for all three type roles. All three are clean sans-serifs, so visual divergence is subtle — but they are different characters. Public Sans is the US federal government typeface: authoritative, legible, slightly institutional. Avenir Next is a geometric with warm curves. They're not interchangeable design choices. The landing page will need a decision on which face to use, and that choice will cascade.</p>
+    </div>
+
+    <div class="card warn">
+      <div class="conflict-label red">Resolved differently — Phase card pattern</div>
+      <h3 style="margin-top:0">Real app uses full-tint card; code uses white + left border; both differ from design.md</h3>
+      <p>Round 1 flagged that <code>PhaseInsightCard.tsx</code> uses <code>borderLeftWidth: 3, backgroundColor: '#FFFFFF'</code>. The real Cycle Insights screenshot shows the card with a full teal tint background (not white). The CycleTrendsScreen.html uses white cards with tinted icon badges — not tinted cards. So there are now <strong>three</strong> card variants in the real product and zero documentation of when to use which. The real screen is the most polished-looking; the code is furthest from it.</p>
+    </div>
+
+    <div class="card warn">
+      <div class="conflict-label red">Conflict — Back navigation is text, not icon</div>
+      <h3 style="margin-top:0">Real screens use "← Back" text; design.md specifies <code>arrow_back</code> Material Symbol</h3>
+      <p>Every real screenshot uses plain text "← Back" or just "‹" (iOS native back indicator). design.md specifies the <code>arrow_back</code> Material Symbol. The CycleTrendsScreen.html doesn't have a back button at all (it's a top-level tab screen). The "← Back" text pattern reads as an unstyled iOS WebView default, not a designed interaction. This is a visible inconsistency between the spec's intent and what shipped.</p>
+    </div>
+
+    <div class="card warn">
+      <div class="conflict-label red">Conflict — Secondary text color</div>
+      <h3 style="margin-top:0">Prototype uses MD3's <code>outline: #717783</code>; design.md specifies <code>#8E8E93</code></h3>
+      <p>These are different grays. #717783 is slightly cooler and darker. #8E8E93 is the iOS system secondary label color. The prototype consistently uses <code>text-outline</code> (#717783) for metadata, dates, and descriptions. The mobile code inherits iOS defaults which would resolve to ~#8E8E93. On screen the difference is marginal, but it's another unresolved fork between the web prototype and the mobile native app.</p>
+    </div>
+
+    <div class="card gap">
+      <div class="conflict-label amber">Unspecced — Avatar system (Active Shares screen)</div>
+      <h3 style="margin-top:0">Circular letter avatars use arbitrary green + dark red — neither in design.md</h3>
+      <p>The Active Shares screen shows circular avatars with initials: "DS" on a green circle, "DH" on a dark red circle. The green looks like #2A9D8F (arcticTeal) for DS but could be a generated color. The red for DH is not Terracotta (#D1495B) — it looks more like a generic avatar-generation hue. There's no documented avatar color generation logic. If this screen ships as a showcase, the arbitrary color assignment will be visible.</p>
+    </div>
+
+    <div class="card gap">
+      <div class="conflict-label amber">Unspecced — "Expired" badge uses Locket Blue tint for a negative state</div>
+      <h3 style="margin-top:0">The "Expired" status badge on Active Shares uses <code>bg-[#E5F1FA]</code> — the trust/action blue tint</h3>
+      <p>Locket Blue and its tint connote trust, sovereignty, and active action throughout the system. Using it for "Expired" (a past/revoked state) creates a semantic collision — the expired state reads as active/positive rather than neutral/concluded. A neutral gray badge (<code>#F2F2F7</code> background, <code>#717783</code> text) would be more appropriate and is already in the palette.</p>
+    </div>
+
+    <div class="card gap">
+      <div class="conflict-label amber">Still missing — Dark mode in the native codebase</div>
+      <h3 style="margin-top:0">Zero dark mode tokens in <code>colors.ts</code>; the HTML prototype supports dark mode via class but it's unused</h3>
+      <p>The CycleTrendsScreen.html has <code>darkMode: "class"</code> in its Tailwind config, but the <code>&lt;html&gt;</code> element uses class <code>"light"</code> — dark mode is wired but not activated. The React Native app has no dark mode tokens at all. design.md specifies a complete dual-mode system. This is still fully unimplemented.</p>
+    </div>
+
+    <div class="card note">
+      <div class="conflict-label blue">Clarified — Icon style is more nuanced than "all FILL:1"</div>
+      <h3 style="margin-top:0">design.md says all icons use FILL:1; real prototype uses FILL:0 for UI icons, FILL:1 for semantic/phase icons</h3>
+      <p>This is actually a better approach than the spec. UI icons (chevron_right, history, timeline) use outlined style (FILL:0) — they're structural. Phase and data icons (water_drop, psychiatry) use filled style (FILL:1) — they're expressive. The prototype makes this distinction explicitly via CSS classes <code>.material-symbols-outlined</code> and <code>.material-symbols-fill</code>. design.md should be updated to reflect this two-tier icon approach, not corrected.</p>
+    </div>
+  </div>
+
+  <!-- ─── SECTION 4: UNDOCUMENTED REAL COMPONENTS ───────────── -->
+  <div class="section">
+    <div class="section-label">
+      <span class="material-symbols-rounded">add_circle</span>
+      Components in the real app — not in design.md
+    </div>
+    <h2>What Needs to Be Specced</h2>
+    <p>These components exist in the live product or its prototypes but have no entry in design.md. Any landing page or deck built from this system will need them.</p>
+    <table class="tbl">
+      <thead><tr><th>Component</th><th>How it appears</th><th>What's undocumented</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Phase Segmented Bar</strong></td>
+          <td>Cycle Trends screen, every history row</td>
+          <td>Height (10px), segment gap (2px), future-day color (#F2F2F7), grid approach. The single most distinctive visual element.</td>
+        </tr>
+        <tr>
+          <td><strong>Pill tab switcher</strong></td>
+          <td>Share Access — Share / Requests / Active</td>
+          <td>Active state: Locket Blue fill, white text. Inactive: plain text, fog color. No border or background on container.</td>
+        </tr>
+        <tr>
+          <td><strong>Underline tab nav</strong></td>
+          <td>Predictions / Cycle Trends / Reports top bar</td>
+          <td>Frosted glass nav, 2px Locket Blue bottom border active, fog color inactive, backdrop-blur-md.</td>
+        </tr>
+        <tr>
+          <td><strong>Error banner</strong></td>
+          <td>Share Access → Requests (connection error)</td>
+          <td>Full-width terracotta fill, white text, 12px radius, centered. Not the same as the Security Badge.</td>
+        </tr>
+        <tr>
+          <td><strong>Empty state</strong></td>
+          <td>Share Access → Requests (no pending)</td>
+          <td>Large emoji icon (not Material Symbol), bold title, fog body text, centered layout. Emoji vs. icon inconsistency is visible here.</td>
+        </tr>
+        <tr>
+          <td><strong>Letter avatar</strong></td>
+          <td>Share Access → Active</td>
+          <td>40px circle, white initials (700 weight, 13px). Color generation logic unspecified.</td>
+        </tr>
+        <tr>
+          <td><strong>IntegritySeal</strong></td>
+          <td>Animated status ring in codebase</td>
+          <td>5 states (secure/anchored/syncing/pending/compromised) with no color spec in design.md. Uses gold, emerald, Tailwind blue, dark crimson — none system colors.</td>
+        </tr>
+        <tr>
+          <td><strong>QR code card</strong></td>
+          <td>Share Access → Share tab</td>
+          <td>White card, centered QR code, grey caption below ("Your public ID only — no health data"). The reassurance copy is good; it should be in the spec.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ─── SECTION 5: NEXT ASSETS ─────────────────────────────── -->
+  <div class="section">
+    <div class="section-label">
+      <span class="material-symbols-rounded">upload_file</span>
+      Next 3 assets to upload
+    </div>
+    <h2>What Would Close the Remaining Gaps</h2>
+    <ul class="asset-list">
+      <li>
+        <div class="asset-num">1</div>
+        <div>
+          <h4>A decision on the font</h4>
+          <p>Public Sans (prototype), SF Pro (spec), Avenir Next / Helvetica Neue (native code) — pick one and document it. For the landing page specifically: if it's targeting APAC healthcare builders who will also see the portfolio, the font choice signals something. Public Sans reads institutional/civic. Inter reads technical/fintech. A custom choice (e.g. DM Sans, Instrument Sans) signals craft. Uploading a sample rendering of the hero headline in 2–3 candidate fonts would close this gap faster than arguing about it in the abstract.</p>
+        </div>
+      </li>
+      <li>
+        <div class="asset-num">2</div>
+        <div>
+          <h4>IntegritySeal state spec</h4>
+          <p>This is a trust-facing, animated component that communicates data sovereignty status in real time. It currently runs on a private color system (gold, emerald, Tailwind blue, dark crimson) with zero connection to the design system. A single image showing the five states — even a rough sketch with labeled colors — would let it be rebuilt on-system. This matters for the landing page too: an animated IntegritySeal would be a natural hero element that's both technically credible and visually distinctive.</p>
+        </div>
+      </li>
+      <li>
+        <div class="asset-num">3</div>
+        <div>
+          <h4>The empty state design (fix the emoji issue)</h4>
+          <p>The "No Pending Requests" empty state uses a 📥 system emoji for its icon — which breaks the Material Symbols consistency everywhere else and renders differently across OS versions. An upload of a designed empty state (using an appropriate Material Symbol at ~40–48px, or a custom illustration) would also clarify whether Locket uses illustration at all. Knowing that would directly inform whether the landing page should have illustration or rely purely on UI mockup screenshots and the phase bar as visual elements.</p>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <div class="page-divider"></div>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- TEST OUTPUTS — REVISED                                       -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-label">
+      <span class="material-symbols-rounded">labs</span>
+      Test Outputs — Revised
+    </div>
+    <h2>Three Renders Using the Real System</h2>
+    <p>All three are rebuilt using the confirmed patterns from the real screens and prototype code — not just design.md. Fonts are Public Sans to match the prototype. Phase segmented bars use confirmed values.</p>
+  </div>
+
+  <!-- ─── OUTPUT 1: CYCLE TRENDS (from real code) ────────────── -->
+  <div class="test-output-wrap">
+    <div class="test-output-label">
+      <span class="output-badge">Output 01 — Revised</span>
+      <span class="output-title">Product UI — Cycle Trends Screen</span>
+    </div>
+    <p style="margin-bottom:16px; font-size:13px;">Rebuilt directly from CycleTrendsScreen.html source. The phase segmented bar, underline tab nav, and stat cards are now accurate rather than approximated.</p>
+
+    <div class="output-frame">
+      <div class="phone-wrap">
+
+        <!-- Underline tab nav -->
+        <nav class="tab-nav-underline">
+          <div class="tab-underline-item">Predictions</div>
+          <div class="tab-underline-item active">Cycle Trends</div>
+          <div class="tab-underline-item">Reports</div>
+        </nav>
+
+        <div class="phone-body">
+
+          <!-- Stat cards -->
+          <div class="stat-grid">
+            <div class="stat-card">
+              <div class="stat-icon" style="background: #E5F1FA;">
+                <span class="material-symbols-outlined" style="color: #006EC7; font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;">timeline</span>
+              </div>
+              <div class="stat-label">Avg Cycle</div>
+              <div class="stat-value">28 days</div>
+              <div class="stat-sub">consistent with last 6 months</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon" style="background: #FBEBEF;">
+                <span class="material-symbols-rounded" style="color: #D1495B; font-size: 20px;">water_drop</span>
+              </div>
+              <div class="stat-label">Avg Period</div>
+              <div class="stat-value">5 days</div>
+              <div class="stat-sub">normal flow pattern</div>
+            </div>
+          </div>
+
+          <!-- Section header -->
+          <div class="section-hdr">
+            <span class="material-symbols-outlined" style="font-size:16px; color: #006EC7; font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;">history</span>
+            <span>Cycle History</span>
+          </div>
+
+          <!-- Cycle list -->
+          <div class="cycle-list">
+
+            <!-- Current cycle: 34 days -->
+            <div class="cycle-row">
+              <div class="cycle-row-top">
+                <div>
+                  <div class="cycle-row-title">Current cycle: 34 days</div>
+                  <div class="cycle-row-sub">Started Nov 10</div>
+                </div>
+                <span class="material-symbols-outlined chevron" style="font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;">chevron_right</span>
+              </div>
+              <!-- 5 menstrual + 12 follicular + 3 ovulatory + 9 luteal + 5 future = 34 -->
+              <div class="phase-bar" style="grid-template-columns: repeat(34, 1fr);">
+                <div class="phase-seg seg-menstrual"></div><div class="phase-seg seg-menstrual"></div><div class="phase-seg seg-menstrual"></div><div class="phase-seg seg-menstrual"></div><div class="phase-seg seg-menstrual"></div>
+                <div class="phase-seg seg-follicular"></div><div class="phase-seg seg-follicular"></div><div class="phase-seg seg-follicular"></div><div class="phase-seg seg-follicular"></div><div class="phase-seg seg-follicular"></div><div class="phase-seg seg-follicular"></div><div class="phase-seg seg-follicular"></div><div class="phase-seg seg-follicular"></div><div class="phase-seg seg-follicular"></div><div class="phase-seg seg-follicular"></div><div class="phase-seg seg-follicular"></div><div class="phase-seg seg-follicular"></div>
+                <div class="phase-seg seg-ovulatory"></div><div class="phase-seg seg-ovulatory"></div><div class="phase-seg seg-ovulatory"></div>
+                <div class="phase-seg seg-luteal"></div><div class="phase-seg seg-luteal"></div><div class="phase-seg seg-luteal"></div><div class="phase-seg seg-luteal"></div><div class="phase-seg seg-luteal"></div><div class="phase-seg seg-luteal"></div><div class="phase-seg seg-luteal"></div><div class="phase-seg seg-luteal"></div><div class="phase-seg seg-luteal"></div>
+                <div class="phase-seg seg-future"></div><div class="phase-seg seg-future"></div><div class="phase-seg seg-future"></div><div class="phase-seg seg-future"></div><div class="phase-seg seg-future"></div>
+              </div>
+            </div>
+
+            <!-- 28 days -->
+            <div class="cycle-row">
+              <div class="cycle-row-top">
+                <div>
+                  <div class="cycle-row-title">28 days</div>
+                  <div class="cycle-row-sub">Started Oct 12</div>
+                </div>
+                <span class="material-symbols-outlined chevron" style="font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;">chevron_right</span>
+              </div>
+              <div class="phase-bar" style="grid-template-columns: repeat(28, 1fr);">
+                <div class="phase-seg seg-menstrual"></div><div class="phase-seg seg-menstrual"></div><div class="phase-seg seg-menstrual"></div><div class="phase-seg seg-menstrual"></div><div class="phase-seg seg-menstrual"></div>
+                <div class="phase-seg seg-follicular"></div><div class="phase-seg seg-follicular"></div><div class="phase-seg seg-follicular"></div><div class="phase-seg seg-follicular"></div><div class="phase-seg seg-follicular"></div><div class="phase-seg seg-follicular"></div><div class="phase-seg seg-follicular"></div><div class="phase-seg seg-follicular"></div><div class="phase-seg seg-follicular"></div>
+                <div class="phase-seg seg-ovulatory"></div><div class="phase-seg seg-ovulatory"></div><div class="phase-seg seg-ovulatory"></div>
+                <div class="phase-seg seg-luteal"></div><div class="phase-seg seg-luteal"></div><div class="phase-seg seg-luteal"></div><div class="phase-seg seg-luteal"></div><div class="phase-seg seg-luteal"></div><div class="phase-seg seg-luteal"></div><div class="phase-seg seg-luteal"></div><div class="phase-seg seg-luteal"></div><div class="phase-seg seg-luteal"></div><div class="phase-seg seg-luteal"></div><div class="phase-seg seg-luteal"></div>
+              </div>
+            </div>
+
+            <!-- 30 days -->
+            <div class="cycle-row" style="border-bottom: none;">
+              <div class="cycle-row-top">
+                <div>
+                  <div class="cycle-row-title">30 days</div>
+                  <div class="cycle-row-sub">Started Sep 13</div>
+                </div>
+                <span class="material-symbols-outlined chevron" style="font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;">chevron_right</span>
+              </div>
+              <div class="phase-bar" style="grid-template-columns: repeat(30, 1fr);">
+                <div class="phase-seg seg-menstrual"></div><div class="phase-seg seg-menstrual"></div><div class="phase-seg seg-menstrual"></div><div class="phase-seg seg-menstrual"></div><div class="phase-seg seg-menstrual"></div><div class="phase-seg seg-menstrual"></div>
+                <div class="phase-seg seg-follicular"></div><div class="phase-seg seg-follicular"></div><div class="phase-seg seg-follicular"></div><div class="phase-seg seg-follicular"></div><div class="phase-seg seg-follicular"></div><div class="phase-seg seg-follicular"></div><div class="phase-seg seg-follicular"></div><div class="phase-seg seg-follicular"></div><div class="phase-seg seg-follicular"></div>
+                <div class="phase-seg seg-ovulatory"></div><div class="phase-seg seg-ovulatory"></div><div class="phase-seg seg-ovulatory"></div>
+                <div class="phase-seg seg-luteal"></div><div class="phase-seg seg-luteal"></div><div class="phase-seg seg-luteal"></div><div class="phase-seg seg-luteal"></div><div class="phase-seg seg-luteal"></div><div class="phase-seg seg-luteal"></div><div class="phase-seg seg-luteal"></div><div class="phase-seg seg-luteal"></div><div class="phase-seg seg-luteal"></div><div class="phase-seg seg-luteal"></div><div class="phase-seg seg-luteal"></div><div class="phase-seg seg-luteal"></div>
+              </div>
+            </div>
+
+          </div>
+
+          <button class="view-all-btn">View Full History</button>
+
+        </div>
+      </div>
+    </div>
+
+    <div class="output-critique">
+      <div class="critique-box on-brand">
+        <h5>On-brand</h5>
+        <p>The phase segmented bar is the element that makes this undeniably Locket — it communicates cycle data, phase color meaning, and temporal rhythm simultaneously. The frosted-glass tab nav, icon badge system, and stat cards match the real prototype closely. Section headers in Locket Blue uppercase with outlined icons are consistent and confident.</p>
+      </div>
+      <div class="critique-box generic">
+        <h5>Still generic</h5>
+        <p>The stat card layout ("metric label → big number → sub-text") is a standard dashboard widget. Without the phase bar the whole screen could be any health tracking app. The "View Full History" text button at the bottom is easy to miss — there's no visual weight to invite the action.</p>
+      </div>
+      <div class="critique-box improve">
+        <h5>What would improve it</h5>
+        <p>A screenshot of what happens when you tap a history row would show whether there's a drill-down pattern to document. Cycle length variance shown as a small sparkline alongside the stat card ("28 days • ±2 days") would make the card feel more like analysis, less like a counter.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── OUTPUT 2: SHARE ACCESS FLOW ───────────────────────── -->
+  <div class="test-output-wrap">
+    <div class="test-output-label">
+      <span class="output-badge">Output 02 — Revised</span>
+      <span class="output-title">Product UI — Share Access (all 3 states)</span>
+    </div>
+    <p style="margin-bottom:16px; font-size:13px;">Rendered from the real screenshots — pill tabs, error banner, empty state, active share list. This surface has the most unspecced components in the product.</p>
+
+    <div class="output-frame">
+      <div style="display: flex; gap: 20px; justify-content: center; align-items: flex-start; flex-wrap: wrap;">
+
+        <!-- State 1: Share / QR -->
+        <div style="flex: 1; min-width: 200px; max-width: 240px;">
+          <div style="text-align:center; font-size:10px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color: var(--fog); margin-bottom: 10px;">Share tab</div>
+          <div class="share-phone">
+            <div class="nav-bar">
+              <span class="nav-back">‹ Back</span>
+              <span class="nav-title">Share Access</span>
+            </div>
+            <div class="tab-pills">
+              <button class="tab-pill active">Share</button>
+              <button class="tab-pill">Requests</button>
+              <button class="tab-pill">Active</button>
+            </div>
+            <div style="padding: 0 16px 20px;">
+              <div style="background: var(--white); border-radius: var(--r-card); padding: 20px; box-shadow: var(--shadow-sm); text-align: center; margin-bottom: 12px;">
+                <!-- QR placeholder -->
+                <div style="width: 120px; height: 120px; background: var(--lavender); border-radius: 8px; margin: 0 auto 10px; display: flex; align-items: center; justify-content: center;">
+                  <span class="material-symbols-rounded" style="font-size: 40px; color: var(--fog);">qr_code_2</span>
+                </div>
+                <div style="font-size: 11px; color: var(--fog);">Your public ID only — no health data</div>
+              </div>
+              <button class="btn-primary" style="width: 100%; font-size: 13px;">Share Link</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- State 2: Requests / Error + empty -->
+        <div style="flex: 1; min-width: 200px; max-width: 240px;">
+          <div style="text-align:center; font-size:10px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color: var(--fog); margin-bottom: 10px;">Requests tab (error)</div>
+          <div class="share-phone">
+            <div class="nav-bar">
+              <span class="nav-back">‹ Back</span>
+              <span class="nav-title">Share Access</span>
+            </div>
+            <div class="tab-pills">
+              <button class="tab-pill">Share</button>
+              <button class="tab-pill active">Requests</button>
+              <button class="tab-pill">Active</button>
+            </div>
+            <div class="error-banner">Unable to load requests. Check your connection.</div>
+            <div class="empty-state">
+              <div class="empty-icon">📥</div>
+              <div class="empty-title">No Pending Requests</div>
+              <div class="empty-body">Show your QR code to a provider or send them a share link. Requests will appear here.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- State 3: Active shares -->
+        <div style="flex: 1; min-width: 200px; max-width: 240px;">
+          <div style="text-align:center; font-size:10px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color: var(--fog); margin-bottom: 10px;">Active tab</div>
+          <div class="share-phone">
+            <div class="nav-bar">
+              <span class="nav-back">‹ Back</span>
+              <span class="nav-title">Share Access</span>
+            </div>
+            <div class="tab-pills">
+              <button class="tab-pill">Share</button>
+              <button class="tab-pill">Requests</button>
+              <button class="tab-pill active">Active</button>
+            </div>
+            <div class="share-list">
+              <div style="display:flex; align-items:center; gap:6px; margin-bottom:12px;">
+                <span class="material-symbols-rounded" style="font-size:14px; color: var(--blue);">share</span>
+                <span style="font-size:10px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color: var(--blue);">Active Shares</span>
+              </div>
+              <div class="share-item">
+                <div class="avatar" style="background: #2A9D8F;">DS</div>
+                <div>
+                  <div class="share-name">Dr. Sarah Chen</div>
+                  <span class="share-badge active-badge">Active · 2d left</span>
+                </div>
+                <button class="revoke-btn">Revoke</button>
+              </div>
+              <div class="share-item">
+                <div class="avatar" style="background: #2A9D8F;">DS</div>
+                <div>
+                  <div class="share-name">Dr. Sarah Chen</div>
+                  <span class="share-badge">Expired</span>
+                </div>
+                <button class="revoke-btn">Revoke</button>
+              </div>
+              <div class="share-item">
+                <div class="avatar" style="background: #76489D;">DH</div>
+                <div>
+                  <div class="share-name">Dr. House</div>
+                  <span class="share-badge">Expired</span>
+                </div>
+                <button class="revoke-btn">Revoke</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="output-critique">
+      <div class="critique-box on-brand">
+        <h5>On-brand</h5>
+        <p>Pill tabs are now accurate. The error banner using terracotta (not red) reads as urgent but not alarming — tonally correct for sensitive health data. "Your public ID only — no health data" copy under the QR is excellent — it's the kind of specific reassurance that builds trust. The Revoke action in terracotta signals destructive-but-not-dangerous.</p>
+      </div>
+      <div class="critique-box generic">
+        <h5>Still generic</h5>
+        <p>The 📥 emoji in the empty state is the weakest moment in the whole flow — it's a system emoji that breaks with every other icon decision in the product. The "Expired" badge in Locket Blue tint creates a confusing signal (see conflicts section). The letter avatar color assignment is arbitrary-looking.</p>
+      </div>
+      <div class="critique-box improve">
+        <h5>What would improve it</h5>
+        <p>Replacing the empty state emoji with a Material Symbol would cost 10 minutes and visually unify the screen. Adding an expiry timestamp to "Active" shares ("Active · 2d left") — which I've included in the redesigned state above — is a UX improvement that also demonstrates the time-limited nature of Umbral PRE sharing: a landing page claim supported by visible UI.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── OUTPUT 3: LANDING PAGE HERO (with phase bar) ──────── -->
+  <div class="test-output-wrap">
+    <div class="test-output-label">
+      <span class="output-badge">Output 03 — Revised</span>
+      <span class="output-title">Landing Page — Hero with Phase Bar</span>
+    </div>
+    <p style="margin-bottom:16px; font-size:13px;">The phase segmented bar is now used as the hero's central visual motif — a single data element that demonstrates the product's purpose without needing a device mockup.</p>
+
+    <div class="output-frame dark-frame" style="padding:0;">
+      <div class="hero-frame">
+        <div class="hero-eyebrow">
+          <span class="material-symbols-rounded">lock</span>
+          FHIR R4 · Umbral PRE · Local-First
+        </div>
+
+        <h1 class="hero-headline">
+          Your Private History,<br /><span class="accent">Set in Stone.</span>
+        </h1>
+
+        <p class="hero-sub">
+          A sovereign reproductive health journal. Encrypted on your device, shared only with cryptographic precision. We cannot see your data — even if we wanted to.
+        </p>
+
+        <!-- Phase bar demo -->
+        <div class="hero-phase-demo">
+          <div class="hero-phase-label-row" style="margin-bottom: 8px;">
+            <span class="hero-phase-label" style="color: var(--terracotta);">Menstrual</span>
+            <span class="hero-phase-label" style="color: var(--teal);">Follicular</span>
+            <span class="hero-phase-label" style="color: var(--amber);">Ovulatory</span>
+            <span class="hero-phase-label" style="color: var(--violet);">Luteal</span>
+          </div>
+          <div class="hero-phase-bar">
+            <div class="hero-phase-seg" style="background: var(--terracotta);"></div>
+            <div class="hero-phase-seg" style="background: var(--teal);"></div>
+            <div class="hero-phase-seg" style="background: var(--amber);"></div>
+            <div class="hero-phase-seg" style="background: var(--violet);"></div>
+          </div>
+          <div style="margin-top: 8px; font-size: 10px; color: #A0A0A5; letter-spacing: 0.05em; text-align: center;">Your cycle, visualised day by day. Stored nowhere else.</div>
+        </div>
+
+        <div class="hero-ctas" style="margin-top: 32px;">
+          <button class="btn-primary">Begin Your Ledger</button>
+          <button class="btn-ghost">Read the Architecture</button>
+        </div>
+
+        <div class="trust-pills">
+          <span class="trust-pill">
+            <span class="material-symbols-rounded">storage</span>AES-GCM-256
+          </span>
+          <span class="trust-pill">
+            <span class="material-symbols-rounded">hub</span>FHIR R4
+          </span>
+          <span class="trust-pill">
+            <span class="material-symbols-rounded">vpn_key</span>Umbral PRE
+          </span>
+          <span class="trust-pill">
+            <span class="material-symbols-rounded">link</span>Hyperledger Fabric
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="output-critique">
+      <div class="critique-box on-brand">
+        <h5>On-brand</h5>
+        <p>The phase bar in the hero achieves something no other SaaS landing page does — it shows the actual product interface as a visual element rather than a device mockup. It conveys phase awareness, personal data ownership, and visual warmth simultaneously. The trust pills use real technical vocabulary (not "bank-level security"). Public Sans at this scale reads clean and authoritative.</p>
+      </div>
+      <div class="critique-box generic">
+        <h5>Still generic</h5>
+        <p>The "dark hero + centered headline + CTA row + social proof pills" structure is still the dominant SaaS landing page template. The phase bar breaks from convention but only within a familiar layout container. The headline "Your Private History, Set in Stone" is good but "Set in Stone" could read as inflexible rather than permanent/sovereign to readers outside the Ledger metaphor frame.</p>
+      </div>
+      <div class="critique-box improve">
+        <h5>What would improve it</h5>
+        <p>The phase bar in the hero should animate — each segment populating left-to-right as the page loads, revealing the cycle pattern over ~1.5 seconds. This would make it feel alive and data-driven rather than static decoration. Pairing the hero with a visible phone mockup showing the real Cycle Trends screen would ground the abstract bar in a familiar product moment.</p>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /.content-wrap -->
+</body>
+</html>

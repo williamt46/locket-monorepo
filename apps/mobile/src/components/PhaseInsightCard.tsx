@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 import { useEukiContent } from '../hooks/useEukiContent';
@@ -15,12 +16,20 @@ const PHASE_COLORS: Record<CyclePhase, string> = {
   unknown: colors.locketBlue,
 };
 
-const PHASE_ICONS: Record<CyclePhase, string> = {
-  menstrual: '💧',
-  follicular: '🌱',
-  ovulatory: '☀️',
-  luteal: '🌙',
-  unknown: '○',
+const PHASE_TINT_COLORS: Record<CyclePhase, string> = {
+  menstrual:  colors.warmTerracottaTint,
+  follicular: colors.arcticTealTint,
+  ovulatory:  colors.orangePeelTint,
+  luteal:     colors.deepReflectiveVioletTint,
+  unknown:    colors.locketBlueTint,
+};
+
+const PHASE_ICON_NAMES: Record<CyclePhase, React.ComponentProps<typeof MaterialIcons>['name']> = {
+  menstrual:  'water-drop',
+  follicular: 'spa',
+  ovulatory:  'wb-sunny',
+  luteal:     'mode-night',
+  unknown:    'radio-button-unchecked',
 };
 
 const PHASE_NAMES: Record<CyclePhase, string> = {
@@ -43,9 +52,9 @@ export const PhaseInsightCard: React.FC<PhaseInsightCardProps> = ({ phase, dayIn
   const [sheetVisible, setSheetVisible] = useState(false);
   const [sheetItem, setSheetItem] = useState<EukiItem | null>(null);
 
-  const accentColor = PHASE_COLORS[effectivePhase];
-  const icon = PHASE_ICONS[effectivePhase];
-  const phaseName = PHASE_NAMES[effectivePhase];
+  const accentColor    = PHASE_COLORS[effectivePhase];
+  const phaseTintColor = PHASE_TINT_COLORS[effectivePhase];
+  const phaseName      = PHASE_NAMES[effectivePhase];
 
   const handleReadMore = () => {
     if (phaseSnippet) {
@@ -59,9 +68,9 @@ export const PhaseInsightCard: React.FC<PhaseInsightCardProps> = ({ phase, dayIn
     : 'Learning about your cycle.';
 
   return (
-    <View style={[styles.card, { borderLeftColor: accentColor }]}>
+    <View style={[styles.card, { backgroundColor: phaseTintColor }]}>
       <View style={styles.row}>
-        <Text style={styles.icon}>{icon}</Text>
+        <MaterialIcons name={PHASE_ICON_NAMES[effectivePhase]} size={16} color={accentColor} />
         {phaseName ? (
           <Text style={[styles.phaseName, { color: accentColor }]}>{phaseName} Phase · Day {dayInCycle + 1}</Text>
         ) : (
@@ -85,9 +94,7 @@ export const PhaseInsightCard: React.FC<PhaseInsightCardProps> = ({ phase, dayIn
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderLeftWidth: 3,
+    borderRadius: 16,
     padding: 16,
     marginHorizontal: 20,
     marginBottom: 12,
@@ -101,10 +108,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
-  },
-  icon: {
-    fontSize: 16,
-    marginRight: 8,
+    gap: 8,
   },
   phaseName: {
     fontFamily: typography.heading,

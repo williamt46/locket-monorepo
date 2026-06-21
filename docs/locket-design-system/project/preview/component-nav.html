@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: "Public Sans", system-ui, sans-serif; background: #FDFBF9; padding: 20px; color: #1B1C1B; display: flex; flex-direction: column; gap: 20px; }
+.material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+.block-label { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #006EC7; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+.block-label .hint { color: #717783; font-weight: 500; letter-spacing: 0.04em; text-transform: none; }
+.frame { background: #FFFFFF; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 20px -2px rgba(0,0,0,0.05); }
+
+/* Nav bar — centered title with text back */
+.nav-bar { position: relative; display: flex; align-items: center; justify-content: center; height: 48px; background: rgba(253,251,249,0.85); backdrop-filter: blur(12px); border-bottom: 1px solid #F2F2F7; }
+.nav-back { position: absolute; left: 14px; font-size: 13px; font-weight: 500; color: #006EC7; background: none; border: none; cursor: pointer; }
+.nav-title { font-size: 15px; font-weight: 700; color: #1B1C1B; letter-spacing: -0.01em; }
+.nav-right { position: absolute; right: 14px; color: #006EC7; display: flex; align-items: center; }
+
+/* Underline tabs (top-level section nav) */
+.tabs-underline { display: flex; background: rgba(253,251,249,0.85); backdrop-filter: blur(12px); border-bottom: 1px solid #F2F2F7; }
+.tab-u { flex: 1; padding: 13px 4px 10px; font-size: 13px; font-weight: 600; text-align: center; color: #717783; border-bottom: 2px solid transparent; cursor: pointer; }
+.tab-u.active { color: #006EC7; font-weight: 700; border-bottom-color: #006EC7; }
+
+/* Pill tabs (sub-section switcher) */
+.tabs-pill { display: flex; gap: 4px; padding: 12px 14px; background: #FDFBF9; }
+.tab-p { flex: 1; padding: 8px 4px; border-radius: 999px; font-size: 13px; font-weight: 500; text-align: center; color: #717783; background: none; border: none; cursor: pointer; }
+.tab-p.active { background: #006EC7; color: #FFFFFF; font-weight: 600; }
+
+.caption { font-size: 10.5px; color: #717783; line-height: 1.5; padding: 8px 14px 12px; }
+</style>
+</head>
+<body>
+
+<div>
+  <div class="block-label">Nav bar <span class="hint">— iOS text "Back" pattern</span></div>
+  <div class="frame">
+    <div class="nav-bar">
+      <button class="nav-back">‹ Back</button>
+      <span class="nav-title">Share Access</span>
+      <span class="nav-right"><span class="material-symbols-outlined" style="font-size:20px;">more_horiz</span></span>
+    </div>
+    <div class="caption">Text-only back (no icon). Centered title in Ink · 700. Action color is Locket Blue. Frosted via <code style="background:#F2F2F7;padding:1px 4px;border-radius:3px;font-size:10px;">backdrop-filter: blur(12px)</code>.</div>
+  </div>
+</div>
+
+<div>
+  <div class="block-label">Underline tabs <span class="hint">— top-level section nav (Cycle Trends)</span></div>
+  <div class="frame">
+    <div class="tabs-underline">
+      <div class="tab-u">Predictions</div>
+      <div class="tab-u active">Cycle Trends</div>
+      <div class="tab-u">Reports</div>
+    </div>
+    <div class="caption">Active: Locket Blue · 700 + 2px bottom border. Inactive: Fog · 600. Used for persistent top-level navigation.</div>
+  </div>
+</div>
+
+<div>
+  <div class="block-label">Pill tabs <span class="hint">— sub-section switcher (Share Access)</span></div>
+  <div class="frame">
+    <div class="tabs-pill">
+      <button class="tab-p">Share</button>
+      <button class="tab-p active">Requests</button>
+      <button class="tab-p">Active</button>
+    </div>
+    <div class="caption">Active: solid Locket Blue fill, white · 600. Inactive: transparent, Fog · 500. Used when switching between states inside one screen.</div>
+  </div>
+</div>
+
+</body>
+</html>

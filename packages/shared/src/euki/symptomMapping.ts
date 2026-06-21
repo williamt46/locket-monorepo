@@ -9,4 +9,6 @@ export const SYMPTOM_MAPPING: Record<string, string> = {
   acne: 'luteal_acne',
   headache: 'symptom_headache',
   back_pain: 'symptom_back_pain',
+  breast_tenderness: 'luteal_pms',
+  // Sex + trigger keys intentionally omitted — no Euki content item for these
 };
