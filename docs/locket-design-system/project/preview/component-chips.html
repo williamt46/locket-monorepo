@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@400,1&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+.material-symbols-outlined { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; font-size: 16px; vertical-align: middle; }
+body { font-family: "Public Sans", system-ui, sans-serif; background: #FDFBF7; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.row-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #8E8E93; }
+.chip { display: inline-flex; align-items: center; gap: 5px; padding: 7px 14px; border-radius: 999px; font-size: 13px; font-weight: 500; border: 1px solid transparent; cursor: pointer; }
+.chip-neutral { background: #F2F2F7; color: #4A4A4A; }
+.chip-menstrual { background: #FBEBEF; color: #D1495B; }
+.chip-follicular { background: #E8F5F4; color: #2A9D8F; }
+.chip-ovulatory { background: #FFF4E5; color: #FF9F00; }
+.chip-luteal { background: #EDE5F5; color: #76489D; }
+.chip-selected-menstrual { background: #FBEBEF; color: #D1495B; border-color: #D1495B; }
+.chip-add { background: #F2F2F7; color: #4A4A4A; }
+</style>
+</head>
+<body>
+  <div class="row"><div class="row-label">Neutral / Add</div></div>
+  <div class="row">
+    <span class="chip chip-neutral">Cramps</span>
+    <span class="chip chip-neutral">Bloating</span>
+    <span class="chip chip-neutral">Headache</span>
+    <span class="chip chip-add"><span class="material-symbols-outlined">add</span> Add Symptom</span>
+  </div>
+  <div class="row"><div class="row-label">Phase-Tinted (selected)</div></div>
+  <div class="row">
+    <span class="chip chip-selected-menstrual"><span class="material-symbols-outlined">water_drop</span>Cramps</span>
+    <span class="chip chip-follicular"><span class="material-symbols-outlined">psychiatry</span>Low Energy</span>
+    <span class="chip chip-ovulatory"><span class="material-symbols-outlined">wb_sunny</span>Happy</span>
+    <span class="chip chip-luteal"><span class="material-symbols-outlined">mode_night</span>Anxious</span>
+  </div>
+  <div class="row"><div class="row-label">Bleeding Intensity</div></div>
+  <div class="row">
+    <span class="chip chip-neutral">Spotting</span>
+    <span class="chip chip-neutral">Light</span>
+    <span class="chip chip-selected-menstrual">Medium</span>
+    <span class="chip chip-neutral">Heavy</span>
+  </div>
+</body>
+</html>

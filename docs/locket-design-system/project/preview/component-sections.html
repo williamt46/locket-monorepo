@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@400,1&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+.material-symbols-outlined { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; font-size: 18px; }
+body { font-family: "Public Sans", system-ui, sans-serif; background: #FDFBF7; padding: 20px; display: flex; flex-direction: column; gap: 16px; max-width: 380px; }
+.section-header { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #006EC7; display: flex; align-items: center; gap: 6px; }
+.accordion { background: #FFFFFF; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+.acc-row { display: flex; align-items: center; padding: 14px 16px; gap: 10px; }
+.acc-icon { font-size: 18px; }
+.acc-label { flex: 1; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #006EC7; }
+.acc-chevron { font-size: 18px; color: #8E8E93; }
+.acc-body { padding: 0 16px 14px; display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { padding: 7px 14px; border-radius: 999px; background: #F2F2F7; font-size: 13px; font-weight: 500; color: #4A4A4A; }
+.chip.sel { background: #FBEBEF; color: #D1495B; border: 1px solid #D1495B; }
+</style>
+</head>
+<body>
+  <div class="section-header">
+    <span class="material-symbols-outlined">water_drop</span> Bleeding
+  </div>
+  <div class="section-header">
+    <span class="material-symbols-outlined">bar_chart</span> Cycle History
+  </div>
+  <div class="section-header">
+    <span class="material-symbols-outlined">history</span> Cycle History
+  </div>
+
+  <!-- Accordion closed — "+" icon -->
+  <div class="accordion">
+    <div class="acc-row">
+      <span class="acc-icon material-symbols-outlined" style="font-size:18px;color:#006EC7;">medication</span>
+      <span class="acc-label">Symptoms</span>
+      <span class="acc-chevron material-symbols-outlined">add</span>
+    </div>
+  </div>
+
+  <!-- Accordion open — "^" (expand_less) icon -->
+  <div class="accordion">
+    <div class="acc-row">
+      <span class="acc-icon material-symbols-outlined" style="font-size:18px;color:#006EC7;">sentiment_satisfied</span>
+      <span class="acc-label">Mood</span>
+      <span class="acc-chevron material-symbols-outlined">expand_less</span>
+    </div>
+    <div class="acc-body">
+      <span class="chip sel">Low mood</span>
+      <span class="chip">Anxious</span>
+      <span class="chip">Irritable</span>
+    </div>
+  </div>
+</body>
+</html>

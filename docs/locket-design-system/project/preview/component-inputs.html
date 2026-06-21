@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@400,1&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+.material-symbols-outlined { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; font-size: 20px; vertical-align: middle; color: #8E8E93; }
+body { font-family: "Public Sans", system-ui, sans-serif; background: #FDFBF7; padding: 20px; display: flex; flex-direction: column; gap: 12px; max-width: 400px; }
+.field { position: relative; }
+input, textarea { font-family: "Public Sans", system-ui, sans-serif; font-size: 16px; color: #1A1A1A; background: rgba(242,242,247,0.5); border: none; border-radius: 12px; padding: 14px 16px; width: 100%; outline: none; }
+input::placeholder, textarea::placeholder { color: #8E8E93; }
+.with-icon input { padding-left: 44px; }
+.icon-left { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); }
+.focused input { box-shadow: 0 0 0 3px rgba(0,110,199,0.20); background: rgba(242,242,247,0.5); }
+textarea { resize: none; min-height: 72px; }
+.label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #8E8E93; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+  <div class="label">Default</div>
+  <div class="field with-icon">
+    <span class="icon-left material-symbols-outlined">search</span>
+    <input placeholder="Search symptoms…" />
+  </div>
+  <div class="label">Focused</div>
+  <div class="field focused">
+    <input value="Add a note…" />
+  </div>
+  <div class="label">Notes (multiline)</div>
+  <textarea placeholder="Add a note about how you're feeling…"></textarea>
+</body>
+</html>

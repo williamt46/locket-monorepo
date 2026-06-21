@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: "Public Sans", system-ui, sans-serif; background: #F0EDE8; padding: 32px; color: #1B1C1B; }
+.row { display: flex; gap: 0; margin-bottom: 40px; }
+.cell { display: flex; flex-direction: column; gap: 10px; align-items: center; padding: 24px 20px; min-width: 140px; }
+.cell.sand   { background: #FDFBF9; }
+.cell.dark   { background: #252628; }
+.cell.navy   { background: #1A2332; }
+.cell.white  { background: #FFFFFF; border-left: 1px solid #E6E2D8; }
+.cell.blue   { background: #006EC7; }
+.cell.neutral { background: #F0EDE8; border: 1px solid #E6E2D8; }
+.cell img { display: block; }
+.label { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #717783; text-align: center; }
+.label.on-dark { color: rgba(255,255,255,0.45); }
+.section-title { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #006EC7; margin-bottom: 12px; }
+.issue { background: #FFF; border-radius: 10px; padding: 14px 16px; border-left: 3px solid; margin-bottom: 10px; }
+.issue.warn  { border-color: #D1495B; }
+.issue.amber { border-color: #FF9F00; }
+.issue.teal  { border-color: #2A9D8F; }
+.issue h4 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+.issue.warn h4  { color: #D1495B; }
+.issue.amber h4 { color: #E08C00; }
+.issue.teal h4  { color: #2A9D8F; }
+.issue p { font-size: 12px; color: #4A4A4A; line-height: 1.55; }
+code { background: #F2F2F7; border-radius: 3px; padding: 1px 5px; font-family: monospace; font-size: 11px; }
+</style>
+</head>
+<body>
+
+<p class="section-title">Mark — light contexts</p>
+<div class="row" style="border-radius:14px;overflow:hidden;box-shadow:0 4px 20px -2px rgba(0,0,0,0.1);">
+  <div class="cell white"><img src="../uploads/locket-mark-light.svg" width="80" height="80"><div class="label">Light / white bg</div></div>
+  <div class="cell sand"><img src="../uploads/locket-mark-light.svg" width="80" height="80"><div class="label">Light / sand bg</div></div>
+  <div class="cell neutral"><img src="../uploads/locket-mark-transparent.svg" width="80" height="80"><div class="label">Transparent / neutral</div></div>
+  <div class="cell blue"><img src="../uploads/locket-mark-transparent.svg" width="80" height="80"><div class="label on-dark">Transparent / blue bg</div></div>
+  <div class="cell dark"><img src="../uploads/locket-mark-transparent.svg" width="80" height="80"><div class="label on-dark">Transparent / dark bg</div></div>
+</div>
+
+<p class="section-title">Mark — dark contexts</p>
+<div class="row" style="border-radius:14px;overflow:hidden;box-shadow:0 4px 20px -2px rgba(0,0,0,0.1);">
+  <div class="cell dark"><img src="../uploads/locket-mark-dark.svg" width="80" height="80"><div class="label on-dark">Dark / charcoal</div></div>
+  <div class="cell navy"><img src="../uploads/locket-mark-dark.svg" width="80" height="80"><div class="label on-dark">Dark / navy well</div></div>
+</div>
+
+<p class="section-title">Mark — monochrome</p>
+<div class="row" style="border-radius:14px;overflow:hidden;box-shadow:0 4px 20px -2px rgba(0,0,0,0.1);">
+  <div class="cell sand"><img src="../uploads/locket-mark-mono-ink.svg" width="80" height="80"><div class="label">Mono ink / sand</div></div>
+  <div class="cell white"><img src="../uploads/locket-mark-mono-ink.svg" width="80" height="80"><div class="label">Mono ink / white</div></div>
+  <div class="cell dark"><img src="../uploads/locket-mark-mono-white.svg" width="80" height="80"><div class="label on-dark">Mono white / dark</div></div>
+  <div class="cell navy"><img src="../uploads/locket-mark-mono-white.svg" width="80" height="80"><div class="label on-dark">Mono white / navy</div></div>
+  <div class="cell blue"><img src="../uploads/locket-mark-mono-white.svg" width="80" height="80"><div class="label on-dark">Mono white / blue</div></div>
+</div>
+
+<p class="section-title">Lockup — as-is (text has no embedded font)</p>
+<div class="row" style="border-radius:14px;overflow:hidden;box-shadow:0 4px 20px -2px rgba(0,0,0,0.1);">
+  <div class="cell sand" style="flex:1;align-items:flex-start;">
+    <img src="../uploads/locket-lockup-light.svg" width="180" height="48">
+    <div class="label">Light lockup</div>
+  </div>
+  <div class="cell navy" style="flex:1;align-items:flex-start;">
+    <img src="../uploads/locket-lockup-dark.svg" width="180" height="48">
+    <div class="label on-dark">Dark lockup</div>
+  </div>
+</div>
+
+<div style="margin-top:40px;">
+<p class="section-title">Issues</p>
+<div class="issue warn">
+  <h4>Blocker — Transparent mark is not transparent</h4>
+  <p><code>locket-mark-transparent.svg</code> has <code>fill="#FDFBF9"</code> on the inner circle — identical to the light mark. On blue or dark backgrounds (see row 1, columns 4–5 above) the sand inner circle is clearly visible. For true transparency the inner <code>fill</code> should be <code>"none"</code>. Currently this file is a duplicate of the light mark, not a usable transparent asset.</p>
+</div>
+<div class="issue warn">
+  <h4>Blocker — Lockup wordmark has no embedded font</h4>
+  <p>Both lockup SVGs have an empty <code>&lt;defs&gt;</code> block and use <code>&lt;text class="wm"&gt;locket&lt;/text&gt;</code> with no <code>font-family</code>, <code>font-size</code>, or <code>font-weight</code> — and no <code>.wm</code> style defined anywhere. The text will render in whatever the host system's default serif/sans is. To fix: either embed a <code>@font-face</code> for Public Sans in <code>&lt;defs&gt;&lt;style&gt;</code>, or convert the wordmark to outlines (preferred for a logo master file).</p>
+</div>
+<div class="issue amber">
+  <h4>Undocumented color — <code>#1A2332</code> navy</h4>
+  <p>The dark mark inner well and the lockup-dark background use <code>#1A2332</code> — a deep navy that doesn't exist in the design system token set (dark bg is <code>#252628</code>, dark card is <code>#323336</code>). It reads beautifully as the mark's inner fill against the charcoal dark background, but it needs a token: suggest <code>--locket-navy</code>. Alternatively, reconcile with <code>#252628</code> for consistency.</p>
+</div>
+<div class="issue amber">
+  <h4>Lockup alignment inconsistency</h4>
+  <p>Light lockup: mark at <code>translate(0,0)</code>, text at <code>x="60"</code>. Dark lockup: mark at <code>translate(8,0)</code>, text at <code>x="68"</code>. Both preserve the 60px gap from mark origin to text, so the visual spacing is equivalent — but the dark background rect starts at 0 while the mark has 8px left padding. This is intentional (dark badge needs breathing room) but not documented. Worth noting if these are used at small sizes.</p>
+</div>
+<div class="issue teal">
+  <h4>Good — Mono-white is actually a badge, not pure mono</h4>
+  <p><code>locket-mark-mono-white.svg</code> has <code>fill="#1A2332"</code> on the inner circle — all strokes and icons are white, but the well is navy, creating a strong dark inset. This is visually effective (the mark reads as a pin/badge) but "mono-white" is slightly misleading. Consider renaming to <code>locket-mark-badge-dark</code> to clarify intent.</p>
+</div>
+<div class="issue teal">
+  <h4>Missing variants</h4>
+  <p>Set doesn't include: <code>lockup-mono-white.svg</code>, <code>lockup-mono-ink.svg</code>, or an app icon master (mark on a background for App Store / Play Store). These are needed before the brand kit is production-complete.</p>
+</div>
+</div>
+
+</body>
+</html>

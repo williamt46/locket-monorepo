@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@400,1&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+.material-symbols-outlined { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; font-size: 18px; vertical-align: middle; }
+body { font-family: "Public Sans", system-ui, sans-serif; background: #FDFBF7; padding: 20px; display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
+.col { display: flex; flex-direction: column; gap: 10px; }
+.label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #8E8E93; margin-bottom: 2px; }
+button { font-family: "Public Sans", system-ui, sans-serif; cursor: pointer; transition: transform 120ms ease; }
+button:active { transform: scale(0.98); }
+.btn-primary { background: #006EC7; color: #FFF; font-size: 15px; font-weight: 600; border: none; border-radius: 12px; padding: 14px 28px; }
+.btn-outline { background: transparent; color: #006EC7; font-size: 15px; font-weight: 600; border: 1.5px solid #006EC7; border-radius: 12px; padding: 13px 28px; }
+.btn-period { background: #FFFFFF; color: #4A4A4A; font-size: 14px; font-weight: 500; border: 1.5px solid #D0D0D0; border-radius: 12px; padding: 12px 20px; }
+.btn-period.active { background: #D1495B; color: #FFF; border-color: #D1495B; }
+.btn-ghost { background: transparent; color: #006EC7; font-size: 14px; font-weight: 500; border: none; padding: 6px 0; }
+.btn-float { background: #2D2D2D; color: #FDFBF7; font-size: 14px; font-weight: 600; border: none; border-radius: 30px; padding: 12px 24px; box-shadow: 0 4px 16px rgba(0,0,0,0.20); }
+.btn-danger { background: transparent; color: #C0392B; font-size: 14px; font-weight: 600; border: none; padding: 6px 0; }
+</style>
+</head>
+<body>
+  <div class="col">
+    <div class="label">Primary Action</div>
+    <button class="btn-primary">Save</button>
+    <button class="btn-primary" style="opacity:0.6;">Save (disabled)</button>
+  </div>
+  <div class="col">
+    <div class="label">Outline</div>
+    <button class="btn-outline">Export Backup</button>
+  </div>
+  <div class="col">
+    <div class="label">Period Toggle</div>
+    <button class="btn-period active">Period Start</button>
+  </div>
+  <div class="col">
+    <div class="label">Float / Ghost / Danger</div>
+    <button class="btn-ghost">Insights →</button>
+    <button class="btn-danger">Clear Data</button>
+  </div>
+</body>
+</html>

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: "Public Sans", system-ui, sans-serif; background: #FDFBF9; padding: 28px; color: #1B1C1B; }
+.kicker { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #006EC7; margin-bottom: 20px; }
+.grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 20px -2px rgba(0,0,0,0.08); margin-bottom: 28px; }
+.cell { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 20px 12px; }
+.label { font-size: 9.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; text-align: center; }
+.on-light  { color: #717783; }
+.on-dark   { color: rgba(255,255,255,0.4); }
+img { display: block; }
+
+/* Lockup row */
+.lockup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 20px -2px rgba(0,0,0,0.08); margin-bottom: 28px; }
+.lockup-cell { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 28px 28px; }
+
+/* Token table */
+.tbl { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+.tbl th { text-align: left; padding: 6px 10px; background: #E5F1FA; color: #006EC7; font-size: 9.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.tbl td { padding: 9px 10px; border-bottom: 1px solid #F2F2F7; vertical-align: middle; }
+.tbl tr:last-child td { border-bottom: none; }
+.tbl .tag { display: inline-flex; align-items: center; gap: 6px; }
+.swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; flex-shrink: 0; }
+code { background: #F2F2F7; border-radius: 3px; padding: 1px 5px; font-family: monospace; font-size: 10.5px; }
+.note { font-size: 10.5px; color: #717783; margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<div class="kicker">Locket Brand · Logo Asset Set</div>
+
+<!-- Mark variants -->
+<div class="kicker" style="margin-bottom:10px;">Mark</div>
+<div class="grid">
+  <div class="cell" style="background:#FFFFFF;">
+    <img src="../assets/logo/locket-mark-light.svg" width="72" height="72" alt="Locket mark light">
+    <div class="label on-light">Light / white</div>
+  </div>
+  <div class="cell" style="background:#FDFBF9;">
+    <img src="../assets/logo/locket-mark-light.svg" width="72" height="72" alt="Locket mark light on sand">
+    <div class="label on-light">Light / sand</div>
+  </div>
+  <div class="cell" style="background:#F0EDE8;">
+    <img src="../assets/logo/locket-mark-transparent.svg" width="72" height="72" alt="Locket mark transparent">
+    <div class="label on-light">Transparent ✓</div>
+  </div>
+  <div class="cell" style="background:#006EC7;">
+    <img src="../assets/logo/locket-mark-transparent.svg" width="72" height="72" alt="Locket mark on blue">
+    <div class="label on-dark">Transparent / blue</div>
+  </div>
+  <div class="cell" style="background:#252628;">
+    <img src="../assets/logo/locket-mark-dark.svg" width="72" height="72" alt="Locket mark dark">
+    <div class="label on-dark">Dark / charcoal</div>
+  </div>
+</div>
+
+<!-- Monochrome -->
+<div class="kicker" style="margin-bottom:10px;">Monochrome</div>
+<div class="grid" style="grid-template-columns: repeat(4, 1fr);">
+  <div class="cell" style="background:#FDFBF9;">
+    <img src="../assets/logo/locket-mark-mono-ink.svg" width="72" height="72" alt="Mono ink">
+    <div class="label on-light">Mono ink / light</div>
+  </div>
+  <div class="cell" style="background:#FFFFFF;">
+    <img src="../assets/logo/locket-mark-mono-ink.svg" width="72" height="72" alt="Mono ink white">
+    <div class="label on-light">Mono ink / white</div>
+  </div>
+  <div class="cell" style="background:#252628;">
+    <img src="../assets/logo/locket-mark-badge-dark.svg" width="72" height="72" alt="Badge dark">
+    <div class="label on-dark">Badge dark / charcoal</div>
+  </div>
+  <div class="cell" style="background:#1A2332;">
+    <img src="../assets/logo/locket-mark-badge-dark.svg" width="72" height="72" alt="Badge dark on navy">
+    <div class="label on-dark">Badge dark / navy</div>
+  </div>
+</div>
+
+<!-- File index -->
+<div class="kicker" style="margin-bottom:10px;">File index — <code>assets/logo/</code></div>
+<table class="tbl">
+  <thead><tr><th>File</th><th>Inner fill</th><th>Arc colors</th><th>Use on</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>locket-mark-light.svg</code></td>
+      <td><span class="tag"><span class="swatch" style="background:#FDFBF9;border:1px solid #E6E2D8;"></span> #FDFBF9</span></td>
+      <td>Phase colors</td>
+      <td>White, sand, light surfaces</td>
+    </tr>
+    <tr>
+      <td><code>locket-mark-dark.svg</code></td>
+      <td><span class="tag"><span class="swatch" style="background:#1A2332;"></span> #1A2332</span></td>
+      <td>Phase colors</td>
+      <td>Dark charcoal, navy, dark mode</td>
+    </tr>
+    <tr>
+      <td><code>locket-mark-transparent.svg</code> <span style="color:#2A9D8F;font-size:10px;font-weight:700;">✓ fixed</span></td>
+      <td><span class="tag"><span class="swatch" style="background:transparent;border:1px dashed #ccc;"></span> none</span></td>
+      <td>Phase colors</td>
+      <td>Any colored background</td>
+    </tr>
+    <tr>
+      <td><code>locket-mark-mono-ink.svg</code></td>
+      <td><span class="tag"><span class="swatch" style="background:#FDFBF9;border:1px solid #E6E2D8;"></span> #FDFBF9</span></td>
+      <td>All ink #1B1C1B</td>
+      <td>Single-color print, light bg</td>
+    </tr>
+    <tr>
+      <td><code>locket-mark-badge-dark.svg</code> <span style="color:#2A9D8F;font-size:10px;font-weight:700;">✓ renamed</span></td>
+      <td><span class="tag"><span class="swatch" style="background:#1A2332;"></span> #1A2332</span></td>
+      <td>All white</td>
+      <td>Dark/colored bg; pin/badge contexts</td>
+    </tr>
+  </tbody>
+</table>
+<div class="note" style="margin-top:12px;padding:10px 12px;background:#FFF4E5;border-radius:8px;border-left:3px solid #FF9F00;">
+  <strong style="color:#E08C00;">Still needed:</strong> app icon master (1024×1024 mark on solid bg for App Store / Play Store).
+</div>
+
+</body>
+</html>

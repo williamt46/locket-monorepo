@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: "Public Sans", system-ui, sans-serif; background: #FDFBF9; padding: 22px; color: #1B1C1B; }
+.kicker { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #006EC7; margin-bottom: 6px; }
+h2 { font-size: 15px; font-weight: 700; margin-bottom: 14px; letter-spacing: -0.01em; }
+.row { display: flex; gap: 14px; margin-bottom: 16px; flex-wrap: wrap; }
+.avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #FFFFFF; font-weight: 700; font-size: 13px; letter-spacing: 0.02em; }
+.a-40 { width: 40px; height: 40px; font-size: 13px; }
+.a-32 { width: 32px; height: 32px; font-size: 11px; }
+.a-56 { width: 56px; height: 56px; font-size: 17px; }
+.col { text-align: center; }
+.col-label { font-size: 10px; color: #717783; margin-top: 6px; font-family: "SF Mono", monospace; }
+.note { font-size: 11px; color: #4A4A4A; line-height: 1.55; background: #FFFFFF; border-radius: 12px; padding: 12px 14px; box-shadow: 0 4px 20px -2px rgba(0,0,0,0.05); max-width: 460px; }
+.note strong { color: #1B1C1B; font-weight: 700; }
+.palette-label { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #717783; margin: 20px 0 10px; }
+</style>
+</head>
+<body>
+
+<div class="kicker">New component</div>
+<h2>Letter Avatar</h2>
+
+<div class="palette-label">Sizes</div>
+<div class="row">
+  <div class="col"><div class="avatar a-32" style="background:#2A9D8F;">SC</div><div class="col-label">32×32</div></div>
+  <div class="col"><div class="avatar a-40" style="background:#2A9D8F;">SC</div><div class="col-label">40×40 · default</div></div>
+  <div class="col"><div class="avatar a-56" style="background:#2A9D8F;">SC</div><div class="col-label">56×56</div></div>
+</div>
+
+<div class="palette-label">Color assignment — deterministic from initials hash</div>
+<div class="row">
+  <div class="col"><div class="avatar" style="background:#006EC7;">JD</div><div class="col-label">Blue</div></div>
+  <div class="col"><div class="avatar" style="background:#2A9D8F;">SC</div><div class="col-label">Follicular</div></div>
+  <div class="col"><div class="avatar" style="background:#76489D;">DH</div><div class="col-label">Luteal</div></div>
+  <div class="col"><div class="avatar" style="background:#FF9F00;">RM</div><div class="col-label">Ovulatory</div></div>
+  <div class="col"><div class="avatar" style="background:#D1495B;">AK</div><div class="col-label">Menstrual</div></div>
+  <div class="col"><div class="avatar" style="background:#717783;">?</div><div class="col-label">Unknown</div></div>
+</div>
+
+<p class="note"><strong>Rule:</strong> avatars use the 5 phase colors on rotation (hash initials → index mod 5). Never white text on Pale Lavender. Use Fog for unknown / placeholder. Typography: Public Sans 700, uppercase initials, letter-spacing 0.02em.</p>
+
+</body>
+</html>

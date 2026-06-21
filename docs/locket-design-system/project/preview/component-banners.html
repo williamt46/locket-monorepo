@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: "Public Sans", system-ui, sans-serif; background: #FDFBF9; padding: 20px; color: #1B1C1B; display: flex; flex-direction: column; gap: 20px; }
+.material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+.material-symbols-rounded { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+.kicker { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #006EC7; margin-bottom: 8px; }
+
+/* Error banner */
+.banner-error { background: #D1495B; color: #FFFFFF; border-radius: 12px; padding: 12px 16px; font-size: 13px; font-weight: 500; text-align: center; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.banner-error .material-symbols-rounded { font-size: 16px; }
+
+/* Info banner */
+.banner-info { background: #E5F1FA; color: #006EC7; border-radius: 12px; padding: 12px 16px; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 10px; }
+.banner-info .material-symbols-rounded { font-size: 18px; }
+
+/* Empty state */
+.empty { background: #FFFFFF; border-radius: 16px; padding: 36px 24px; text-align: center; box-shadow: 0 4px 20px -2px rgba(0,0,0,0.05); }
+.empty-icon { width: 56px; height: 56px; border-radius: 50%; background: #F2F2F7; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 14px; }
+.empty-icon .material-symbols-outlined { font-size: 28px; color: #717783; }
+.empty-title { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+.empty-body { font-size: 12.5px; color: #717783; line-height: 1.55; max-width: 260px; margin: 0 auto; }
+
+.caption { font-size: 10.5px; color: #717783; margin-top: 6px; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<div>
+  <div class="kicker">Error banner · full-width terracotta</div>
+  <div class="banner-error">
+    <span class="material-symbols-rounded">error</span>
+    Unable to load requests. Check your connection.
+  </div>
+  <div class="caption">Terracotta fill (#D1495B), white text · 500, radius 12px. Inline above content, never interrupts layout.</div>
+</div>
+
+<div>
+  <div class="kicker">Info banner · blue tint</div>
+  <div class="banner-info">
+    <span class="material-symbols-rounded">info</span>
+    Your share link expires in 24 hours.
+  </div>
+  <div class="caption">Blue Tint (#E5F1FA) bg, Locket Blue text. Use for timing, status, or gentle notice.</div>
+</div>
+
+<div>
+  <div class="kicker">Empty state · Material Symbol (never emoji)</div>
+  <div class="empty">
+    <div class="empty-icon"><span class="material-symbols-outlined">inbox</span></div>
+    <div class="empty-title">No Pending Requests</div>
+    <div class="empty-body">Show your QR code to a provider or send them a share link. Requests will appear here.</div>
+  </div>
+  <div class="caption">56px circle with Pale Lavender bg, Fog-colored outlined icon at 28px. No emoji anywhere in empty states.</div>
+</div>
+
+</body>
+</html>
