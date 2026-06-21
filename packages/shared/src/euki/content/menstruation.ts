@@ -20,7 +20,7 @@ export const menstruationContent: EukiContent = {
           id: 'menstrual_cramps',
           title: 'Why do cramps happen?',
           body: 'Cramps (dysmenorrhea) are caused by prostaglandins — hormone-like chemicals that cause the uterus to contract to expel its lining. Higher prostaglandin levels mean stronger cramps. Heat, gentle movement, and NSAIDs can help reduce pain.',
-          links: [{ label: 'Pain relief options', url: 'https://eukiapp.com/pain' }],
+          links: [],
         },
         {
           id: 'menstrual_bloating',
