@@ -106,7 +106,7 @@ export const ContentSheet: React.FC<ContentSheetProps> = ({ visible, item, onClo
           {/* Attribution footer */}
           <View style={styles.footer}>
             <Text style={styles.footerText}>
-              Content from Euki · GPL-3.0 · locket.health is privacy-first and offline
+              Educational content from Euki (open-source, GPL-3.0) · Delivered offline · No tracking
             </Text>
           </View>
         </View>

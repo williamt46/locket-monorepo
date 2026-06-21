@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, SafeAreaView, StatusBar, AppState } from 'react-native';
 import { ScreenWrapper } from '../components/ScreenWrapper';
 import { colors } from '../theme/colors';
@@ -15,7 +15,7 @@ import { UserConfig } from '../models/UserConfig';
 import { usePredictions } from '../hooks/usePredictions';
 
 import { Alert } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 
 export const LedgerScreen = () => {
     const navigation = useNavigation<any>();
@@ -26,7 +26,14 @@ export const LedgerScreen = () => {
     const [viewMode, setViewMode] = useState<'monthly' | 'yearly'>('monthly');
     const [initialMonthIndex, setInitialMonthIndex] = useState<number>(new Date().getMonth());
     const [keyHex, setKeyHex] = useState<string | undefined>(undefined);
-    const { events, inscribe, batchInscribe, deleteByTimestamp, triggerSync, superNuke, isInitialized, isSyncing } = useLedger(keyHex);
+    const { events, inscribe, batchInscribe, deleteByTimestamp, triggerSync, superNuke, refresh, isInitialized, isSyncing } = useLedger(keyHex);
+
+    // Refresh event state whenever this screen comes into focus (e.g. after LogScreen inscribes)
+    useFocusEffect(
+        useCallback(() => {
+            refresh();
+        }, [refresh])
+    );
 
     const styles = StyleSheet.create({
         header: {
@@ -181,14 +188,16 @@ export const LedgerScreen = () => {
 
                 const dataObj = (decrypted && typeof decrypted === 'object') ? decrypted : { isPeriod: true };
 
-                // Only set if not already set, so latest (first in list) wins
-                if (!newData[k]) {
-                    newData[k] = {
-                        ...dataObj,
-                        ts: tsToUse,
-                        isPeriod: dataObj.isPeriod !== undefined ? dataObj.isPeriod : true
-                    };
-                }
+                // Events arrive newest-first (ORDER BY ts DESC, rowid DESC). Merge per-day:
+                // fields from newer events win, older events only fill gaps. This keeps a
+                // symptoms-only save and a period/bleeding save for the same day from
+                // clobbering each other (each inscribe appends a separate event).
+                const existing = newData[k];
+                const merged = { ...dataObj, ...(existing ?? {}) };
+                // Preserve the newest ts (existing is newer when present).
+                merged.ts = existing?.ts ?? tsToUse;
+                merged.isPeriod = merged.isPeriod !== undefined ? merged.isPeriod : true;
+                newData[k] = merged;
             }
             setDecryptedData(newData);
 
@@ -244,11 +253,21 @@ export const LedgerScreen = () => {
 
     const handleToggleDate = (monthIndex: number, day: number) => {
         const date = new Date(currentYear, monthIndex, day);
+        // Local-midnight timestamps of every logged period day — lets LogScreen clear the orphan
+        // days of an existing period run when a boundary is re-marked (span-clearing on re-mark).
+        const existingPeriodDays = Object.keys(decryptedData)
+            .filter((k) => decryptedData[k]?.isPeriod)
+            .map((k) => {
+                const [y, m, d] = k.split('-').map(Number);
+                return new Date(y, m, d).getTime();
+            });
         navigation.navigate('Log', {
             date: date.toISOString(),
             initialData: decryptedData[`${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`],
             keyHex,
             currentPhase,
+            periodLength: config?.periodLength,
+            existingPeriodDays,
             // Note: inscribe and deleteByTimestamp are NOT passed — LogScreen calls useLedger(keyHex) directly.
             // Passing functions via route.params causes React Navigation non-serializable warnings and breaks deep linking.
         });
