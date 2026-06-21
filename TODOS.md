@@ -21,6 +21,11 @@ Generated: 2026-04-02 | Plan: Euki Education Layer
 - [ ] **Dark mode** — Phase colors, ContentSheet, DisclaimerModal, PhaseInsightCard dark-mode variants not specified.
 - [ ] **PhaseInsightCard dismiss state** — Dismissed state persisted in AsyncStorage `phase_insight_dismissed`. If user dismisses, card stays hidden. Add "re-show" affordance in Settings.
 
+## Deferred from Eng Review (CycleTrends — 2026-04-23)
+
+- [ ] **CycleTrendsScreen — React Native implementation** — Once the HTML prototype design is locked (via /design-shotgun), build `CycleTrendsScreen` in `apps/mobile`. Consume real cycle data, use phase color tokens from the design system, wire into the navigation stack. Depends on: prototype sign-off. Context: prototype lives at `~/Downloads/stitch_locket_ui_v2/code.html`.
+- [ ] **CycleTrends phase-calculation wiring** — The prototype uses hardcoded day counts per phase (M/F/O/L). The real screen needs a phase-calculation function that takes `cycleLength + periodLength` → phase boundaries. Logic already exists partially in the codebase. Wire to the CycleTrends view during RN implementation. Blocked by: CycleTrendsScreen RN implementation.
+
 ## Deferred from Eng Review
 
 - [ ] **Date key format normalization (full codebase)** — `calculatePredictedPeriods` writes 0-indexed no-pad keys; `getLatestPeriodStart` writes 1-indexed ISO. This PR fixes `getLatestPeriodStart` to use UTC methods, but does not normalize the key format across the whole codebase. Full normalization is a larger refactor that should be its own PR.
