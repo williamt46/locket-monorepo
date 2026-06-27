@@ -43,10 +43,12 @@ export function getLatestPeriodStart(
             highestTimestamp = entry.ts;
 
             const d = new Date(entry.ts);
-            const y = d.getUTCFullYear();
-            // Use UTC methods to match the UTC-based consumption in getCurrentPhase (avoids off-by-one near midnight in non-UTC timezones)
-            const m = (d.getUTCMonth() + 1).toString().padStart(2, '0');
-            const day = d.getUTCDate().toString().padStart(2, '0');
+            // Timestamps are recorded as a local wall-clock instant when the user logs,
+            // so derive the calendar key from local date parts. Reading these back with
+            // getUTC* would shift the day by one in timezones offset from UTC.
+            const y = d.getFullYear();
+            const m = (d.getMonth() + 1).toString().padStart(2, '0');
+            const day = d.getDate().toString().padStart(2, '0');
 
             latestDateStr = `${y}-${m}-${day}`;
         }
