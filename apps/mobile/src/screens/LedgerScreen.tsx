@@ -26,7 +26,12 @@ export const LedgerScreen = () => {
     const [viewMode, setViewMode] = useState<'monthly' | 'yearly'>('monthly');
     const [initialMonthIndex, setInitialMonthIndex] = useState<number>(new Date().getMonth());
     const [keyHex, setKeyHex] = useState<string | undefined>(undefined);
-    const { events, inscribe, batchInscribe, deleteByTimestamp, triggerSync, superNuke, refresh, isInitialized, isSyncing } = useLedger(keyHex);
+    const { events, inscribe, batchInscribe, deleteByTimestamp, purgeByIds, triggerSync, superNuke, refresh, isInitialized, isSyncing } = useLedger(keyHex);
+
+    // Ids of events that failed to decrypt (e.g. orphaned by a key reset). Surfaced
+    // to the user rather than silently dropped.
+    const [undecryptableIds, setUndecryptableIds] = useState<string[]>([]);
+    const purgePromptedRef = useRef<string>('');
 
     // Refresh event state whenever this screen comes into focus (e.g. after LogScreen inscribes)
     useFocusEffect(
@@ -151,6 +156,7 @@ export const LedgerScreen = () => {
             if (!keyHex) return;
             if (events.length === 0) {
                 setDecryptedData({});
+                setUndecryptableIds([]);
                 return;
             }
 
@@ -169,15 +175,28 @@ export const LedgerScreen = () => {
                         decryptionCache.current[cacheKey] = decrypted;
                         return { event, decrypted };
                     }
-                } catch (e) {
-                    console.error('Decryption failed for event', event.id);
+                    // Decrypted to a non-object — unexpected; treat as unreadable
+                    // rather than silently discarding it.
+                    console.warn('Decryption produced a non-object payload for event', event.id);
+                    return { event, failed: true };
+                } catch (e: any) {
+                    // Surface the real reason (e.g. GCM auth failure from a key reset)
+                    // instead of swallowing it.
+                    console.error('Decryption failed for event', event.id, e?.message ?? e);
+                    return { event, failed: true };
                 }
-                return null;
             });
 
             const results = await Promise.all(promises);
-            const validResults = results.filter(r => r !== null);
+            const validResults = results.filter((r: any) => r && !r.failed);
+            const failedIds: string[] = results
+                .filter((r: any) => r && r.failed && r.event?.id)
+                .map((r: any) => r.event.id);
             console.log(`[LedgerScreen] Decrypted ${validResults.length} / ${events.length} events successfully`);
+            if (failedIds.length > 0) {
+                console.warn(`[LedgerScreen] ${failedIds.length} event(s) unreadable (likely created before a key reset).`);
+            }
+            setUndecryptableIds(failedIds);
 
             const prevKeyCount = Object.keys(decryptedData).length;
             for (const result of validResults) {
@@ -204,6 +223,32 @@ export const LedgerScreen = () => {
         };
         decryptAll();
     }, [events, keyHex]);
+
+    // Surface unreadable entries (orphaned by a key reset) once per distinct set,
+    // and offer to purge them. They are unrecoverable — their key no longer exists.
+    useEffect(() => {
+        if (undecryptableIds.length === 0) return;
+        const sig = [...undecryptableIds].sort().join('|');
+        if (purgePromptedRef.current === sig) return; // already prompted for this set
+        purgePromptedRef.current = sig;
+
+        const n = undecryptableIds.length;
+        Alert.alert(
+            'Some entries can’t be read',
+            `${n} ${n === 1 ? 'entry' : 'entries'} could not be decrypted. This usually means they were created before a factory reset, under a key that no longer exists, so they can’t be recovered. Remove them?`,
+            [
+                { text: 'Keep', style: 'cancel' },
+                {
+                    text: 'Remove',
+                    style: 'destructive',
+                    onPress: async () => {
+                        await purgeByIds(undecryptableIds);
+                        setUndecryptableIds([]);
+                    },
+                },
+            ]
+        );
+    }, [undecryptableIds, purgeByIds]);
 
 
 

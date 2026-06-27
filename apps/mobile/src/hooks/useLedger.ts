@@ -110,6 +110,9 @@ export const useLedger = (keyHex?: string) => {
         if (!isInitialized) return;
         setIsBusy(true);
         try {
+            // Cancel any in-flight sync first so a deferred write-back can't
+            // re-persist records into the wiped store.
+            BackgroundSyncService.invalidate();
             await ledger.nuke();
             setEvents([]);
             console.log('[useLedger] Ledger nuked');
@@ -123,6 +126,11 @@ export const useLedger = (keyHex?: string) => {
     const superNuke = useCallback(async () => {
         setIsBusy(true);
         try {
+            // Invalidate any in-flight sync FIRST. Otherwise a deferred saveEvents
+            // (e.g. from a force-sync still anchoring on-chain) can re-persist
+            // pre-reset, old-key records into the wiped store — exactly the
+            // resurrection that left undecryptable orphans after factory reset.
+            BackgroundSyncService.invalidate();
             // This is the "Nuclear Option" - wipes data AND keys.
             // Must NOT guard on isInitialized — factory reset can be triggered before init completes.
             if (ledger) {
@@ -146,6 +154,25 @@ export const useLedger = (keyHex?: string) => {
         if (!isInitialized) return;
         console.log('[useLedger] Manual sync trigger requested');
         await BackgroundSyncService.forceSync(ledger, refresh);
+    }, [isInitialized, refresh]);
+
+    const purgeByIds = useCallback(async (ids: string[]) => {
+        if (!isInitialized || !ledger) return;
+        if (!ids || ids.length === 0) return;
+        if (typeof ledger.deleteByIds !== 'function') {
+            console.warn('[useLedger] Active ledger does not support deleteByIds; cannot purge.');
+            return;
+        }
+        setIsBusy(true);
+        try {
+            await ledger.deleteByIds(ids);
+            await refresh();
+            console.log(`[useLedger] Purged ${ids.length} unreadable record(s) by id`);
+        } catch (e) {
+            console.error('[useLedger] Purge failed', e);
+        } finally {
+            setIsBusy(false);
+        }
     }, [isInitialized, refresh]);
 
     const deleteByTimestamp = useCallback(async (ts: number) => {
@@ -178,7 +205,7 @@ export const useLedger = (keyHex?: string) => {
         setIsBusy(true);
         try {
             // Lazy load ImportService to avoid circular/heavy deps on boot if not importing
-            const { detectFormat, detectSource, parseClueExport, parseFloExport, parseCsvExport } = require('../services/ImportService');
+            const { detectFormat, detectSource, parseClueExport, parseFloExport, parseCsvExport, ledgerEntryToLogEntry } = require('../services/ImportService');
 
             const format = detectFormat(rawString);
             let result;
@@ -205,8 +232,14 @@ export const useLedger = (keyHex?: string) => {
                 return { success: true, count: 0, warnings: result?.warnings || [] };
             }
 
-            console.log(`[useLedger] Mapped ${result.entries.length} items from ${result.source}, beginning batch inscribe...`);
-            await batchInscribe(result.entries);
+            // Convert import-domain LedgerEntry (numeric flow/bbt) into app-domain
+            // LogEntry (bleeding.intensity + note) so imported days render correctly
+            // on the Log modal and calendar. Without this, spotting/flow and BBT
+            // never surface in the UI after import.
+            const logEntries = result.entries.map(ledgerEntryToLogEntry);
+
+            console.log(`[useLedger] Mapped ${logEntries.length} items from ${result.source}, beginning batch inscribe...`);
+            await batchInscribe(logEntries);
 
             return {
                 success: true,
@@ -232,6 +265,7 @@ export const useLedger = (keyHex?: string) => {
         batchInscribe,
         importData,
         deleteByTimestamp,
+        purgeByIds,
         triggerSync,
         refresh,
         nuke,

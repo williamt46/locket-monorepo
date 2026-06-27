@@ -6,6 +6,7 @@ import {
     FloExport,
     ImportStats
 } from '../models/ImportTypes';
+import { LogEntry, BleedingIntensity } from '../models/LogEntry';
 
 // --- Type Guards and Detectors ---
 
@@ -483,4 +484,58 @@ function applyBoundaryFlags(entries: LedgerEntry[]) {
             entry.isEnd = true;
         }
     }
+}
+
+// --- App-domain mapping ---
+
+// flow intensity (import domain) -> bleeding intensity (LogScreen modal / calendar)
+const FLOW_TO_INTENSITY: Record<number, BleedingIntensity> = {
+    0: 'spotting',
+    1: 'light',
+    2: 'medium',
+    3: 'heavy',
+};
+
+function toLocalIsoDate(ts: number): string {
+    const d = new Date(ts);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
+
+/**
+ * Convert an import-domain LedgerEntry into the app-domain LogEntry that the
+ * LogScreen modal and MonthGrid actually read.
+ *
+ * Imported entries used to be inscribed in raw LedgerEntry shape (numeric `flow`,
+ * numeric `bbt`), but the UI reads `bleeding.intensity` and has no bbt field — so
+ * after import, spotting/flow never appeared on the Log modal and BBT was dropped.
+ *
+ *   flow (0..3) -> bleeding.intensity (spotting / light / medium / heavy)
+ *   bbt         -> appended to note as text ("BBT: 36.5"); there is no dedicated
+ *                  bbt field yet, so we preserve it in notes rather than lose it.
+ */
+export function ledgerEntryToLogEntry(entry: LedgerEntry): LogEntry {
+    const notes: string[] = [];
+    if (entry.note) notes.push(entry.note);
+    if (typeof entry.bbt === 'number' && !Number.isNaN(entry.bbt)) {
+        notes.push(`BBT: ${entry.bbt}`);
+    }
+
+    const log: LogEntry = {
+        event: entry.isStart ? 'period_start' : entry.isEnd ? 'period_end' : 'manual_entry',
+        date: toLocalIsoDate(entry.ts),
+        ts: entry.ts,
+        isPeriod: entry.isPeriod,
+    };
+
+    if (entry.isStart) log.isStart = true;
+    if (entry.isEnd) log.isEnd = true;
+    if (notes.length > 0) log.note = notes.join(', ');
+
+    const intensity = typeof entry.flow === 'number' ? FLOW_TO_INTENSITY[entry.flow] : undefined;
+    if (intensity) log.bleeding = { intensity };
+
+    return log;
 }

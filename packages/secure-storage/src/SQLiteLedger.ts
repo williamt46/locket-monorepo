@@ -109,6 +109,17 @@ export class SQLiteLedger implements LedgerStorage {
         console.log(`[SQLiteLedger] Deleted events between ${new Date(startOfDay).toISOString()} and ${new Date(endOfDay).toISOString()}`);
     }
 
+    async deleteByIds(ids: string[]): Promise<void> {
+        if (!this.db) throw new Error('Database not initialized');
+        if (!ids || ids.length === 0) return;
+        const placeholders = ids.map(() => '?').join(',');
+        await (this.db as any).runAsync(
+            `DELETE FROM events WHERE id IN (${placeholders})`,
+            ids
+        );
+        console.log(`[SQLiteLedger] Deleted ${ids.length} events by id`);
+    }
+
     async nuke(): Promise<void> {
         if (!this.db) throw new Error('Database not initialized');
         await this.db.execAsync('DELETE FROM events');
