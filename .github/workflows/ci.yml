@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel in-progress runs for the same ref (e.g. new pushes to a PR).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # turbo build runs `^build` first, so workspace packages such as
+      # @locket/secure-storage are compiled to dist/ before any consumer
+      # (e.g. the mobile app bundle) reads them. dist/ is gitignored, so
+      # this step is what makes the new code reach the bundle in CI.
+      # Call turbo directly: `npm run test` is intercepted by npm and
+      # fanned out to every workspace, failing on ones with no test script.
+      - name: Build workspaces
+        run: npx turbo run build
+
+      - name: Test
+        run: npx turbo run test
