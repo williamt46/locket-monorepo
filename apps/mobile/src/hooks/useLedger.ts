@@ -178,7 +178,7 @@ export const useLedger = (keyHex?: string) => {
         setIsBusy(true);
         try {
             // Lazy load ImportService to avoid circular/heavy deps on boot if not importing
-            const { detectFormat, detectSource, parseClueExport, parseFloExport, parseCsvExport } = require('../services/ImportService');
+            const { detectFormat, detectSource, parseClueExport, parseFloExport, parseCsvExport, ledgerEntryToLogEntry } = require('../services/ImportService');
 
             const format = detectFormat(rawString);
             let result;
@@ -205,8 +205,14 @@ export const useLedger = (keyHex?: string) => {
                 return { success: true, count: 0, warnings: result?.warnings || [] };
             }
 
-            console.log(`[useLedger] Mapped ${result.entries.length} items from ${result.source}, beginning batch inscribe...`);
-            await batchInscribe(result.entries);
+            // Convert import-domain LedgerEntry (numeric flow/bbt) into app-domain
+            // LogEntry (bleeding.intensity + note) so imported days render correctly
+            // on the Log modal and calendar. Without this, spotting/flow and BBT
+            // never surface in the UI after import.
+            const logEntries = result.entries.map(ledgerEntryToLogEntry);
+
+            console.log(`[useLedger] Mapped ${logEntries.length} items from ${result.source}, beginning batch inscribe...`);
+            await batchInscribe(logEntries);
 
             return {
                 success: true,
