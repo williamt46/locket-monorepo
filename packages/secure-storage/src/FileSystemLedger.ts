@@ -128,6 +128,17 @@ export class FileSystemLedger implements LedgerStorage {
         }
     }
 
+    async deleteByIds(ids: string[]): Promise<void> {
+        if (!ids || ids.length === 0) return;
+        const idSet = new Set(ids);
+        const before = this.events.length;
+        this.events = this.events.filter(e => !e.id || !idSet.has(e.id));
+        if (this.events.length !== before) {
+            await this.saveToDisk();
+            console.log(`[FileSystemLedger] Deleted ${before - this.events.length} events by id`);
+        }
+    }
+
     async nuke(): Promise<void> {
         this.events = [];
         if (this.file.exists) {

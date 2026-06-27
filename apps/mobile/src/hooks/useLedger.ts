@@ -110,6 +110,9 @@ export const useLedger = (keyHex?: string) => {
         if (!isInitialized) return;
         setIsBusy(true);
         try {
+            // Cancel any in-flight sync first so a deferred write-back can't
+            // re-persist records into the wiped store.
+            BackgroundSyncService.invalidate();
             await ledger.nuke();
             setEvents([]);
             console.log('[useLedger] Ledger nuked');
@@ -123,6 +126,11 @@ export const useLedger = (keyHex?: string) => {
     const superNuke = useCallback(async () => {
         setIsBusy(true);
         try {
+            // Invalidate any in-flight sync FIRST. Otherwise a deferred saveEvents
+            // (e.g. from a force-sync still anchoring on-chain) can re-persist
+            // pre-reset, old-key records into the wiped store — exactly the
+            // resurrection that left undecryptable orphans after factory reset.
+            BackgroundSyncService.invalidate();
             // This is the "Nuclear Option" - wipes data AND keys.
             // Must NOT guard on isInitialized — factory reset can be triggered before init completes.
             if (ledger) {
@@ -146,6 +154,25 @@ export const useLedger = (keyHex?: string) => {
         if (!isInitialized) return;
         console.log('[useLedger] Manual sync trigger requested');
         await BackgroundSyncService.forceSync(ledger, refresh);
+    }, [isInitialized, refresh]);
+
+    const purgeByIds = useCallback(async (ids: string[]) => {
+        if (!isInitialized || !ledger) return;
+        if (!ids || ids.length === 0) return;
+        if (typeof ledger.deleteByIds !== 'function') {
+            console.warn('[useLedger] Active ledger does not support deleteByIds; cannot purge.');
+            return;
+        }
+        setIsBusy(true);
+        try {
+            await ledger.deleteByIds(ids);
+            await refresh();
+            console.log(`[useLedger] Purged ${ids.length} unreadable record(s) by id`);
+        } catch (e) {
+            console.error('[useLedger] Purge failed', e);
+        } finally {
+            setIsBusy(false);
+        }
     }, [isInitialized, refresh]);
 
     const deleteByTimestamp = useCallback(async (ts: number) => {
@@ -238,6 +265,7 @@ export const useLedger = (keyHex?: string) => {
         batchInscribe,
         importData,
         deleteByTimestamp,
+        purgeByIds,
         triggerSync,
         refresh,
         nuke,

@@ -8,7 +8,23 @@ const SYNC_THRESHOLD = 7; // Sync every 7 events (aligns with period auto-fill)
 
 export const BackgroundSyncService = {
     isSyncing: false,
+    // Monotonic generation counter. Bumped whenever the store/key is wiped
+    // (factory reset, nuke). An in-flight sync captures the epoch at start and
+    // refuses to write back if it has since changed — otherwise a deferred
+    // saveEvents resurrects old-key records into a freshly-wiped store, leaving
+    // permanently undecryptable orphans.
+    epoch: 0,
     onStatusChange: (syncing: boolean) => { },
+
+    /**
+     * Invalidate any in-flight sync. Call this BEFORE wiping the ledger/key so a
+     * deferred anchor write-back cannot re-persist pre-reset records.
+     */
+    invalidate() {
+        this.epoch++;
+        this.isSyncing = false;
+        this.onStatusChange(false);
+    },
 
     /**
      * Scans the ledger for unanchored ('local') records and anchors them in batches.
@@ -22,6 +38,7 @@ export const BackgroundSyncService = {
         }
         if (this.isSyncing) return;
         this.setSyncing(true);
+        const myEpoch = this.epoch;
 
         try {
             console.log('[SyncEngine] Pulse started. Scanning for local records...');
@@ -50,7 +67,7 @@ export const BackgroundSyncService = {
                 return;
             }
 
-            await this.executeAnchorBatch(pending, ledger, onSyncComplete);
+            await this.executeAnchorBatch(pending, ledger, onSyncComplete, myEpoch);
 
         } catch (e) {
             console.error('[SyncEngine] Sync cycle failed:', e);
@@ -68,6 +85,7 @@ export const BackgroundSyncService = {
         }
         if (this.isSyncing) return;
         this.setSyncing(true);
+        const myEpoch = this.epoch;
 
         try {
             console.log('[SyncEngine] Force Sync triggered!');
@@ -86,14 +104,14 @@ export const BackgroundSyncService = {
                 return;
             }
 
-            await this.executeAnchorBatch(pending, ledger, onSyncComplete);
+            await this.executeAnchorBatch(pending, ledger, onSyncComplete, myEpoch);
         } catch (e) {
             console.error('[SyncEngine] Force sync failed:', e);
             this.setSyncing(false);
         }
     },
 
-    async executeAnchorBatch(pending: StorageRecord[], ledger: any, onSyncComplete?: () => void) {
+    async executeAnchorBatch(pending: StorageRecord[], ledger: any, onSyncComplete?: () => void, myEpoch?: number) {
         try {
             console.log(`[SyncEngine] Anchoring Batch: Tracking IDs [${pending.map(p => p.signature?.substring(0, 8)).join(', ')}]`);
 
@@ -104,6 +122,15 @@ export const BackgroundSyncService = {
             }));
 
             const result = await BlockchainService.anchorBatch(assets);
+
+            // Epoch guard: if the store/key was wiped (factory reset, nuke) while we
+            // were anchoring on-chain, abort the write-back. Persisting now would
+            // re-insert pre-reset records into the fresh store, where they can never
+            // decrypt under the new key (permanently undecryptable orphans).
+            if (myEpoch !== undefined && myEpoch !== this.epoch) {
+                console.warn('[SyncEngine] Store was reset mid-sync (stale epoch). Skipping write-back to avoid resurrecting old records.');
+                return;
+            }
 
             if (result.success && result.results) {
                 console.log(`[SyncEngine] Success: Batch anchored (Tx: ${result.txId?.substring(0, 16)}...)`);
