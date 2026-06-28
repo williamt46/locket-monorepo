@@ -210,9 +210,12 @@ GitHub Actions is configured in `.github/workflows/ci.yml` and runs on every pus
 
 1. `npm ci`
 2. `npx turbo run build` — compiles `dist/` for workspace consumers before tests run
-3. `npx turbo run test`
+3. `npx turbo run lint` — ESLint flat config (`eslint.config.mjs`) across workspaces with a `lint` script
+4. `npx turbo run test`
 
 The workflow calls Turbo directly (not `npm run test`) to avoid npm workspace fan-out into packages without test scripts. A new push to the same ref cancels any in-progress run for that branch.
+
+Linting uses the root `eslint.config.mjs` (ESLint 9 flat config); `apps/web` ships its own config, which takes precedence for that app.
 
 ## Blockchain Network
 
@@ -220,8 +223,28 @@ The local developer network uses Hyperledger Fabric.
 
 Key files:
 - `network/chaincode/index.js` — consent smart contract
+- `network/install-fabric.sh` — fetch the upstream `fabric-samples` + binaries
 - `network/start-network.sh` — local network bootstrap
 - `network/deploy-conInSe.sh` — recovery and redeploy script
+
+#### First-time setup (`network/fabric-samples` is not in git)
+
+`network/fabric-samples/` is **gitignored** and not committed. It is the upstream
+Hyperledger `fabric-samples` checkout plus the **generated crypto material**
+(private keys, MSP certs, TLS certs) produced when you start the test network.
+That material is per-machine and must never be committed, so a fresh clone will
+not have it. Generate it once before starting the network:
+
+```bash
+cd network
+./install-fabric.sh            # clones hyperledger/fabric-samples + downloads Fabric binaries
+```
+
+This populates `network/fabric-samples/test-network/`, which is the default
+location `apps/serverless-gateway` reads crypto material from. The gateway path
+is overridable via `CRYPTO_PATH` (and `KEY_DIRECTORY_PATH`, `CERT_DIRECTORY_PATH`,
+`TLS_CERT_PATH`); in CI/production, set those env vars to real provisioned paths
+rather than relying on the local test-network default.
 
 Start the local network:
 
