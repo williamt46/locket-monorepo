@@ -1,178 +1,282 @@
 # Locket Monorepo
 
-Welcome to the Locket monorepo. This project is a local-first health tracker with blockchain-anchored integrity.
+Locket is a local-first reproductive health tracker with cryptographic sharing, blockchain-anchored consent, and privacy-preserving data export flows. The codebase combines an Expo mobile app, lightweight web portals, a serverless re-encryption gateway, Hyperledger Fabric chaincode, and shared TypeScript packages.
 
-## 🏗️ Technical Architecture
-This repository uses a monorepo structure managed by **npm workspaces** and **Turborepo** for efficient development and build orchestration.
+## Architecture
 
-## 🌿 Branches
-*   **`main`** *(Current Branch)*: The stable base branch.
-*   **`origin/main`**: Remote tracking branch for main.
+Managed with npm workspaces and Turborepo.
 
-## 📦 Component Overview
+```text
+apps/
+  mobile/              Expo React Native app
+  web/                 React/Vite web interface
+  serverless-gateway/  Express/Fabric/PRE gateway
+  provider-portal/     Vite portal for care-provider workflows
+  partner-portal/      Vite portal for partner access workflows
 
-The repository is structured as a **Monorepo** containing applications, shared packages, and infrastructure:
+packages/
+  core-crypto/         Mobile-oriented crypto facade
+  crypto-engine/       PRE and cryptographic primitives
+  fhir-formatter/      HL7 FHIR export formatting
+  secure-storage/      Ledger storage abstractions
+  shared/              Shared types, hashing, constants, educational content
+  portal-core/         Portal gateway and decryption helpers
+  e2e/                 End-to-end workflow tests
 
-### 📱 `apps/mobile/` 
-*   **Purpose**: The primary mobile interface for users (React Native/Expo).
-*   **Key Directories**:
-    *   `src/components/`: Reusable UI elements.
-    *   `src/screens/`: Main application screens.
-    *   `src/navigation/`: App navigation logic.
-    *   `src/theme/`: Design tokens.
+network/
+  chaincode/           Hyperledger Fabric consent contract
+  fabric-samples/      Local Fabric network context
+  tests/               Chaincode integration tests
+```
 
-### 🌐 `apps/web/`
-*   **Purpose**: A web-based interface for the application (React/Vite).
-*   **Key Files**:
-    *   `src/LogDataScreen.jsx`: Screen for logging data via verifying keys.
-    *   `src/services/`: Client-side logic including key persistence.
-    *   `src/main.jsx`: Entry point.
+## Applications
 
-### 🔗 `apps/serverless-gateway/` 
-*   **Purpose**: The serverless backend service connecting clients to the blockchain network via REST APIs.
-*   **Key Files**:
-    *   `src/index.ts`: Main entry point for the serverless functions.
-    *   `src/FabricService.ts`: Logic for interacting with the Hyperledger Fabric SDK.
+### Mobile App — `apps/mobile/`
 
-### 📦 `packages/` (Shared Libraries & Utilities)
-*   **Purpose**: Common utilities, types, and constants shared across applications.
-*   **`crypto-engine/`**: Cryptographic abstractions (AES, RSA, PRE).
-*   **`fhir-formatter/`**: HL7 FHIR data transformation logic.
-*   **`secure-storage/`**: Modular storage interfaces.
-*   **`shared/`**: Common types, constants, and utilities.
+The primary product surface. Built with Expo, React Native, React Navigation, Vitest, Expo SQLite, Expo SecureStore, and React Native Quick Crypto.
 
-### ⛓️ `network/` 
-*   **Purpose**: Infrastructure and smart contracts (Hyperledger Fabric).
-*   **Key Directories**:
-    *   `chaincode/`: The smart contract logic (`index.js`).
-    *   `fabric-samples/`: Standard Fabric network scripts and configuration context.
-    *   `start-network.sh`: Script to initialize the local blockchain environment.
+**Screens:** `LogScreen`, `AddSymptomsScreen`, `CycleInsightsScreen`, `LedgerScreen`, `ImportScreen`, `SettingsScreen`, `OnboardingScreen`, `AuthScreen`, `ConsentScreen`, `LogDataScreen`.
 
-### 📂 Root Files
-*   `.gitignore`: Defines intentionally untracked files and directories, ensuring secrets and build outputs stay out of version control.
-*   `verify-flow.js`: End-to-end verification script.
-*   `wallet/`: Directory for local crypto identities (`admin.id`, `appUser.id`).
-*   `package.json`: Root configuration defining workspaces.
-*   `turbo.json`: Turborepo configuration for build orchestration.
+Key capabilities:
+- Local onboarding and encrypted local persistence
+- Ledger and calendar views for health records
+- Period logging, period-span logging, and per-day merge behavior
+- Symptom logging across physical, mood, sex, and trigger categories
+- Cycle prediction utilities, current phase detection, and cycle insight screens
+- Educational content mapped into phase and symptom views
+- Consent and sync screens for sharing workflows
+- Import support for Clue, Flo, and CSV exports, including field mapping into Locket log entries
+- Cloud backup envelopes using platform-agnostic AES-GCM encryption
+- Factory reset that wipes local data and keys without resurrecting stale encrypted records
 
-## 🚀 Getting Started
+Key directories:
+- `src/screens/` — app screens
+- `src/components/` — shared UI (content sheets, disclaimer modals, phase cards, calendars, onboarding)
+- `src/services/` — storage, sync, backup, import, blockchain, and key services
+- `src/utils/PredictionEngine.ts` — cycle prediction and phase logic
+- `src/models/` — user configuration, log entries, and import types
+- `src/theme/` — design tokens
+- `__tests__/` — unit and integration coverage for models, predictions, import parsing, services, and backup round trips
 
-### Prerequisites
-- Node.js (v18+)
-- npm
+### Web App — `apps/web/`
 
-### Installation
+React/Vite interface for browser-based interaction with Locket data flows. Key code under `src/`, including `LogDataScreen.jsx`, service helpers, and `main.jsx`.
+
+### Serverless Gateway — `apps/serverless-gateway/`
+
+Express service connecting clients to Hyperledger Fabric consent state and the PRE crypto engine.
+
+- Fabric consent verification via `FabricService.ts`
+- Proxy re-encryption request handling
+- CORS and rate limiting
+- Hardened async handling for proxy re-encryption
+
+> The legacy `apps/gateway/` service was removed after February 25, 2026 to avoid port conflicts. Use `apps/serverless-gateway/` for all gateway work.
+
+### Provider Portal — `apps/provider-portal/`
+
+Vite/React app for provider-facing workflows. Uses `@locket/portal-core` for gateway and decryption helpers, and `@locket/fhir-formatter` for FHIR-formatted health data output.
+
+### Partner Portal — `apps/partner-portal/`
+
+Vite/React app for partner-facing access workflows. Uses `@locket/portal-core` for shared portal logic.
+
+## Shared Packages
+
+| Package | Description |
+|---------|-------------|
+| `@locket/core-crypto` | Mobile-oriented cryptographic service layer built around the shared data model and React Native crypto runtime |
+| `@locket/crypto-engine` | Cryptographic primitives and PRE workflow support (deterministic behavior, shredding, workflow coverage) |
+| `@locket/fhir-formatter` | Transforms Locket health records into HL7 FHIR R4 bundles |
+| `@locket/secure-storage` | Storage abstractions for filesystem and SQLite-backed ledgers |
+| `@locket/shared` | Shared types, constants, hashing utilities, and content mapping (phase/symptom content and tests) |
+| `@locket/portal-core` | Shared portal utilities — gateway client behavior and decryption services |
+| `@locket/e2e` | End-to-end workflow coverage across crypto, portal, FHIR, and shared packages |
+
+## Design System
+
+The design source of truth lives in `docs/locket-design-system/`. It contains exported HTML/CSS/JS prototypes, color and type tokens, component previews, and mobile UI kit references.
+
+Start with `docs/locket-design-system/README.md` before implementing design-system-driven UI changes.
+
+## Prerequisites
+
+- Node.js 18 or newer
+- npm 10.x (repo currently records `npm@10.9.4`)
+- Docker Desktop and Docker Compose — required for the local Fabric network
+- Xcode — required for iOS development
+- Android Studio and Java 17 — required for Android development
+
+## Installation
+
 ```bash
 npm install
 ```
 
-### Development
-Start all services in development mode:
+## Development
+
+Run all workspaces through Turborepo:
+
 ```bash
 npm run dev
 ```
 
-### Build
-Build all packages and applications:
+Run a specific app directly:
+
 ```bash
-npm run build
+cd apps/mobile && npm run dev
+cd apps/serverless-gateway && npm run dev
+cd apps/provider-portal && npm run dev
+cd apps/partner-portal && npm run dev
 ```
 
-## � Mobile Development
+## Mobile Development
 
-The mobile app is built with Expo and requires native environment setup for iOS (Xcode) and Android (Android Studio).
+### iOS Simulator
 
-### 🍏 iOS Development
-
-#### Simulator
-Run the app on the latest iOS simulator:
 ```bash
 cd apps/mobile
 npx expo run:ios
 ```
-*note: after the app has been installed, run:
+
+After the native app is installed, use Expo start with a cleared cache for routine development:
+
 ```bash
 npx expo start -c
 ```
-from then on to clear the cache and boot the app.
 
-#### Physical Device
-1.  Connect your iPhone via USB.
-2.  Enable **Developer Mode** on your iPhone 
-3.  Open the workspace in Xcode to configure signing:
-    ```bash
-    open apps/mobile/ios/locketapp.xcworkspace
-    ```
-4.  In Xcode, select the **locketapp** project -> **Signing & Capabilities** -> Select your **Team**.
-5.  Run the build command:
-    ```bash
-    npx expo run:ios --device
-    ```
+### iOS Device
 
-### 🤖 Android Development
+1. Connect the iPhone by USB.
+2. Enable Developer Mode on the iPhone.
+3. Open the Xcode workspace:
+   ```bash
+   open apps/mobile/ios/locketapp.xcworkspace
+   ```
+4. In Xcode, select the `locketapp` project and configure Signing & Capabilities with your team.
+5. Run:
+   ```bash
+   cd apps/mobile
+   npx expo run:ios --device
+   ```
 
-#### Emulator
-Ensure an Android Virtual Device (AVD) is running, then execute:
+### Android
+
+Ensure an Android Virtual Device is running and `JAVA_HOME` points to Java 17:
+
 ```bash
 cd apps/mobile
 npx expo run:android
 ```
 
-#### Environment Variables
-Ensure your `JAVA_HOME` is set to **Java 17** (required for Gradle compatibility).
+## Build
 
-## �🛠️ Monorepo Workflow
-- **Shared Code**: Reusable logic (like crypto and types) lives in `packages/shared`.
-- **Atomic Changes**: PRs can safely touch both shared logic and its usage in applications.
-- **Task Pipelines**: Use `turbo` to run commands efficiently across the workspace.
+```bash
+npm run build
+```
 
+Turborepo builds dependency packages first and writes output under `dist/` where applicable.
 
-## ⛓️ Blockchain Network
+## Tests
+
+Run the full monorepo test pipeline:
+
+```bash
+npm run test
+```
+
+Run targeted tests:
+
+```bash
+cd apps/mobile && npm test
+cd packages/crypto-engine && npm test
+cd packages/fhir-formatter && npm test
+cd packages/shared && npm test
+cd packages/e2e && npm test
+```
+
+Run the Fabric chaincode integration test after the network is running:
+
+```bash
+cd network
+bash tests/conInSe.test.sh
+```
+
+Additional testing notes live in `TESTING.md`.
+
+## Continuous Integration
+
+GitHub Actions is configured in `.github/workflows/ci.yml` and runs on every push to `main` and on every pull request:
+
+1. `npm ci`
+2. `npx turbo run build` — compiles `dist/` for workspace consumers before tests run
+3. `npx turbo run test`
+
+The workflow calls Turbo directly (not `npm run test`) to avoid npm workspace fan-out into packages without test scripts. A new push to the same ref cancels any in-progress run for that branch.
+
+## Blockchain Network
 
 The local developer network uses Hyperledger Fabric.
 
-### Prerequisites
-- **Docker & Docker Compose**: Ensure Docker Desktop is running.
+Key files:
+- `network/chaincode/index.js` — consent smart contract
+- `network/start-network.sh` — local network bootstrap
+- `network/deploy-conInSe.sh` — recovery and redeploy script
 
-### Start the Network
-This script initializes the local blockchain environment. For general development, use:
+Start the local network:
 
 ```bash
 cd network
 ./start-network.sh
 ```
 
-### 🔄 Fresh Boot (Recovery / Reset)
-If the blockchain network or dev environment becomes inconsistent (e.g., "namespace not defined", certificate errors, or connection failures), follow this **nuclear reset** process:
+### Fresh Reset
 
-1.  **Stop all services**: Press `Ctrl+C` in any terminal running `npm run dev` or `expo start`.
-2.  **Reset Network**:
-    ```bash
-    cd network
-    bash deploy-conInSe.sh
-    ```
-    *(This wipes the network, removes stale Docker containers, and redeploys smart contracts)*.
-3.  **Restart Environment**:
-    ```bash
-    cd ..
-    npm run dev
-    ```
+If the network is inconsistent (stale certificates, missing chaincode namespaces, connection failures):
 
+1. Stop all services (`Ctrl+C` in any `npm run dev` or `expo start` terminal).
+2. Reset and redeploy:
+   ```bash
+   cd network
+   bash deploy-conInSe.sh
+   ```
+   This removes stale Docker containers and redeploys the smart contract.
+3. Restart:
+   ```bash
+   cd ..
+   npm run dev
+   ```
 
-## 🔒 Security
+## Security
 
-### Dependency Management
-This project prioritizes software supply chain security. All dependencies are regularly audited using the **Sonatype MCP** tools to identify and mitigate vulnerabilities.
+Locket is designed around local-first storage and explicit sharing:
 
-*   **Audit Frequency**: Continuous scanning during development.
-*   **Scanning Tools**: Sonatype OSS Index via Model Context Protocol (MCP).
-*   **Resolution Strategy**: Prioritize upgrading to the "Latest Secure" versions recommended by Sonatype intelligence.
+- Health data is persisted locally before being shared
+- Consent state is anchored in Hyperledger Fabric
+- PRE support allows gateway-mediated re-encryption without exposing plaintext to the gateway
+- Backup envelopes use platform-agnostic AES-GCM encryption
+- Factory reset deletes local records and keys without resurrecting stale encrypted data
+- `.gitignore` protects local agent tooling, generated output, and sensitive runtime material from accidental commits
 
-### Verified Security Patches (January 2026)
-*   **API Gateway**: `body-parser` updated to `>2.2.2` (DoS mitigation).
-*   **Mobile App**:
-    *   `expo` SDK updated to secure patch levels.
-    *   `@react-native-community/cli` updated to `>20.0.0` (RCE mitigation).
+### Dependency Auditing
+
+Dependencies are continuously scanned using Sonatype OSS Index via MCP. Resolution strategy: upgrade to the latest secure versions recommended by Sonatype intelligence.
+
+### Security Patches
+
+**January 2026**
+- `body-parser` updated to `>2.2.2` (API Gateway DoS mitigation)
+- `expo` SDK updated to secure patch levels
+- `@react-native-community/cli` updated to `>20.0.0` (RCE mitigation)
 
 ### Vulnerability Reporting
-If you discover a security vulnerability within this project, please report it immediately to the maintainers. Do not disclose sensitive information publicly until a patch has been released.
+
+Report security vulnerabilities directly to the maintainers. Do not disclose publicly until a patch has been released.
+
+## Workflow Notes
+
+- Prefer workspace scripts at the repo root for cross-package tasks
+- Keep shared logic in `packages/*` and consume it via workspace dependencies
+- Use `apps/serverless-gateway/` as the backend gateway; `apps/gateway/` is removed
+- Use `docs/locket-design-system/` for UI implementation guidance
+- Keep generated `dist/` output out of source control; some CI and local flows require packages to be built before downstream tests run
