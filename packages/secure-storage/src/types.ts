@@ -17,3 +17,21 @@ export interface LedgerStorage {
     deleteByIds(ids: string[]): Promise<void>;
     nuke(): Promise<void>;
 }
+
+/**
+ * Thrown when the encrypted (SQLite) ledger cannot initialize and the factory
+ * refuses to silently downgrade to plaintext on-disk storage. Carries the
+ * underlying failure as `cause` so callers can surface diagnostics.
+ */
+export class LedgerInitError extends Error {
+    readonly cause?: unknown;
+    constructor(message: string, options?: { cause?: unknown }) {
+        super(message);
+        this.name = 'LedgerInitError';
+        if (options && 'cause' in options) {
+            this.cause = options.cause;
+        }
+        // Preserve prototype chain when targeting older TS lib levels.
+        Object.setPrototypeOf(this, LedgerInitError.prototype);
+    }
+}
