@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { createPersistentLedger, StorageRecord } from '@locket/secure-storage';
+import { StorageRecord } from '@locket/secure-storage';
 import { LocketCryptoService } from '@locket/core-crypto';
 import { BackgroundSyncService } from '../services/BackgroundSyncService';
+import { getLedger, resetLedgerSingleton } from '../services/StorageService';
 
-// Singleton-ish instances for the lifetime of the session
+// Session cache of the SHARED ledger instance owned by StorageService (one
+// singleton app-wide, sourced via getLedger() rather than a second instance).
 let ledger: any = null;
 const crypto = new LocketCryptoService();
 
@@ -29,7 +31,7 @@ export const useLedger = (keyHex?: string) => {
         if (isInitialized && ledger) return;
         try {
             if (!ledger) {
-                ledger = await createPersistentLedger();
+                ledger = await getLedger();
             }
 
             // Wire up sync status updates
@@ -138,7 +140,10 @@ export const useLedger = (keyHex?: string) => {
             }
             const { SecureKeyService } = require('../services/SecureKeyService');
             await SecureKeyService.nukeKey();
-            // Reset the module-level singleton so the next init() creates a fresh ledger instance.
+            // Reset the shared singleton (StorageService's) AND the local cache so
+            // the next init() builds a fresh ledger — no module keeps a handle to
+            // the wiped/old-key ledger.
+            resetLedgerSingleton();
             ledger = null;
             setEvents([]);
             setIsInitialized(false);

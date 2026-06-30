@@ -12,6 +12,19 @@ export const initStorage = async (): Promise<void> => {
     }
 };
 
+// Single shared ledger instance. useLedger consumes this instead of building its
+// own, so the whole app holds ONE ledger singleton (not one per module).
+export const getLedger = async (): Promise<LedgerStorage> => {
+    await initStorage();
+    return ledger!;
+};
+
+// Clear the singleton so the next init() builds a fresh ledger — e.g. after a
+// factory reset, so no module keeps a handle to the wiped/old-key ledger.
+export const resetLedgerSingleton = (): void => {
+    ledger = null;
+};
+
 export const saveEvent = async (encryptedEvent: string, assetId: string | null = null): Promise<void> => {
     const record = {
         ts: Date.now(),
