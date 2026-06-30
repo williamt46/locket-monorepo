@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CloudBackupService } from '../../src/services/CloudBackupService';
-import { LocketBackupFile } from '../../src/types/BackupTypes';
+import { LocketBackupFileV1 } from '../../src/types/BackupTypes';
 import crypto from 'crypto';
 
 // 1. Mock the native crypto module using Node's standard crypto library
@@ -32,7 +32,7 @@ const WRONG_MASTER_KEY = crypto.randomBytes(32).toString('hex');
 describe('CloudBackupService envelope encryption', () => {
 
     let generatedBackupJson: string;
-    let parsedBackupFile: LocketBackupFile;
+    let parsedBackupFile: LocketBackupFileV1;
 
     beforeEach(() => {
         vi.clearAllMocks();
