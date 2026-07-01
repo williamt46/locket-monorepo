@@ -1,8 +1,20 @@
 import { createPersistentLedger, LedgerStorage } from '@locket/secure-storage';
 import * as SecureStore from 'expo-secure-store';
-import { UserConfig } from '../models/UserConfig';
+import { BaselineCycleData } from '../models/BaselineCycleData';
+import { SecureKeyService } from './SecureKeyService';
+import { wrapBaseline, unwrapBaseline } from './BaselineCryptoService';
 
-const USER_CONFIG_KEY = 'locket_user_config';
+const USER_CONFIG_KEY = 'locket_user_config';   // legacy plaintext (read-only fallback until S3.3 migration)
+const BASELINE_KEY = 'locket_baseline_v2';       // AES-GCM-wrapped baseline
+
+// Session cache so the boot path unwraps the baseline at most once (< 50ms goal).
+// `undefined` = not loaded yet; `null` = loaded, no baseline present.
+let baselineCache: BaselineCycleData | null | undefined = undefined;
+
+// Clear the cache when the master key changes (factory reset, restore rebind).
+export const resetBaselineCache = (): void => {
+    baselineCache = undefined;
+};
 
 let ledger: LedgerStorage | null = null;
 
@@ -61,18 +73,52 @@ export const nukeData = async (): Promise<void> => {
     await ledger!.nuke();
 };
 
-// ── UserConfig persistence (Onboarding) ─────────────────────────────
+// ── BaselineCycleData persistence (Onboarding) ─────────────────────────────
+// At rest, baseline cycle data is AES-256-GCM-wrapped under HKDF(masterKey,
+// 'baseline-cycle-v1') and stored at locket_baseline_v2 — same at-rest posture
+// as LogEntry, closing the plaintext-metadata gap. The legacy plaintext
+// locket_user_config is read as a fallback (migrated + deleted in S3.3).
 
-export const saveUserConfig = async (config: UserConfig): Promise<void> => {
-    await SecureStore.setItemAsync(USER_CONFIG_KEY, JSON.stringify(config));
+export const saveUserConfig = async (config: BaselineCycleData): Promise<void> => {
+    const masterKeyHex = await SecureKeyService.getOrGenerateKey();
+    const envelope = wrapBaseline(masterKeyHex, config);
+    await SecureStore.setItemAsync(BASELINE_KEY, JSON.stringify(envelope));
+    baselineCache = config;
 };
 
-export const getUserConfig = async (): Promise<UserConfig | null> => {
-    const raw = await SecureStore.getItemAsync(USER_CONFIG_KEY);
-    if (!raw) return null;
-    try {
-        return JSON.parse(raw) as UserConfig;
-    } catch {
-        return null;
+export const getUserConfig = async (): Promise<BaselineCycleData | null> => {
+    if (baselineCache !== undefined) return baselineCache;
+
+    const masterKeyHex = await SecureKeyService.getOrGenerateKey();
+
+    // Preferred: the wrapped v2 entry.
+    const wrapped = await SecureStore.getItemAsync(BASELINE_KEY);
+    if (wrapped) {
+        try {
+            baselineCache = unwrapBaseline(masterKeyHex, JSON.parse(wrapped));
+            return baselineCache;
+        } catch (e) {
+            // Tamper or key mismatch. Do NOT silently substitute defaults; surface
+            // it. (A user-facing "couldn't verify your cycle settings" banner is a
+            // follow-up.) Return null here so boot doesn't crash.
+            console.error('[StorageService] baseline unwrap failed (BaselineIntegrityError):', e);
+            baselineCache = null;
+            return null;
+        }
     }
+
+    // Fallback: legacy plaintext entry (migration to v2 happens in S3.3).
+    const legacy = await SecureStore.getItemAsync(USER_CONFIG_KEY);
+    if (legacy) {
+        try {
+            baselineCache = JSON.parse(legacy) as BaselineCycleData;
+            return baselineCache;
+        } catch {
+            baselineCache = null;
+            return null;
+        }
+    }
+
+    baselineCache = null;
+    return null;
 };

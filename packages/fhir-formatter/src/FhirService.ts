@@ -37,7 +37,7 @@ export interface LocketPayload {
 /**
  * FhirService — Edge-formatting engine for the Provider Portal.
  *
- * Converts raw Locket JSON (UserConfig + LocketLedger) into an HL7 FHIR R4
+ * Converts raw Locket JSON (BaselineCycleData + LocketLedger) into an HL7 FHIR R4
  * Bundle containing anonymous Patient and coded Observation resources.
  *
  * This runs client-side in the Provider Portal browser AFTER PRE decryption.

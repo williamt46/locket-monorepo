@@ -1,14 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import {
     clampValue,
-    createDefaultUserConfig,
+    createDefaultBaselineCycleData,
     todayUTC,
     PERIOD_MIN,
     PERIOD_MAX,
     CYCLE_MIN,
     CYCLE_MAX,
-    type UserConfig,
-} from '../../src/models/UserConfig';
+    type BaselineCycleData,
+} from '../../src/models/BaselineCycleData';
 
 // ── clampValue ──────────────────────────────────────────────────────
 
@@ -82,36 +82,36 @@ describe('Clamping constants', () => {
     it('CYCLE_MAX is 100', () => expect(CYCLE_MAX).toBe(100));
 });
 
-// ── createDefaultUserConfig ─────────────────────────────────────────
+// ── createDefaultBaselineCycleData ─────────────────────────────────────────
 
-describe('createDefaultUserConfig', () => {
-    it('returns a valid UserConfig', () => {
-        const config = createDefaultUserConfig();
+describe('createDefaultBaselineCycleData', () => {
+    it('returns a valid BaselineCycleData', () => {
+        const config = createDefaultBaselineCycleData();
         expect(config).toHaveProperty('lastPeriodDate');
         expect(config).toHaveProperty('periodLength');
         expect(config).toHaveProperty('cycleLength');
     });
 
     it('has sensible defaults', () => {
-        const config = createDefaultUserConfig();
+        const config = createDefaultBaselineCycleData();
         expect(config.periodLength).toBe(5);
         expect(config.cycleLength).toBe(28);
     });
 
     it('lastPeriodDate is today in YYYY-MM-DD format', () => {
-        const config = createDefaultUserConfig();
+        const config = createDefaultBaselineCycleData();
         expect(config.lastPeriodDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
         expect(config.lastPeriodDate).toBe(todayUTC());
     });
 
     it('default period length is within allowed range', () => {
-        const config = createDefaultUserConfig();
+        const config = createDefaultBaselineCycleData();
         expect(config.periodLength).toBeGreaterThanOrEqual(PERIOD_MIN);
         expect(config.periodLength).toBeLessThanOrEqual(PERIOD_MAX);
     });
 
     it('default cycle length is within allowed range', () => {
-        const config = createDefaultUserConfig();
+        const config = createDefaultBaselineCycleData();
         expect(config.cycleLength).toBeGreaterThanOrEqual(CYCLE_MIN);
         expect(config.cycleLength).toBeLessThanOrEqual(CYCLE_MAX);
     });

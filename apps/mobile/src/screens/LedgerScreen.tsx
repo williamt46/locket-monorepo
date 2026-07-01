@@ -11,7 +11,7 @@ import { useLedger } from '../hooks/useLedger';
 import { SecureKeyService } from '../services/SecureKeyService';
 import { LocketCryptoService } from '@locket/core-crypto';
 import { getUserConfig, saveUserConfig } from '../services/StorageService';
-import { UserConfig } from '../models/UserConfig';
+import { BaselineCycleData } from '../models/BaselineCycleData';
 import { usePredictions } from '../hooks/usePredictions';
 
 import { Alert } from 'react-native';
@@ -99,7 +99,7 @@ export const LedgerScreen = () => {
 
     // Current Date State
     const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
-    const [config, setConfig] = useState<UserConfig | null>(null);
+    const [config, setConfig] = useState<BaselineCycleData | null>(null);
 
     // Initialize Key and Config
     useEffect(() => {

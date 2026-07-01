@@ -4,14 +4,14 @@ import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { layout } from '../../theme/layout';
 import {
-    createDefaultUserConfig,
+    createDefaultBaselineCycleData,
     clampValue,
     PERIOD_MIN,
     PERIOD_MAX,
     CYCLE_MIN,
     CYCLE_MAX,
-    type UserConfig,
-} from '../../models/UserConfig';
+    type BaselineCycleData,
+} from '../../models/BaselineCycleData';
 import { StepWelcome } from './StepWelcome';
 import { StepLastPeriod } from './StepLastPeriod';
 import { StepNumberPicker } from './StepNumberPicker';
@@ -20,7 +20,7 @@ import { StepNumberPicker } from './StepNumberPicker';
 
 interface OnboardingLayoutProps {
     /** Called when the user completes the wizard ("Seal Ledger"). */
-    onComplete: (config: UserConfig) => void;
+    onComplete: (config: BaselineCycleData) => void;
 }
 
 // ── Step count ──────────────────────────────────────────────────────
@@ -40,7 +40,7 @@ export const OnboardingLayout: React.FC<OnboardingLayoutProps> = ({
     onComplete,
 }) => {
     const [step, setStep] = useState(0);
-    const [config, setConfig] = useState<UserConfig>(createDefaultUserConfig);
+    const [config, setConfig] = useState<BaselineCycleData>(createDefaultBaselineCycleData);
 
     // ── Step navigation ───────────────────────────────────────────────
     const goBack = useCallback(() => {
