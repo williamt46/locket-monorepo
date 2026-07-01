@@ -31,6 +31,14 @@ vi.mock('../../src/services/StorageService', () => ({
     rawNukeData: vi.fn(),
 }));
 
+vi.mock('../../src/services/SecureKeyService', () => ({
+    SecureKeyService: {
+        installKey: vi.fn(),
+        getOrGenerateKey: vi.fn(),
+        nukeKey: vi.fn(),
+    },
+}));
+
 import { EncryptedExportService } from '../../src/services/EncryptedExportService';
 
 const MK = crypto.randomBytes(32).toString('hex');
@@ -89,5 +97,32 @@ describe('EncryptedExportService — envelope v2 + version dispatch', () => {
         const json = await EncryptedExportService.createBackup(MK, PW);
         const decoded = await EncryptedExportService.decodeBackup(json, { password: PW });
         expect(decoded.events.map((e: any) => e.id)).toEqual(['1', '2']);
+    });
+
+    it('restoreFromBackup installs the recovered master key BEFORE writing events (the rebind)', async () => {
+        const json = await EncryptedExportService.createBackup(MK, PW);
+        const { SecureKeyService } = await import('../../src/services/SecureKeyService');
+        const storage = await import('../../src/services/StorageService');
+
+        const { count, version } = await EncryptedExportService.restoreFromBackup(json, PW);
+        expect(version).toBe(2);
+        expect(count).toBe(2);
+        expect(SecureKeyService.installKey).toHaveBeenCalledWith(MK);
+
+        // Ordering is the P0 fix: install must precede the event write.
+        const installOrder = (SecureKeyService.installKey as any).mock.invocationCallOrder[0];
+        const saveOrder = (storage.rawSaveEvents as any).mock.invocationCallOrder[0];
+        expect(installOrder).toBeLessThan(saveOrder);
+    });
+
+    it('restoreFromBackup with the wrong password installs nothing and writes nothing', async () => {
+        const json = await EncryptedExportService.createBackup(MK, PW);
+        const { SecureKeyService } = await import('../../src/services/SecureKeyService');
+        const storage = await import('../../src/services/StorageService');
+
+        await expect(EncryptedExportService.restoreFromBackup(json, 'wrong-password-99')).rejects.toThrow();
+        expect(SecureKeyService.installKey).not.toHaveBeenCalled();
+        expect(storage.rawNukeData).not.toHaveBeenCalled();
+        expect(storage.rawSaveEvents).not.toHaveBeenCalled();
     });
 });

@@ -143,9 +143,20 @@ export const LedgerScreen = () => {
                     Alert.alert('Reset Complete', 'Your local ledger has been wiped.');
                 };
                 clearAll();
+            } else if (action === 'restored') {
+                // A v2 restore just rebound the master key. Re-read it so the
+                // ledger decrypts the restored events under the correct (installed)
+                // key — keeps undecryptableIds empty so the purge prompt does not
+                // fire on freshly-restored data — then reload the ledger.
+                const reload = async () => {
+                    const restoredKey = await SecureKeyService.getOrGenerateKey();
+                    setKeyHex(restoredKey);
+                    await refresh(true);
+                };
+                reload();
             }
         }
-    }, [route.params?.action, triggerSync, superNuke, setKeyHex, navigation]);
+    }, [route.params?.action, triggerSync, superNuke, setKeyHex, navigation, refresh]);
 
     // Decrypt events for UI with memoization
     const [decryptedData, setDecryptedData] = useState<Record<string, any>>({});
