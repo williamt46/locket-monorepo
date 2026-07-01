@@ -1,4 +1,4 @@
-const MIN_LENGTH = 10;
+const MIN_LENGTH = 12;
 
 // Lightweight denylist of the most common passwords (lowercased). This is the
 // "lightweight gate" — deliberately NOT zxcvbn (~400KB). The real entropy story
@@ -13,26 +13,42 @@ const COMMON_PASSWORDS = new Set<string>([
     'trustno123', 'whatever1', 'starwars1', 'master1234', 'shadow1234',
 ]);
 
+// Catch common-word variants, sequences, and keyboard patterns that the exact
+// denylist misses (e.g. password1234, letmein2026, qwerty12345, aaaaaaaaaaaa).
+const COMMON_PATTERNS = [
+    /password/i,
+    /letmein/i,
+    /qwerty/i,
+    /qazwsx/i,
+    /1234/,
+    /abcd/i,
+    /(.)\1{5,}/, // six or more identical consecutive characters
+];
+
 export interface StrengthResult {
     ok: boolean;
     reason?: string;
 }
 
 /**
- * Lightweight, synchronous password-strength gate for backup passwords:
- * length floor + common-password denylist + minimal character variety.
- * Pure (no deps) so it runs in unit tests and on-device alike.
+ * Lightweight, synchronous password-strength gate for backup passwords.
+ * Google-aligned: length floor (12+), no forced character-class mix, leading/
+ * trailing space rejection, exact denylist + pattern matching for common words
+ * and sequences. Pure (no deps) so it runs in unit tests and on-device alike.
  */
 export function assessPasswordStrength(password: string): StrengthResult {
     if (password.length < MIN_LENGTH) {
         return { ok: false, reason: `Use at least ${MIN_LENGTH} characters.` };
     }
-    if (COMMON_PASSWORDS.has(password.toLowerCase())) {
-        return { ok: false, reason: 'That password is too common — generate a strong one in your password manager.' };
+    if (password !== password.trim()) {
+        return { ok: false, reason: 'Do not start or end your password with a blank space.' };
     }
-    const classes = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^a-zA-Z0-9]/].filter((re) => re.test(password)).length;
-    if (classes < 2) {
-        return { ok: false, reason: 'Mix in upper/lowercase, numbers, or symbols.' };
+    const lower = password.toLowerCase();
+    if (COMMON_PASSWORDS.has(lower) || COMMON_PATTERNS.some((re) => re.test(password))) {
+        return {
+            ok: false,
+            reason: 'Avoid common words, sequences, and keyboard patterns. A password manager can generate a stronger one.',
+        };
     }
     return { ok: true };
 }
