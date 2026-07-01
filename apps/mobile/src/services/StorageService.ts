@@ -122,3 +122,12 @@ export const getUserConfig = async (): Promise<BaselineCycleData | null> => {
     baselineCache = null;
     return null;
 };
+
+// Factory-reset shred: delete BOTH the wrapped v2 entry and the legacy plaintext
+// entry, and clear the cache. Without this, a "wipe everything" reset would leave
+// plaintext (or orphaned) baseline cycle data on the device.
+export const nukeBaseline = async (): Promise<void> => {
+    await SecureStore.deleteItemAsync(BASELINE_KEY);
+    await SecureStore.deleteItemAsync(USER_CONFIG_KEY);
+    baselineCache = undefined;
+};

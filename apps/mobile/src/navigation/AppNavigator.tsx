@@ -12,6 +12,7 @@ import { CycleInsightsScreen } from '../screens/CycleInsightsScreen';
 import { AddSymptomsScreen } from '../screens/AddSymptomsScreen';
 import { LedgerInitErrorScreen } from '../screens/LedgerInitErrorScreen';
 import { getUserConfig, initStorage } from '../services/StorageService';
+import { runMigrations } from '../services/MigrationService';
 import { colors } from '../theme/colors';
 
 const Stack = createStackNavigator();
@@ -28,6 +29,9 @@ export const AppNavigator = () => {
                 // Fail fast: surface an encrypted-storage failure here, before any
                 // data screen, rather than letting the Ledger screen render broken.
                 await initStorage();
+                // Convert any legacy plaintext baseline to the wrapped v2 entry
+                // before it is read/used. Non-throwing; safe on the boot path.
+                await runMigrations();
                 const config = await getUserConfig();
                 // If no config exists → user hasn't completed onboarding
                 if (!cancelled) setInitialRoute(config ? 'Auth' : 'Onboarding');

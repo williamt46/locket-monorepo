@@ -136,8 +136,15 @@ export const LedgerScreen = () => {
             } else if (action === 'factoryReset') {
                 const clearAll = async () => {
                     setKeyHex(undefined);
-                    await superNuke();
-                    // Generate a fresh key only after nuke is confirmed complete.
+                    try {
+                        await superNuke();
+                    } catch (e) {
+                        // Fail loud: do NOT mint a new key over a half-shredded
+                        // state, and do NOT claim success.
+                        Alert.alert('Reset Failed', 'Some data could not be wiped. Please try again.');
+                        return;
+                    }
+                    // Generate a fresh key only after a fully-confirmed wipe.
                     const newKey = await SecureKeyService.getOrGenerateKey();
                     setKeyHex(newKey);
                     Alert.alert('Reset Complete', 'Your local ledger has been wiped.');

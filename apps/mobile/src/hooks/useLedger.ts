@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { StorageRecord } from '@locket/secure-storage';
 import { LocketCryptoService } from '@locket/core-crypto';
 import { BackgroundSyncService } from '../services/BackgroundSyncService';
-import { getLedger, resetLedgerSingleton, resetBaselineCache } from '../services/StorageService';
+import { getLedger, resetLedgerSingleton, resetBaselineCache, nukeBaseline } from '../services/StorageService';
 
 // Session cache of the SHARED ledger instance owned by StorageService (one
 // singleton app-wide, sourced via getLedger() rather than a second instance).
@@ -138,6 +138,9 @@ export const useLedger = (keyHex?: string) => {
             if (ledger) {
                 await ledger.nuke();
             }
+            // Shred the baseline cycle data (wrapped v2 + legacy plaintext) as part
+            // of "wipe everything" — otherwise it survives the reset on disk.
+            await nukeBaseline();
             const { SecureKeyService } = require('../services/SecureKeyService');
             await SecureKeyService.nukeKey();
             // Reset the shared singleton (StorageService's) AND the local cache so
@@ -151,6 +154,7 @@ export const useLedger = (keyHex?: string) => {
             console.log('[useLedger] SUPER NUKE: Data and Keys wiped.');
         } catch (e) {
             console.error('[useLedger] Super Nuke failed', e);
+            throw e; // fail loud — the caller must not report success on a partial wipe
         } finally {
             setIsBusy(false);
         }
