@@ -7,8 +7,8 @@ import {
   StyleSheet,
 } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
-import { colors } from '../theme/colors';
-import { typography } from '../theme/typography';
+import { useTheme } from '../theme/ThemeContext';
+import { font } from '../theme/typography';
 
 const DISCLAIMER_KEY = 'content_disclaimer_seen';
 
@@ -17,6 +17,7 @@ interface DisclaimerModalProps {
 }
 
 export const DisclaimerModal: React.FC<DisclaimerModalProps> = ({ onDismissed }) => {
+  const { t } = useTheme();
   // Start hidden. Show only after confirming the disclaimer hasn't been seen.
   // This prevents a flash of the modal on every screen mount for returning users.
   const [visible, setVisible] = useState(false);
@@ -50,16 +51,16 @@ export const DisclaimerModal: React.FC<DisclaimerModalProps> = ({ onDismissed })
       onRequestClose={handleDismiss}
     >
       <View style={styles.overlay}>
-        <View style={styles.card}>
-          <Text style={styles.title}>Health Information</Text>
-          <Text style={styles.body}>
+        <View style={[styles.card, { backgroundColor: t.cardWhite, shadowColor: t.shadowColor }]}>
+          <Text style={[styles.title, { color: t.ink }]}>Health Information</Text>
+          <Text style={[styles.body, { color: t.graphite }]}>
             The educational content in Locket is provided for informational purposes only and
             is not a substitute for professional medical advice, diagnosis, or treatment.
             Always consult a qualified healthcare provider with questions about your health.{'\n\n'}
             All content is delivered on-device. Locket never transmits your health data or reading activity.
           </Text>
           <TouchableOpacity
-            style={styles.button}
+            style={[styles.button, { backgroundColor: t.locketBlue }]}
             onPress={handleDismiss}
             accessibilityRole="button"
             accessibilityLabel="Got it, dismiss disclaimer"
@@ -81,40 +82,33 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   card: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 24,
     width: '100%',
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 12,
     elevation: 8,
   },
   title: {
-    fontFamily: typography.heading,
+    fontFamily: font(600),
     fontSize: 17,
-    fontWeight: '600',
-    color: '#1A1A1A',
     marginBottom: 12,
   },
   body: {
-    fontFamily: typography.body,
+    fontFamily: font(400),
     fontSize: 14,
-    color: '#4A4A4A',
     lineHeight: 20,
     marginBottom: 20,
   },
   button: {
-    backgroundColor: colors.locketBlue,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
   },
   buttonText: {
-    fontFamily: typography.body,
+    fontFamily: font(600),
     fontSize: 15,
-    fontWeight: '600',
     color: '#FFFFFF',
   },
 });
