@@ -4,7 +4,7 @@ import { BaselineCycleData } from '../models/BaselineCycleData';
 import { SecureKeyService } from './SecureKeyService';
 import { wrapBaseline, unwrapBaseline } from './BaselineCryptoService';
 
-const USER_CONFIG_KEY = 'locket_user_config';   // legacy plaintext (read-only fallback until S3.3 migration)
+const USER_CONFIG_KEY = 'locket_user_config';   // legacy plaintext; MigrationService converts to locket_baseline_v2 on boot
 const BASELINE_KEY = 'locket_baseline_v2';       // AES-GCM-wrapped baseline
 
 // Session cache so the boot path unwraps the baseline at most once (< 50ms goal).
@@ -77,7 +77,8 @@ export const nukeData = async (): Promise<void> => {
 // At rest, baseline cycle data is AES-256-GCM-wrapped under HKDF(masterKey,
 // 'baseline-cycle-v1') and stored at locket_baseline_v2 — same at-rest posture
 // as LogEntry, closing the plaintext-metadata gap. The legacy plaintext
-// locket_user_config is read as a fallback (migrated + deleted in S3.3).
+// locket_user_config is read as a fallback; MigrationService.runMigrations()
+// converts it to locket_baseline_v2 and deletes it on boot.
 
 export const saveUserConfig = async (config: BaselineCycleData): Promise<void> => {
     const masterKeyHex = await SecureKeyService.getOrGenerateKey();
@@ -107,7 +108,7 @@ export const getUserConfig = async (): Promise<BaselineCycleData | null> => {
         }
     }
 
-    // Fallback: legacy plaintext entry (migration to v2 happens in S3.3).
+    // Fallback: legacy plaintext entry, converted to v2 by MigrationService on boot.
     const legacy = await SecureStore.getItemAsync(USER_CONFIG_KEY);
     if (legacy) {
         try {

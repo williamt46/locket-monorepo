@@ -34,11 +34,3 @@ export interface LocketBackupFileV2 {
     data: EncryptedPackage;      // payload encrypted under the DEK
 }
 
-export type LocketBackupFile = LocketBackupFileV1 | LocketBackupFileV2;
-
-export interface RestoreResult {
-    success: boolean;
-    eventsRestored: number;
-    configRestored: boolean;
-    error?: string;
-}
