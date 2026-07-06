@@ -11,8 +11,8 @@ import {
   Platform,
 } from 'react-native';
 import type { EukiItem } from '@locket/shared';
-import { colors } from '../theme/colors';
-import { typography } from '../theme/typography';
+import { useTheme } from '../theme/ThemeContext';
+import { font } from '../theme/typography';
 
 // TODO(android): replace nested Modal with react-native-portal or equivalent before GA
 
@@ -23,6 +23,7 @@ interface ContentSheetProps {
 }
 
 export const ContentSheet: React.FC<ContentSheetProps> = ({ visible, item, onClose }) => {
+  const { t } = useTheme();
   const [linkLoading, setLinkLoading] = useState<string | null>(null);
   const isMountedRef = useRef(true);
   useEffect(() => {
@@ -60,13 +61,13 @@ export const ContentSheet: React.FC<ContentSheetProps> = ({ visible, item, onClo
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <View style={styles.sheet}>
+        <View style={[styles.sheet, { backgroundColor: t.cardWhite, shadowColor: t.shadowColor }]}>
           {/* Handle bar */}
-          <View style={styles.handleBar} />
+          <View style={[styles.handleBar, { backgroundColor: t.divider }]} />
 
           {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.title} numberOfLines={2}>
+          <View style={[styles.header, { borderBottomColor: t.divider }]}>
+            <Text style={[styles.title, { color: t.ink }]} numberOfLines={2}>
               {item?.title ?? ''}
             </Text>
             <TouchableOpacity
@@ -75,7 +76,7 @@ export const ContentSheet: React.FC<ContentSheetProps> = ({ visible, item, onClo
               accessibilityRole="button"
               accessibilityLabel="Close"
             >
-              <Text style={styles.closeText}>✕</Text>
+              <Text style={[styles.closeText, { color: t.whisper }]}>✕</Text>
             </TouchableOpacity>
           </View>
 
@@ -85,7 +86,7 @@ export const ContentSheet: React.FC<ContentSheetProps> = ({ visible, item, onClo
             contentContainerStyle={styles.bodyContent}
             showsVerticalScrollIndicator={false}
           >
-            <Text style={styles.bodyText}>{item?.body ?? ''}</Text>
+            <Text style={[styles.bodyText, { color: t.ink }]}>{item?.body ?? ''}</Text>
 
             {/* Links */}
             {(item?.links ?? []).map((link, index) => (
@@ -96,7 +97,7 @@ export const ContentSheet: React.FC<ContentSheetProps> = ({ visible, item, onClo
                 accessibilityRole="link"
                 accessibilityLabel={link.label}
               >
-                <Text style={[styles.linkText, linkLoading === link.url && styles.linkLoading]}>
+                <Text style={[styles.linkText, { color: t.locketBlue }, linkLoading === link.url && styles.linkLoading]}>
                   {linkLoading === link.url ? 'Opening...' : link.label + ' →'}
                 </Text>
               </TouchableOpacity>
@@ -104,8 +105,8 @@ export const ContentSheet: React.FC<ContentSheetProps> = ({ visible, item, onClo
           </ScrollView>
 
           {/* Attribution footer */}
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>
+          <View style={[styles.footer, { borderTopColor: t.divider }]}>
+            <Text style={[styles.footerText, { color: t.whisper }]}>
               Educational content from Euki (open-source, GPL-3.0) · Delivered offline · No tracking
             </Text>
           </View>
@@ -122,12 +123,10 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: 34,
     maxHeight: '80%',
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.1,
     shadowRadius: 20,
@@ -136,7 +135,6 @@ const styles = StyleSheet.create({
   handleBar: {
     width: 36,
     height: 4,
-    backgroundColor: '#E0E0E0',
     borderRadius: 2,
     alignSelf: 'center',
     marginTop: 12,
@@ -148,14 +146,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#EBEBEB',
   },
   title: {
     flex: 1,
-    fontFamily: typography.heading,
+    fontFamily: font(600),
     fontSize: 17,
-    fontWeight: '600',
-    color: '#1A1A1A',
     lineHeight: 22,
     marginRight: 12,
   },
@@ -169,7 +164,6 @@ const styles = StyleSheet.create({
   },
   closeText: {
     fontSize: 16,
-    color: '#8E8E93',
   },
   body: {
     paddingHorizontal: 20,
@@ -179,19 +173,16 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   bodyText: {
-    fontFamily: typography.body,
+    fontFamily: font(400),
     fontSize: 15,
-    color: '#1A1A1A',
     lineHeight: 22,
   },
   link: {
     marginTop: 16,
   },
   linkText: {
-    fontFamily: typography.body,
+    fontFamily: font(500),
     fontSize: 14,
-    fontWeight: '500',
-    color: colors.locketBlue,
   },
   linkLoading: {
     opacity: 0.5,
@@ -200,12 +191,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#EBEBEB',
   },
   footerText: {
-    fontFamily: typography.body,
+    fontFamily: font(400),
     fontSize: 11,
-    color: '#8E8E93',
     textAlign: 'center',
   },
 });
