@@ -76,7 +76,10 @@ export const OrbitGauge: React.FC<OrbitGaugeProps> = ({
     const cx = size / 2;
     const cy = size / 2;
     const ringWidth = 16;
-    const ringR = size / 2 - ringWidth / 2;
+    // Inset the ring so the day marker (radius 13 + 3px stroke) sits fully inside
+    // the size×size SVG. Without this clearance the marker is clipped at the four
+    // cardinal points where it reaches closest to the SVG edge.
+    const ringR = size / 2 - ringWidth / 2 - 10;
 
     const dayToAngle = (d: number) => (d / cycle) * 360;
 
