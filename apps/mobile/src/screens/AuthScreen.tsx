@@ -1,17 +1,37 @@
-import React, { useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert } from 'react-native';
+import React from 'react';
+import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { ScreenWrapper } from '../components/ScreenWrapper';
-import { colors } from '../theme/colors';
-import { typography } from '../theme/typography';
+import { LocketMark } from '../components/LocketMark';
+import { IntegritySeal } from '../components/IntegritySeal';
+import { useTheme } from '../theme/ThemeContext';
+import { font } from '../theme/typography';
 import * as LocalAuthentication from 'expo-local-authentication';
-import * as SecureStore from 'expo-secure-store';
+import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
+import { getBiometricEnabled } from '../services/BiometricPreference';
 
 export const AuthScreen = ({ navigation }: any) => {
+    const { t } = useTheme();
 
     const authenticate = async () => {
         try {
+            // Gate on biometrics only. Skip when the user has turned the Face/Touch
+            // ID requirement off in Settings, or when no biometric is enrolled
+            // (simulator, or a device without Face/Touch ID). In those cases
+            // tap-to-unlock proceeds straight to the ledger instead of falling
+            // back to the OS passcode screen — the data at rest is already
+            // encrypted, and the passcode prompt is the "password screen" the
+            // design removes.
+            const biometricEnabled = await getBiometricEnabled();
+            const hasHardware = await LocalAuthentication.hasHardwareAsync();
+            const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+            if (!biometricEnabled || !hasHardware || !isEnrolled) {
+                navigation.replace('Ledger');
+                return;
+            }
             const result = await LocalAuthentication.authenticateAsync({
                 promptMessage: 'Unlock your Locket',
+                // Never show the iOS device-passcode fallback; biometric only.
+                disableDeviceFallback: true,
             });
             if (result.success) {
                 navigation.replace('Ledger');
@@ -21,84 +41,80 @@ export const AuthScreen = ({ navigation }: any) => {
         }
     };
 
-    // TODO: TEMP — Remove before release
-    const clearConfig = async () => {
-        await SecureStore.deleteItemAsync('locket_user_config');
-        Alert.alert('Config Cleared', 'Restarting onboarding…');
-        navigation.replace('Onboarding');
-    };
-
-    useEffect(() => {
-        // Attempt auto-auth on mount? Or wait for user interaction?
-        // User story says "Launches app... shows closed locket... user authenticates"
-        // Maybe auto-trigger or tap to unlock.
-    }, []);
-
-    const styles = StyleSheet.create({
-        center: {
-            flex: 1,
-            justifyContent: 'center',
-            alignItems: 'center',
-            width: '100%',
-        },
-        locketPlaceholder: {
-            width: 200,
-            height: 200,
-            justifyContent: 'center',
-            alignItems: 'center',
-            marginBottom: 40,
-        },
-        circle: {
-            width: 150,
-            height: 150,
-            borderRadius: 75,
-            backgroundColor: colors.gold,
-            opacity: 0.3,
-        },
-        title: {
-            fontFamily: typography.serif,
-            fontSize: typography.sizes.h1,
-            color: colors.charcoal,
-            marginBottom: 10,
-        },
-        instructionText: {
-            fontFamily: typography.sans,
-            fontSize: typography.sizes.body,
-            color: colors.charcoal,
-            marginTop: 20,
-            opacity: 0.6,
-        },
-        clearButton: {
-            position: 'absolute',
-            bottom: 50,
-            paddingVertical: 10,
-            paddingHorizontal: 20,
-            borderRadius: 8,
-            backgroundColor: colors.alert,
-            opacity: 0.7,
-        },
-        clearButtonText: {
-            color: '#fff',
-            fontSize: 13,
-            fontFamily: typography.body,
-        },
-    });
-
     return (
         <ScreenWrapper>
-            <TouchableOpacity style={styles.center} onPress={authenticate} activeOpacity={0.9}>
-                <View style={styles.locketPlaceholder}>
-                    {/* TODO: Replace with Static SVG Locket */}
-                    <View style={styles.circle} />
+            <TouchableOpacity
+                style={styles.center}
+                onPress={authenticate}
+                activeOpacity={0.9}
+                accessibilityRole="button"
+                accessibilityLabel="Tap anywhere to unlock"
+            >
+                {/* Gold-glow halo behind the mark (RN has no drop-shadow filter) */}
+                <View style={styles.markWrap}>
+                    <Svg width={240} height={240} style={styles.glow}>
+                        <Defs>
+                            <RadialGradient id="goldGlow" cx="50%" cy="50%" r="50%">
+                                <Stop offset="0%" stopColor={t.gold} stopOpacity={0.45} />
+                                <Stop offset="60%" stopColor={t.gold} stopOpacity={0.16} />
+                                <Stop offset="100%" stopColor={t.gold} stopOpacity={0} />
+                            </RadialGradient>
+                        </Defs>
+                        <Circle cx={120} cy={120} r={120} fill="url(#goldGlow)" />
+                    </Svg>
+                    <LocketMark size={140} />
                 </View>
-                <Text style={styles.title}>Locket</Text>
-                <Text style={styles.instructionText}>Tap anywhere to unlock</Text>
+                <Text style={[styles.title, { color: t.ink }]}>Locket</Text>
+                <Text style={[styles.instructionText, { color: t.fog }]}>Tap anywhere to unlock</Text>
             </TouchableOpacity>
 
-            {/* TODO: TEMP — Remove before release */}
-            <TouchableOpacity onPress={clearConfig} style={styles.clearButton}>
-                <Text style={styles.clearButtonText}>⚠ Clear Config (Dev)</Text>
-            </TouchableOpacity>
+            <View style={styles.securedRow}>
+                <IntegritySeal status="secure" />
+                <Text style={[styles.securedText, { color: t.fog }]}>Secured locally</Text>
+            </View>
         </ScreenWrapper>
     );
 };
+
+const styles = StyleSheet.create({
+    center: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        width: '100%',
+    },
+    markWrap: {
+        width: 140,
+        height: 140,
+        marginBottom: 36,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    glow: {
+        position: 'absolute',
+    },
+    title: {
+        fontFamily: font(700),
+        fontSize: 32,
+        letterSpacing: -0.3,
+        marginBottom: 10,
+    },
+    instructionText: {
+        fontFamily: font(400),
+        fontSize: 16,
+    },
+    securedRow: {
+        position: 'absolute',
+        bottom: 48,
+        left: 0,
+        right: 0,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+    },
+    securedText: {
+        fontFamily: font(400),
+        fontSize: 12,
+    },
+});

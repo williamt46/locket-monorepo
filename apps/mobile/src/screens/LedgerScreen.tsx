@@ -1,12 +1,10 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, SafeAreaView, StatusBar, AppState } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Alert } from 'react-native';
 import { ScreenWrapper } from '../components/ScreenWrapper';
-import { colors } from '../theme/colors';
-import { typography } from '../theme/typography';
-import { IntegritySeal } from '../components/IntegritySeal';
-import { HorizontalCalendar } from '../components/HorizontalCalendar';
-import { VerticalYearView } from '../components/VerticalYearView';
-import * as Haptics from 'expo-haptics';
+import { VerticalCalendar, VerticalCalendarHandle } from '../components/VerticalCalendar';
+import { NavPill } from '../components/DesignSystem';
+import { useTheme } from '../theme/ThemeContext';
+import { font } from '../theme/typography';
 import { useLedger } from '../hooks/useLedger';
 import { SecureKeyService } from '../services/SecureKeyService';
 import { LocketCryptoService } from '@locket/core-crypto';
@@ -14,20 +12,18 @@ import { getUserConfig, saveUserConfig } from '../services/StorageService';
 import { BaselineCycleData } from '../models/BaselineCycleData';
 import { usePredictions } from '../hooks/usePredictions';
 import { keyFingerprint } from '../utils/keyFingerprint';
-
-import { Alert } from 'react-native';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 
 export const LedgerScreen = () => {
     const navigation = useNavigation<any>();
     const route = useRoute<any>();
+    const { t } = useTheme();
     const crypto = useMemo(() => new LocketCryptoService(), []);
 
-    // State
-    const [viewMode, setViewMode] = useState<'monthly' | 'yearly'>('monthly');
-    const [initialMonthIndex, setInitialMonthIndex] = useState<number>(new Date().getMonth());
     const [keyHex, setKeyHex] = useState<string | undefined>(undefined);
-    const { events, inscribe, batchInscribe, deleteByTimestamp, purgeByIds, triggerSync, superNuke, refresh, isInitialized, isSyncing } = useLedger(keyHex);
+    const { events, batchInscribe, purgeByIds, triggerSync, superNuke, refresh, isInitialized, isSyncing } = useLedger(keyHex);
+
+    const calendarRef = useRef<VerticalCalendarHandle>(null);
 
     // Ids of events that failed to decrypt (e.g. orphaned by a key reset). Surfaced
     // to the user rather than silently dropped.
@@ -41,65 +37,6 @@ export const LedgerScreen = () => {
         }, [refresh])
     );
 
-    const styles = StyleSheet.create({
-        header: {
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            paddingHorizontal: 20,
-            paddingTop: 10,
-            paddingBottom: 10,
-        },
-        headerLeft: {
-            flex: 1,
-        },
-        headerTitle: {
-            fontFamily: typography.heading,
-            fontSize: 24,
-            color: colors.charcoal,
-            fontWeight: 'bold',
-        },
-        headerRight: {
-            flexDirection: 'row',
-            alignItems: 'center',
-        },
-        content: {
-            flex: 1,
-        },
-        footerContainer: {
-            position: 'absolute',
-            bottom: 40,
-            left: 0,
-            right: 0,
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 100, // Ensure it floats above
-        },
-        toggleButton: {
-            backgroundColor: colors.charcoal,
-            paddingVertical: 12,
-            paddingHorizontal: 24,
-            borderRadius: 30,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.2,
-            shadowRadius: 4,
-            elevation: 5,
-        },
-        toggleText: {
-            fontFamily: typography.body,
-            color: colors.paper,
-            fontSize: 14,
-            fontWeight: '600',
-        },
-    });
-
-    console.warn(`[LedgerScreen] Render. Total Events: ${events.length}, Initialized: ${isInitialized}`);
-
-
-
-    // Current Date State
-    const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
     const [config, setConfig] = useState<BaselineCycleData | null>(null);
 
     // Initialize Key and Config
@@ -112,15 +49,7 @@ export const LedgerScreen = () => {
     useEffect(() => {
         if (route.params?.jumpToTs) {
             const d = new Date(route.params.jumpToTs);
-            const y = d.getFullYear();
-            const m = d.getMonth();
-
-            setTimeout(() => {
-                setViewMode('monthly');
-                setCurrentYear(y);
-                setInitialMonthIndex(m);
-            }, 100);
-
+            setTimeout(() => calendarRef.current?.scrollToDate(d, false), 150);
             // Clear param so it doesn't fire again
             navigation.setParams({ jumpToTs: undefined });
         }
@@ -139,7 +68,7 @@ export const LedgerScreen = () => {
                     setKeyHex(undefined);
                     try {
                         await superNuke();
-                    } catch (e) {
+                    } catch {
                         // Fail loud: do NOT mint a new key over a half-shredded
                         // state, and do NOT claim success.
                         Alert.alert('Reset Failed', 'Some data could not be wiped. Please try again.');
@@ -164,6 +93,10 @@ export const LedgerScreen = () => {
                     await refresh(true);
                 };
                 reload();
+            } else if (action === 'configChanged') {
+                // Baseline editor in Settings saved new cycle data — reload it so
+                // predictions recompute against the new baseline.
+                getUserConfig().then(setConfig).catch(console.error);
             }
         }
     }, [route.params?.action, triggerSync, superNuke, setKeyHex, navigation, refresh]);
@@ -219,7 +152,6 @@ export const LedgerScreen = () => {
             }
             setUndecryptableIds(failedIds);
 
-            const prevKeyCount = Object.keys(decryptedData).length;
             for (const result of validResults) {
                 const { event, decrypted } = result;
                 const tsToUse = decrypted?.ts || event.ts;
@@ -271,8 +203,6 @@ export const LedgerScreen = () => {
         );
     }, [undecryptableIds, purgeByIds]);
 
-
-
     // Initial Seeding: if onboarding is complete but ledger is empty, generate initial period logs
     useEffect(() => {
         if (isInitialized && keyHex && config && !config.hasSeededInitialData && events.length === 0 && !isSyncing) {
@@ -317,8 +247,8 @@ export const LedgerScreen = () => {
 
     const { futureData, cycleStats, currentPhase, dayInCycle } = usePredictions(decryptedData, config);
 
-    const handleToggleDate = (monthIndex: number, day: number) => {
-        const date = new Date(currentYear, monthIndex, day);
+    const handleToggleDate = (year: number, monthIndex: number, day: number) => {
+        const date = new Date(year, monthIndex, day);
         // Local-midnight timestamps of every logged period day — lets LogScreen clear the orphan
         // days of an existing period run when a boundary is re-marked (span-clearing on re-mark).
         const existingPeriodDays = Object.keys(decryptedData)
@@ -346,7 +276,6 @@ export const LedgerScreen = () => {
         if (events.length === 0) return 'secure';
 
         const localWithSig = events.filter(e => e.status === 'local' && e.signature);
-        const localsWithoutSig = events.filter(e => e.status === 'local' && !e.signature);
         const anchoredCount = events.filter(e => e.status === 'anchored').length;
 
         if (localWithSig.length > 0) return 'secure';
@@ -354,83 +283,85 @@ export const LedgerScreen = () => {
         return 'secure';
     }, [isInitialized, isSyncing, events]);
 
-    const handleDrillDown = (monthIndex: number, year: number) => {
-        // Tapping month in Year view drills down to Monthly view
-        setViewMode('monthly');
-        setInitialMonthIndex(monthIndex);
-        setCurrentYear(year); // Correctly update the year for HorizontalCalendar
-    };
-
-
     return (
         <ScreenWrapper>
+            {/* Floating header: Today pill left, main nav pill right */}
             <View style={styles.header}>
-                <View style={styles.headerLeft}>
-                    <Text style={styles.headerTitle}>Locket</Text>
-                </View>
-                <View style={styles.headerRight}>
-                    <TouchableOpacity
-                        accessibilityRole="button"
-                        accessibilityLabel="Cycle Insights"
-                        onPress={() => navigation.navigate('CycleInsights', {
-                            currentPhase,
-                            dayInCycle,
-                            cycleStats,
-                        })}
-                        style={{ padding: 4, marginRight: 8 }}
-                    >
-                        <Text style={{ fontSize: 14, fontFamily: typography.body, color: colors.locketBlue, fontWeight: '500' }}>Insights →</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        accessibilityRole="button"
-                        accessibilityLabel="Settings"
-                        onPress={() => navigation.navigate('Settings', {
-                            keyHex,
-                            isSyncing,
-                            sealStatus
-                        })}
-                        style={{ padding: 4 }}
-                    >
-                        <Text style={{ fontSize: 24, color: colors.charcoal }}>⚙️</Text>
-                    </TouchableOpacity>
-                </View>
+                <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel="Scroll to today"
+                    onPress={() => calendarRef.current?.scrollToToday()}
+                    hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+                    style={[styles.todayPill, {
+                        backgroundColor: t.navBg,
+                        shadowColor: t.shadowColor,
+                        shadowOpacity: t.shadowOpacity,
+                    }]}
+                >
+                    <Text style={[styles.todayText, { color: t.ink }]}>Today</Text>
+                </TouchableOpacity>
+
+                <NavPill
+                    active="ledger"
+                    onCalendar={() => calendarRef.current?.scrollToToday()}
+                    onInsights={() => navigation.navigate('CycleInsights', {
+                        currentPhase,
+                        dayInCycle,
+                        cycleStats,
+                        decryptedDays: decryptedData,
+                        baseline: config ? {
+                            cycleLength: config.cycleLength,
+                            periodLength: config.periodLength,
+                            lastPeriodDate: config.lastPeriodDate,
+                        } : null,
+                        // Pass-through so the nav pill on Insights can open Settings directly
+                        keyHex,
+                        isSyncing,
+                        sealStatus,
+                    })}
+                    onSettings={() => navigation.navigate('Settings', {
+                        keyHex,
+                        isSyncing,
+                        sealStatus,
+                    })}
+                />
             </View>
 
             <View style={styles.content}>
-                {viewMode === 'monthly' ? (
-                    <HorizontalCalendar
-                        year={currentYear}
-                        data={decryptedData}
-                        futureData={futureData}
-                        onToggleDate={handleToggleDate}
-                        initialMonthIndex={initialMonthIndex}
-                    />
-                ) : (
-                    <VerticalYearView
-                        // Chronological Order: Oldest at Top
-                        years={[2024, 2025, 2026]}
-                        data={decryptedData}
-                        futureData={futureData}
-                        cycleStats={cycleStats}
-                        onMonthPress={handleDrillDown}
-                    />
-                )}
+                <VerticalCalendar
+                    ref={calendarRef}
+                    data={decryptedData}
+                    futureData={futureData}
+                    onToggleDate={handleToggleDate}
+                />
             </View>
-
-            {/* Anchored Footer Toggle */}
-            <View style={styles.footerContainer}>
-                <TouchableOpacity
-                    style={styles.toggleButton}
-                    onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                        setViewMode(prev => prev === 'monthly' ? 'yearly' : 'monthly');
-                    }}
-                >
-                    <Text style={styles.toggleText}>
-                        {viewMode === 'monthly' ? 'Yearly View' : 'Back to Calendar'}
-                    </Text>
-                </TouchableOpacity>
-            </View>
-        </ScreenWrapper >
+        </ScreenWrapper>
     );
 };
+
+const styles = StyleSheet.create({
+    header: {
+        height: 60,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        zIndex: 10,
+    },
+    todayPill: {
+        paddingVertical: 8,
+        paddingHorizontal: 18,
+        borderRadius: 999,
+        shadowOffset: { width: 0, height: 4 },
+        shadowRadius: 10,
+        elevation: 4,
+    },
+    todayText: {
+        fontFamily: font(600),
+        fontSize: 13,
+        opacity: 0.72,
+    },
+    content: {
+        flex: 1,
+    },
+});

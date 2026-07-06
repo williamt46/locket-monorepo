@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,15 +13,19 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { colors } from '../theme/colors';
-import { typography } from '../theme/typography';
+import { useTheme } from '../theme/ThemeContext';
+import { phaseColor, phaseTint } from '../theme/colors';
+import { font } from '../theme/typography';
+import { Icon } from '../components/Icon';
+import { Card, Chip, AccordionPill, EncryptionFooter } from '../components/DesignSystem';
 import { DisclaimerModal } from '../components/DisclaimerModal';
 import { PeriodConfirmModal } from '../components/PeriodConfirmModal';
+import { ContentSheet } from '../components/ContentSheet';
+import { useEukiContent } from '../hooks/useEukiContent';
 import { useLedger } from '../hooks/useLedger';
 import type { BleedingIntensity, SymptomKey } from '../models/LogEntry';
-
-// LayoutAnimation is enabled inside the component via useEffect to avoid
-// mutating global UIManager state at module evaluation time.
+import type { IconName } from '../components/Icon';
+import type { EukiItem } from '@locket/shared';
 
 const SYMPTOM_LABELS: Record<SymptomKey, string> = {
   cramps: 'Cramps', bloating: 'Bloating', nausea_fatigue: 'Nausea / Fatigue',
@@ -34,6 +38,35 @@ const SYMPTOM_LABELS: Record<SymptomKey, string> = {
   trigger_alcohol: 'Alcohol', trigger_caffeine: 'Caffeine',
   trigger_intense_exercise: 'Intense Exercise',
 };
+
+// Accordion categories (design-system LogScreen v2): the full symptom taxonomy
+// lives inline on this screen, grouped by category, expanding in place.
+type Category = {
+  key: string;
+  label: string;
+  icon: IconName;
+  phase: 'menstrual' | 'follicular' | 'ovulatory' | 'luteal';
+  chips: SymptomKey[];
+};
+
+const CATEGORIES: Category[] = [
+  {
+    key: 'symptoms', label: 'Symptoms', icon: 'healing', phase: 'luteal',
+    chips: ['cramps', 'bloating', 'nausea_fatigue', 'headache', 'back_pain', 'acne', 'breast_tenderness'],
+  },
+  {
+    key: 'mood', label: 'Mood', icon: 'sentiment-satisfied', phase: 'ovulatory',
+    chips: ['mood_low', 'mood_anxious', 'mood_irritable', 'mood_happy', 'mood_energized', 'mood_calm'],
+  },
+  {
+    key: 'sex', label: 'Sex', icon: 'favorite', phase: 'menstrual',
+    chips: ['sex_protected', 'sex_unprotected', 'sex_high_drive', 'sex_low_drive'],
+  },
+  {
+    key: 'triggers', label: 'Triggers', icon: 'bolt', phase: 'follicular',
+    chips: ['trigger_stress', 'trigger_poor_sleep', 'trigger_alcohol', 'trigger_caffeine', 'trigger_intense_exercise'],
+  },
+];
 
 // Fallback period length when BaselineCycleData isn't plumbed through route params (matches BaselineCycleData default).
 const DEFAULT_PERIOD_LENGTH = 5;
@@ -50,6 +83,7 @@ export const LogScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const insets = useSafeAreaInsets();
+  const { t } = useTheme();
 
   const { date, initialData, keyHex, currentPhase, periodLength } = route.params ?? {};
 
@@ -57,11 +91,8 @@ export const LogScreen: React.FC = () => {
   // Plumbed from LedgerScreen's BaselineCycleData; falls back to the config default.
   const effectivePeriodLength = Math.max(1, periodLength ?? DEFAULT_PERIOD_LENGTH);
 
-  // Guard: if critical params are missing (e.g. deep link / state restoration), bail immediately
-  // Must be before any hook calls to satisfy Rules of Hooks — hooks below are called unconditionally.
   // Call useLedger directly — avoids passing non-serializable functions via route params
   const { inscribe, batchInscribe, deleteByTimestamp } = useLedger(keyHex);
-
 
   // Bleeding state
   const [bleeding, setBleeding] = useState<BleedingIntensity | null>(
@@ -71,10 +102,16 @@ export const LogScreen: React.FC = () => {
     initialData?.bleeding?.clots ?? null
   );
 
-  // Symptoms state
+  // Symptoms state — one set across all accordion categories
   const [selectedSymptoms, setSelectedSymptoms] = useState<Set<SymptomKey>>(
     new Set(initialData?.symptoms ?? [])
   );
+  const [openCategory, setOpenCategory] = useState<string | null>(null);
+
+  // Euki education content for chip long-press ("Why?")
+  const { getSymptomContent } = useEukiContent(currentPhase ?? 'unknown', 0);
+  const [contentItem, setContentItem] = useState<EukiItem | null>(null);
+  const [contentSheetVisible, setContentSheetVisible] = useState(false);
 
   // Period start/end state
   const [isStart, setIsStart] = useState<boolean>(initialData?.isStart ?? false);
@@ -82,7 +119,6 @@ export const LogScreen: React.FC = () => {
 
   // Note
   const [note, setNote] = useState<string>(initialData?.note ?? '');
-
 
   // Save state — use ref for instant lock (prevents double-tap before state re-render)
   const [saving, setSaving] = useState(false);
@@ -109,33 +145,21 @@ export const LogScreen: React.FC = () => {
     }
   };
 
-  const phaseColor = (() => {
-    switch (currentPhase) {
-      case 'menstrual': return colors.warmTerracotta;
-      case 'follicular': return colors.arcticTeal;
-      case 'ovulatory': return colors.orangePeel;
-      case 'luteal': return colors.deepReflectiveViolet;
-      default: return colors.locketBlue;
-    }
-  })();
+  const toggleSymptom = (key: SymptomKey) => {
+    setSelectedSymptoms((prev) => {
+      const nextSet = new Set(prev);
+      if (nextSet.has(key)) { nextSet.delete(key); } else { nextSet.add(key); }
+      return nextSet;
+    });
+  };
 
-  const phaseTintColor = (() => {
-    switch (currentPhase) {
-      case 'menstrual': return colors.warmTerracottaTint;
-      case 'follicular': return colors.arcticTealTint;
-      case 'ovulatory': return colors.orangePeelTint;
-      case 'luteal': return colors.deepReflectiveVioletTint;
-      default: return colors.locketBlueTint;
+  const handleWhyPress = (key: SymptomKey) => {
+    const item = getSymptomContent(key);
+    if (item) {
+      setContentItem(item);
+      setContentSheetVisible(true);
     }
-  })();
-
-  // Consume symptoms returned from AddSymptomsScreen
-  useEffect(() => {
-    if (route.params?.updatedSymptoms) {
-      setSelectedSymptoms(new Set(route.params.updatedSymptoms as SymptomKey[]));
-      navigation.setParams({ updatedSymptoms: undefined });
-    }
-  }, [route.params?.updatedSymptoms]);
+  };
 
   const handleSave = async () => {
     // Guard: missing params (deep link / state restoration)
@@ -165,7 +189,7 @@ export const LogScreen: React.FC = () => {
         // mutually exclusive in the UI, so they can never both be set here.
         const len = effectivePeriodLength;
         const startTs = isStart ? ts : ts - (len - 1) * DAY_MS;
-        const ordOf = (t: number) => Math.round(t / DAY_MS);
+        const ordOf = (tms: number) => Math.round(tms / DAY_MS);
         const spanLo = ordOf(startTs);
         const spanHi = ordOf(startTs + (len - 1) * DAY_MS);
 
@@ -176,7 +200,7 @@ export const LogScreen: React.FC = () => {
         // (gap ≥ 1 empty day) are genuinely separate periods and left untouched.
         const existingPeriodDays = (route.params?.existingPeriodDays as number[] | undefined) ?? [];
         const ordToTs = new Map<number, number>();
-        existingPeriodDays.forEach((t) => ordToTs.set(ordOf(t), t));
+        existingPeriodDays.forEach((tms) => ordToTs.set(ordOf(tms), tms));
         let lo = spanLo;
         let hi = spanHi;
         while (ordToTs.has(lo - 1)) lo--;
@@ -210,7 +234,7 @@ export const LogScreen: React.FC = () => {
         await inscribe({ ts, isPeriod: wasMidSpanPeriodDay, isStart: false, isEnd: false, ...dayData });
       }
       saved = true;
-    } catch (e) {
+    } catch {
       Alert.alert('Error', 'Could not save. Please try again.');
     } finally {
       isSavingRef.current = false;
@@ -249,132 +273,156 @@ export const LogScreen: React.FC = () => {
     ? new Date(date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
     : '';
 
+  const periodBtn = (active: boolean) => ({
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    borderRadius: 14,
+    backgroundColor: t.luteal,
+    opacity: active ? 1 : 0.92,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    flexDirection: 'row' as const,
+    gap: 6,
+    shadowColor: t.luteal,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: active ? 0.45 : 0,
+    shadowRadius: 10,
+    elevation: active ? 5 : 0,
+  });
+
   return (
     <KeyboardAvoidingView
-      style={styles.root}
+      style={[styles.root, { backgroundColor: t.logBg }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeBtn} accessibilityRole="button" accessibilityLabel="Close">
-          <Text style={styles.closeBtnText}>✕</Text>
+          <Icon name="close" size={22} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{displayDate}</Text>
+        <Text style={[styles.headerTitle, { color: t.ink }]}>{displayDate}</Text>
         <View style={styles.closeBtnPlaceholder} />
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 80 }]}>
+      <ScrollView style={styles.scroll} contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 96 }]}>
 
-        {/* Start / End period buttons */}
+        {/* Period Start / End — luteal pill pair (design-system LogScreen v2) */}
         <View style={styles.periodRow}>
           <TouchableOpacity
-            style={[styles.periodBtn, isStart && { backgroundColor: phaseColor, borderColor: phaseColor }]}
+            style={periodBtn(isStart)}
             onPress={() => { setIsStart((v) => !v); setIsEnd(false); }}
             accessibilityRole="button"
             accessibilityLabel={isStart ? 'Period start marked' : 'Mark period start'}
           >
-            <Text style={[styles.periodBtnText, isStart && styles.periodBtnTextActive]}>Period Start</Text>
+            <Text style={styles.periodBtnText}>Start</Text>
+            <Text style={styles.periodBtnDivider}>|</Text>
+            <Icon name="arrow-forward" size={16} color="#FFFFFF" />
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.periodBtn, isEnd && { backgroundColor: phaseColor, borderColor: phaseColor }]}
+            style={periodBtn(isEnd)}
             onPress={() => { setIsEnd((v) => !v); setIsStart(false); }}
             accessibilityRole="button"
             accessibilityLabel={isEnd ? 'Period end marked' : 'Mark period end'}
           >
-            <Text style={[styles.periodBtnText, isEnd && styles.periodBtnTextActive]}>Period End</Text>
+            <Icon name="arrow-back" size={16} color="#FFFFFF" />
+            <Text style={styles.periodBtnDivider}>|</Text>
+            <Text style={styles.periodBtnText}>End</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Bleeding intensity */}
+        {/* Bleeding intensity — dedicated clinical section, kept first-class */}
         <View style={styles.section}>
-          <Text style={styles.sectionHeader}>BLEEDING</Text>
+          <Text style={[styles.sectionHeader, { color: t.locketBlue }]}>BLEEDING</Text>
           <View style={styles.chipRow}>
             {BLEEDING_OPTIONS.map(({ key, label }) => (
-              <TouchableOpacity
+              <Chip
                 key={key}
-                style={[styles.chip, bleeding === key && { backgroundColor: phaseTintColor, borderColor: phaseColor }]}
+                label={label}
+                phase={currentPhase}
+                selected={bleeding === key}
                 onPress={() => handleBleedingSelect(key)}
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: bleeding === key }}
-                accessibilityLabel={label}
-              >
-                <Text style={[styles.chipText, bleeding === key && { color: phaseColor }]}>{label}</Text>
-              </TouchableOpacity>
+              />
             ))}
           </View>
           {/* Clots sub-row */}
           {bleeding && (
             <View style={styles.chipRow}>
               {(['small', 'large'] as const).map((c) => (
-                <TouchableOpacity
+                <Chip
                   key={c}
-                  style={[styles.chip, clots === c && { backgroundColor: phaseTintColor, borderColor: phaseColor }]}
+                  label={c === 'small' ? 'Small clots' : 'Large clots'}
+                  phase={currentPhase}
+                  selected={clots === c}
                   onPress={() => setClots((prev) => (prev === c ? null : c))}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: clots === c }}
-                  accessibilityLabel={c === 'small' ? 'Small clots' : 'Large clots'}
-                >
-                  <Text style={[styles.chipText, clots === c && { color: phaseColor }]}>
-                    {c === 'small' ? 'Small clots' : 'Large clots'}
-                  </Text>
-                </TouchableOpacity>
+                />
               ))}
             </View>
           )}
         </View>
 
-        {/* Symptoms — navigates to AddSymptomsScreen for full library */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionHeader}>SYMPTOMS</Text>
-            <TouchableOpacity
-              onPress={() =>
-                navigation.navigate('AddSymptoms', {
-                  initialSymptoms: [...selectedSymptoms],
-                  currentPhase: currentPhase ?? 'unknown',
-                  phaseColor,
-                  phaseTintColor,
-                  date,
-                  keyHex,
-                })
-              }
-              accessibilityRole="button"
-              accessibilityLabel={selectedSymptoms.size > 0 ? 'Edit symptoms' : 'Add symptoms'}
-            >
-              <Text style={[styles.addSymptomsLink, { color: phaseColor }]}>
-                {selectedSymptoms.size > 0 ? 'Edit →' : '+ Add'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-          {selectedSymptoms.size > 0 ? (
-            <View style={styles.chipRow}>
-              {[...selectedSymptoms].map((key) => (
-                <View
-                  key={key}
-                  style={[styles.chip, { backgroundColor: phaseTintColor, borderColor: phaseColor }]}
+        {/* Log experiences — accordion pills expand in place */}
+        <Card padding={18} style={{ marginBottom: 20 }}>
+          <Text style={[styles.cardTitle, { color: t.ink }]}>Log experiences</Text>
+          <View style={{ gap: 10 }}>
+            {CATEGORIES.map((cat) => {
+              const catColor = cat.phase === 'ovulatory' ? t.ovulatoryDeep : phaseColor(t, cat.phase);
+              const selectedCount = cat.chips.filter((c) => selectedSymptoms.has(c)).length;
+              const isOpen = openCategory === cat.key;
+              return (
+                <AccordionPill
+                  key={cat.key}
+                  icon={cat.icon}
+                  label={cat.label}
+                  color={catColor}
+                  tint={phaseTint(t, cat.phase)}
+                  expanded={isOpen}
+                  count={selectedCount}
+                  onToggle={() => setOpenCategory((o) => (o === cat.key ? null : cat.key))}
                 >
-                  <Text style={[styles.chipText, { color: phaseColor }]}>
-                    {SYMPTOM_LABELS[key] ?? key}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          ) : (
-            <Text style={styles.noSymptomsText}>
-              Tap + Add to log symptoms, mood, sex &amp; triggers
-            </Text>
-          )}
-        </View>
+                  <View style={[styles.chipRow, { paddingBottom: 6 }]}>
+                    {cat.chips.map((key) => (
+                      <Chip
+                        key={key}
+                        label={SYMPTOM_LABELS[key]}
+                        phase={cat.phase}
+                        selected={selectedSymptoms.has(key)}
+                        onPress={() => toggleSymptom(key)}
+                        onLongPress={getSymptomContent(key) ? () => handleWhyPress(key) : undefined}
+                        accessibilityHint={getSymptomContent(key) ? 'Long press for more information' : undefined}
+                      />
+                    ))}
+                  </View>
+                  <View style={{ alignItems: 'flex-end', marginTop: 4 }}>
+                    <TouchableOpacity
+                      onPress={() => setOpenCategory(null)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Confirm ${cat.label}`}
+                      style={[styles.confirmBtn, { backgroundColor: catColor }]}
+                    >
+                      <Icon name="check" size={18} color="#FFFFFF" />
+                    </TouchableOpacity>
+                  </View>
+                </AccordionPill>
+              );
+            })}
+          </View>
+        </Card>
 
         {/* Notes */}
         <View style={styles.section}>
-          <Text style={styles.sectionHeader}>NOTES</Text>
           <TextInput
-            style={styles.notesInput}
+            style={[styles.notesInput, {
+              backgroundColor: t.cardWhite,
+              borderColor: t.divider,
+              color: t.ink,
+              shadowColor: t.shadowColor,
+              shadowOpacity: t.shadowOpacity,
+            }]}
             multiline
             maxLength={2000}
-            placeholder="Add a note..."
-            placeholderTextColor="#8E8E93"
+            placeholder="Share how you feel..."
+            placeholderTextColor={t.whisper}
             value={note}
             onChangeText={setNote}
             accessibilityLabel="Notes"
@@ -384,15 +432,17 @@ export const LogScreen: React.FC = () => {
         {/* Clear data */}
         {initialData && (
           <TouchableOpacity onPress={handleClearData} style={styles.clearBtn} accessibilityRole="button">
-            <Text style={styles.clearBtnText}>Clear Data</Text>
+            <Text style={[styles.clearBtnText, { color: t.menstrual }]}>Clear Entry</Text>
           </TouchableOpacity>
         )}
+
+        <EncryptionFooter />
       </ScrollView>
 
       {/* Save button */}
-      <View style={[styles.saveContainer, { paddingBottom: insets.bottom + 12 }]}>
+      <View style={[styles.saveContainer, { paddingBottom: insets.bottom + 12, backgroundColor: t.navBg, borderTopColor: t.divider }]}>
         <TouchableOpacity
-          style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
+          style={[styles.saveBtn, { backgroundColor: t.locketBlue }, saving && styles.saveBtnDisabled]}
           onPress={handleSave}
           disabled={saving}
           accessibilityRole="button"
@@ -401,7 +451,7 @@ export const LogScreen: React.FC = () => {
           {saving ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.saveBtnText}>Save</Text>
+            <Text style={styles.saveBtnText}>Save / Inscribe</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -417,6 +467,15 @@ export const LogScreen: React.FC = () => {
         onConfirm={() => { setIsStart(true); setIsEnd(false); setPeriodPrompt(null); }}
         onDismiss={() => setPeriodPrompt(null)}
       />
+
+      {/* ContentSheet for "Why?" long-press (iOS only, matches previous behavior) */}
+      {Platform.OS === 'ios' && (
+        <ContentSheet
+          visible={contentSheetVisible}
+          item={contentItem}
+          onClose={() => setContentSheetVisible(false)}
+        />
+      )}
     </KeyboardAvoidingView>
   );
 };
@@ -424,16 +483,12 @@ export const LogScreen: React.FC = () => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.paper,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingBottom: 12,
-    backgroundColor: 'rgba(253,251,249,0.85)',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E0E0E0',
   },
   closeBtn: {
     width: 44,
@@ -441,61 +496,49 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  closeBtnText: {
-    fontSize: 16,
-    color: '#8E8E93',
-  },
   closeBtnPlaceholder: {
-    width: 32,
+    width: 44,
   },
   headerTitle: {
     flex: 1,
     textAlign: 'center',
-    fontFamily: typography.heading,
+    fontFamily: font(600),
     fontSize: 17,
-    fontWeight: '600',
-    color: '#1A1A1A',
   },
   scroll: {
     flex: 1,
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 100,
+    paddingTop: 8,
   },
   periodRow: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 20,
-  },
-  periodBtn: {
-    flex: 1,
-    borderWidth: 1.5,
-    borderColor: '#D0D0D0',
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    marginBottom: 24,
   },
   periodBtnText: {
-    fontFamily: typography.body,
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#4A4A4A',
-  },
-  periodBtnTextActive: {
+    fontFamily: font(700),
+    fontSize: 15,
     color: '#FFFFFF',
+  },
+  periodBtnDivider: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 15,
   },
   section: {
     marginBottom: 20,
   },
   sectionHeader: {
-    fontFamily: typography.heading,
+    fontFamily: font(700),
     fontSize: 13,
-    fontWeight: '700',
-    color: colors.locketBlue,
-    letterSpacing: 0.1 * 13,
+    letterSpacing: 1.3,
+    marginBottom: 10,
+  },
+  cardTitle: {
+    fontFamily: font(700),
+    fontSize: 17,
+    marginBottom: 14,
   },
   chipRow: {
     flexDirection: 'row',
@@ -503,63 +546,33 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 8,
   },
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 999,
-    backgroundColor: colors.paleLavenderMist,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  // chipSelected and chipTextSelected are applied dynamically via phaseColor
-  chipText: {
-    fontFamily: typography.body,
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#4A4A4A',
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
+  confirmBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  addSymptomsLink: {
-    fontFamily: typography.body,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  noSymptomsText: {
-    fontFamily: typography.body,
-    fontSize: 13,
-    color: '#8E8E93',
-    fontStyle: 'italic',
+    justifyContent: 'center',
   },
   notesInput: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 14,
+    borderWidth: 1,
     padding: 14,
-    fontFamily: typography.body,
+    fontFamily: font(400),
     fontSize: 15,
-    color: '#1A1A1A',
-    minHeight: 80,
+    minHeight: 110,
     textAlignVertical: 'top',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 6,
     elevation: 1,
   },
   clearBtn: {
     alignItems: 'center',
     paddingVertical: 12,
-    marginTop: 8,
+    marginTop: 4,
   },
   clearBtnText: {
-    fontFamily: typography.body,
-    fontSize: 14,
-    color: '#C0392B',
-    fontWeight: '500',
+    fontFamily: font(500),
+    fontSize: 15,
   },
   saveContainer: {
     position: 'absolute',
@@ -568,12 +581,9 @@ const styles = StyleSheet.create({
     right: 0,
     paddingHorizontal: 20,
     paddingTop: 12,
-    backgroundColor: 'rgba(253,251,249,0.95)',
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#E0E0E0',
   },
   saveBtn: {
-    backgroundColor: colors.locketBlue,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
@@ -582,9 +592,8 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   saveBtnText: {
-    fontFamily: typography.body,
+    fontFamily: font(600),
     fontSize: 15,
-    fontWeight: '600',
     color: '#FFFFFF',
   },
 });

@@ -4,11 +4,20 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { usePreventScreenCapture } from 'expo-screen-capture';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { AppState, View, StyleSheet, Text } from 'react-native';
-import { colors } from './src/theme/colors';
+import { AppState, View, StyleSheet } from 'react-native';
+import {
+  useFonts,
+  PublicSans_400Regular,
+  PublicSans_500Medium,
+  PublicSans_600SemiBold,
+  PublicSans_700Bold,
+  PublicSans_800ExtraBold,
+} from '@expo-google-fonts/public-sans';
+import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
+import { LocketMark } from './src/components/LocketMark';
 
-export default function App() {
-  usePreventScreenCapture();
+function ThemedApp() {
+  const { t, dark } = useTheme();
   const [isObscured, setIsObscured] = useState(false);
 
   useEffect(() => {
@@ -20,15 +29,38 @@ export default function App() {
   }, []);
 
   return (
+    <>
+      <AppNavigator />
+      <StatusBar style={dark ? 'light' : 'dark'} />
+      {isObscured && (
+        <View style={[styles.privacyShield, { backgroundColor: t.paper }]}>
+          <LocketMark size={72} />
+        </View>
+      )}
+    </>
+  );
+}
+
+export default function App() {
+  usePreventScreenCapture();
+  const [fontsLoaded, fontError] = useFonts({
+    PublicSans_400Regular,
+    PublicSans_500Medium,
+    PublicSans_600SemiBold,
+    PublicSans_700Bold,
+    PublicSans_800ExtraBold,
+  });
+
+  // Hold rendering until Public Sans is ready — avoids a system-font flash.
+  // On a load error, render anyway (system-font fallback beats a blank app).
+  if (!fontsLoaded && !fontError) return null;
+
+  return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <AppNavigator />
-        <StatusBar style="dark" />
-        {isObscured && (
-          <View style={styles.privacyShield}>
-             <View style={styles.lockIcon} />
-          </View>
-        )}
+        <ThemeProvider>
+          <ThemedApp />
+        </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
@@ -37,16 +69,8 @@ export default function App() {
 const styles = StyleSheet.create({
   privacyShield: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.paper,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 9999,
-  },
-  lockIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: colors.gold,
-    opacity: 0.5,
   },
 });
