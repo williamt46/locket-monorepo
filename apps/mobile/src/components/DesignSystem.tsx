@@ -273,6 +273,7 @@ export const NavPill: React.FC<{
             accessibilityRole="button"
             accessibilityLabel={label}
             accessibilityState={{ selected: isActive }}
+            hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
             style={{
                 width: 34,
                 height: 34,

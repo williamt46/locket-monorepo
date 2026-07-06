@@ -291,6 +291,7 @@ export const LedgerScreen = () => {
                     accessibilityRole="button"
                     accessibilityLabel="Scroll to today"
                     onPress={() => calendarRef.current?.scrollToToday()}
+                    hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
                     style={[styles.todayPill, {
                         backgroundColor: t.navBg,
                         shadowColor: t.shadowColor,
