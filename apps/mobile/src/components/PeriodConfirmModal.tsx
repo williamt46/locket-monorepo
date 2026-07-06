@@ -7,8 +7,8 @@ import {
   StyleSheet,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { colors } from '../theme/colors';
-import { typography } from '../theme/typography';
+import { useTheme } from '../theme/ThemeContext';
+import { font } from '../theme/typography';
 import type { BleedingIntensity } from '../models/LogEntry';
 
 interface PeriodConfirmModalProps {
@@ -45,6 +45,7 @@ export const PeriodConfirmModal: React.FC<PeriodConfirmModalProps> = ({
   onConfirm,
   onDismiss,
 }) => {
+  const { t } = useTheme();
   const flow = intensity ? INTENSITY_LABEL[intensity] : 'menstrual';
 
   return (
@@ -56,15 +57,15 @@ export const PeriodConfirmModal: React.FC<PeriodConfirmModalProps> = ({
       onRequestClose={onDismiss}
     >
       <View style={styles.overlay}>
-        <View style={styles.card}>
-          <View style={styles.iconCircle}>
-            <MaterialIcons name="water-drop" size={26} color={colors.warmTerracotta} />
+        <View style={[styles.card, { backgroundColor: t.cardWhite, shadowColor: t.shadowColor }]}>
+          <View style={[styles.iconCircle, { backgroundColor: t.menstrualTint }]}>
+            <MaterialIcons name="water-drop" size={26} color={t.menstrual} />
           </View>
 
-          <Text style={styles.title}>Start of your period?</Text>
+          <Text style={[styles.title, { color: t.ink }]}>Start of your period?</Text>
 
-          <Text style={styles.body}>
-            You logged <Text style={styles.bodyStrong}>{flow}</Text> bleeding
+          <Text style={[styles.body, { color: t.graphite }]}>
+            You logged <Text style={[styles.bodyStrong, { color: t.ink }]}>{flow}</Text> bleeding
             {dateLabel ? ` on ${dateLabel}` : ''}. Mark this as Day 1 of your period?
             {'\n\n'}
             The following days will be filled in automatically. Spotting or breakthrough
@@ -72,7 +73,7 @@ export const PeriodConfirmModal: React.FC<PeriodConfirmModalProps> = ({
           </Text>
 
           <TouchableOpacity
-            style={styles.primaryButton}
+            style={[styles.primaryButton, { backgroundColor: t.locketBlue }]}
             onPress={onConfirm}
             activeOpacity={0.85}
             accessibilityRole="button"
@@ -88,7 +89,7 @@ export const PeriodConfirmModal: React.FC<PeriodConfirmModalProps> = ({
             accessibilityRole="button"
             accessibilityLabel="No, just log the bleeding without marking a period"
           >
-            <Text style={styles.secondaryText}>No, just log the bleeding</Text>
+            <Text style={[styles.secondaryText, { color: t.fog }]}>No, just log the bleeding</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -105,12 +106,10 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   card: {
-    backgroundColor: '#FFFFFF', // --card-white
     borderRadius: 16, // --radius-card
     padding: 24, // --space-l
     width: '100%',
     maxWidth: 360,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.18,
     shadowRadius: 16,
@@ -120,43 +119,36 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: colors.warmTerracottaTint, // --menstrual-tint
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'center',
     marginBottom: 16,
   },
   title: {
-    fontFamily: typography.heading,
+    fontFamily: font(700),
     fontSize: 19,
-    fontWeight: '700',
-    color: '#1B1C1B', // --ink
     textAlign: 'center',
     marginBottom: 8,
   },
   body: {
-    fontFamily: typography.body,
+    fontFamily: font(400),
     fontSize: 14, // --text-label
-    color: '#4A4A4A', // --graphite
     lineHeight: 21,
     textAlign: 'center',
     marginBottom: 20, // --space-l-ish
   },
   bodyStrong: {
-    fontWeight: '700',
-    color: '#1B1C1B',
+    fontFamily: font(700),
   },
   primaryButton: {
-    backgroundColor: colors.locketBlue, // primary action
     borderRadius: 12, // --radius-btn
     paddingVertical: 14,
     alignItems: 'center',
     marginBottom: 6,
   },
   primaryText: {
-    fontFamily: typography.body,
+    fontFamily: font(600),
     fontSize: 15,
-    fontWeight: '600',
     color: '#FFFFFF',
   },
   secondaryButton: {
@@ -164,9 +156,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   secondaryText: {
-    fontFamily: typography.body,
+    fontFamily: font(500),
     fontSize: 15,
-    fontWeight: '500',
-    color: '#717783', // --fog (secondary text)
   },
 });
