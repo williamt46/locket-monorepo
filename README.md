@@ -35,7 +35,7 @@ network/
 
 The primary product surface. Built with Expo, React Native, React Navigation, Vitest, Expo SQLite, Expo SecureStore, and React Native Quick Crypto.
 
-**Screens:** `LogScreen`, `AddSymptomsScreen`, `CycleInsightsScreen`, `LedgerScreen`, `ImportScreen`, `SettingsScreen`, `OnboardingScreen`, `AuthScreen`, `ConsentScreen`, `LogDataScreen`.
+**Screens:** `LogScreen`, `AddSymptomsScreen`, `CycleInsightsScreen`, `LedgerScreen`, `ImportScreen`, `SettingsScreen`, `OnboardingScreen`, `AuthScreen`, `ConsentScreen`, `LogDataScreen`, `LedgerInitErrorScreen`.
 
 Key capabilities:
 - Local onboarding and encrypted local persistence
@@ -47,7 +47,7 @@ Key capabilities:
 - Consent and sync screens for sharing workflows
 - Import support for Clue, Flo, and CSV exports, including field mapping into Locket log entries
 - Cloud backup envelopes using platform-agnostic AES-GCM encryption, with an optional password-protected v2 envelope (Argon2id-derived key) that lets a backup be restored on a new device by rebinding the local master key
-- Baseline cycle data (`UserConfig`) is HKDF-wrapped at rest and migrated automatically from the legacy plaintext entry on first launch after upgrade
+- Baseline cycle data (`BaselineCycleData`, formerly `UserConfig`) is HKDF-wrapped at rest and migrated automatically from the legacy plaintext entry on first launch after upgrade
 - Factory reset that wipes local data and keys without resurrecting stale encrypted records
 
 Key directories:
@@ -279,7 +279,7 @@ Locket is designed around local-first storage and explicit sharing:
 - Consent state is anchored in Hyperledger Fabric
 - PRE support allows gateway-mediated re-encryption without exposing plaintext to the gateway
 - Backup envelopes use platform-agnostic AES-GCM encryption; the password-protected v2 envelope derives its key with Argon2id and bounds KDF parameters read back from a restore file to guard against corrupted or malicious backups
-- The encrypted SQLite ledger is the only supported production store — if it fails to initialize the app fails closed with `LedgerInitError` instead of silently downgrading to plaintext storage
+- The encrypted SQLite ledger is the only supported production store — if it fails to initialize the app fails closed with `LedgerInitError` instead of silently downgrading to plaintext storage; the plaintext fallback is reachable only via the explicit `LOCKET_ALLOW_PLAINTEXT_LEDGER=1` dev/test opt-in, never auto-enabled
 - Factory reset deletes local records and keys without resurrecting stale encrypted data
 - `.gitignore` protects local agent tooling, generated output, and sensitive runtime material from accidental commits
 

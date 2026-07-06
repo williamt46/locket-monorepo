@@ -47,7 +47,7 @@ npm test
 cd apps/mobile
 npm test
 ```
-*Note: Validates UserConfig persistence and data clamping logic.*
+*Note: Validates BaselineCycleData (formerly UserConfig) persistence and data clamping logic.*
 
 #### Phase 4: ConInSe Smart Contracts
 **Type:** Integration Test (Blockchain)
