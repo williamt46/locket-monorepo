@@ -9,15 +9,15 @@ import { ImportScreen } from '../screens/ImportScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { LogScreen } from '../screens/LogScreen';
 import { CycleInsightsScreen } from '../screens/CycleInsightsScreen';
-import { AddSymptomsScreen } from '../screens/AddSymptomsScreen';
 import { LedgerInitErrorScreen } from '../screens/LedgerInitErrorScreen';
 import { getUserConfig, initStorage } from '../services/StorageService';
 import { runMigrations } from '../services/MigrationService';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 
 const Stack = createStackNavigator();
 
 export const AppNavigator = () => {
+    const { t } = useTheme();
     const [initialRoute, setInitialRoute] = useState<string | null>(null);
     const [initError, setInitError] = useState<unknown | null>(null);
     const [bootAttempt, setBootAttempt] = useState(0);
@@ -63,7 +63,7 @@ export const AppNavigator = () => {
                 initialRouteName={initialRoute}
                 screenOptions={{
                     headerShown: false,
-                    cardStyle: { backgroundColor: colors.paper }
+                    cardStyle: { backgroundColor: t.paper }
                 }}
             >
                 <Stack.Screen name="Onboarding" component={OnboardingScreen} />
@@ -74,7 +74,6 @@ export const AppNavigator = () => {
                 <Stack.Screen name="Consent" component={ConsentScreen} />
                 <Stack.Screen name="Log" component={LogScreen} />
                 <Stack.Screen name="CycleInsights" component={CycleInsightsScreen} />
-                <Stack.Screen name="AddSymptoms" component={AddSymptomsScreen} />
             </Stack.Navigator>
         </NavigationContainer>
     );
