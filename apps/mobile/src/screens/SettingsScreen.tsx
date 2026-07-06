@@ -1,21 +1,24 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Alert, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '../theme/colors';
-import { typography } from '../theme/typography';
+import { useTheme, ThemeMode } from '../theme/ThemeContext';
+import { font } from '../theme/typography';
 import * as Haptics from 'expo-haptics';
 import * as Sharing from 'expo-sharing';
 import { File, Paths } from 'expo-file-system';
 import * as DocumentPicker from 'expo-document-picker';
 import { EncryptedExportService } from '../services/EncryptedExportService';
 import { PasswordPromptModal } from '../components/PasswordPromptModal';
+import { BaselineConfigSheet } from '../components/BaselineConfigSheet';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { SecureKeyService } from '../services/SecureKeyService';
 import { IntegritySeal } from '../components/IntegritySeal';
+import { Icon, IconName } from '../components/Icon';
+import { NavBar, SectionHeader, Card, EncryptionBadge } from '../components/DesignSystem';
 
 export const SettingsScreen = () => {
     const navigation = useNavigation<any>();
     const route = useRoute<any>();
+    const { t, mode, setMode } = useTheme();
 
     const {
         keyHex,
@@ -24,6 +27,7 @@ export const SettingsScreen = () => {
     } = route.params || {};
 
     const [pwModal, setPwModal] = useState<{ mode: 'create' | 'enter'; onSubmit: (pw: string) => void } | null>(null);
+    const [baselineSheetOpen, setBaselineSheetOpen] = useState(false);
 
     const handleExportBackup = () => {
         if (!keyHex) return;
@@ -146,73 +150,128 @@ export const SettingsScreen = () => {
         );
     };
 
-    return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.header}>
-                <TouchableOpacity
-                    accessibilityRole="button"
-                    accessibilityLabel="Go back"
-                    onPress={() => navigation.goBack()}
-                    style={styles.backButton}
-                >
-                    <Text style={styles.backButtonText}>{'<'}</Text>
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Settings</Text>
-                <View style={{ width: 44 }} />
+    // ── Row building blocks (design-system card rows) ────────────────────────
+
+    const Row: React.FC<{
+        label: string;
+        sub?: string;
+        onPress?: () => void;
+        right?: React.ReactNode;
+        danger?: boolean;
+        isLast?: boolean;
+        icon?: IconName;
+    }> = ({ label, sub, onPress, right, danger, isLast, icon }) => (
+        <TouchableOpacity
+            onPress={onPress}
+            disabled={!onPress}
+            accessibilityRole={onPress ? 'button' : undefined}
+            accessibilityLabel={label}
+            style={[styles.row, !isLast && { borderBottomWidth: 1, borderBottomColor: t.divider }]}
+        >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 }}>
+                {icon && <Icon name={icon} size={18} color={danger ? t.alert : t.fog} />}
+                <View style={{ flexShrink: 1 }}>
+                    <Text style={{ fontFamily: font(danger ? 700 : 400), fontSize: 15, color: danger ? t.alert : t.ink }}>
+                        {label}
+                    </Text>
+                    {sub && (
+                        <Text style={{ fontFamily: font(400), fontSize: 12, color: t.locketBlue, marginTop: 3 }}>{sub}</Text>
+                    )}
+                </View>
             </View>
+            {right ?? (onPress && !danger ? <Icon name="chevron-right" size={20} color={t.fog} /> : null)}
+        </TouchableOpacity>
+    );
 
-            <ScrollView style={styles.scrollContent}>
+    const themeOptions: Array<{ key: ThemeMode; label: string; icon: IconName }> = [
+        { key: 'light', label: 'Light', icon: 'light-mode' },
+        { key: 'dark', label: 'Dark', icon: 'dark-mode' },
+        { key: 'device', label: 'Device', icon: 'smartphone' },
+    ];
+
+    return (
+        <SafeAreaView style={[styles.container, { backgroundColor: t.paper }]}>
+            <NavBar title="Settings" onBack={() => navigation.goBack()} />
+
+            <ScrollView contentContainerStyle={styles.scrollContent}>
 
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Data Management</Text>
-
-                    <TouchableOpacity style={styles.actionRow} onPress={() => navigation.navigate('Import')}>
-                        <Text style={styles.actionLabel}>Import Logs (JSON/CSV)</Text>
-                        <Text style={styles.actionIcon}>{'>'}</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity style={styles.actionRow} onPress={handleExportBackup}>
-                        <Text style={styles.actionLabel}>Export Encrypted Backup</Text>
-                        <Text style={styles.actionIcon}>{'>'}</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity style={styles.actionRow} onPress={handleRestoreBackup}>
-                        <Text style={styles.actionLabel}>Restore Encrypted Backup</Text>
-                        <Text style={styles.actionIcon}>{'>'}</Text>
-                    </TouchableOpacity>
+                    <SectionHeader icon="folder">Data Management</SectionHeader>
+                    <Card padding={0}>
+                        <Row label="Import Logs (JSON/CSV)" onPress={() => navigation.navigate('Import')} />
+                        <Row label="Export Encrypted Backup" onPress={handleExportBackup} />
+                        <Row label="Restore Encrypted Backup" onPress={handleRestoreBackup} isLast />
+                    </Card>
                 </View>
 
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Network & Security</Text>
-
-                    <View style={styles.statusRow}>
-                        <Text style={styles.actionLabel}>Cryptographic Integrity</Text>
-                        <IntegritySeal status={sealStatus || 'pending'} />
-                    </View>
-
-                    <TouchableOpacity
-                        style={[styles.actionRow, { borderBottomWidth: 0 }]}
-                        onPress={() => {
-                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                            navigation.navigate({ name: 'Ledger', params: { action: 'triggerSync' }, merge: true });
-                        }}
-                    >
-                        <View>
-                            <Text style={styles.actionLabel}>Force Cloud Sync</Text>
-                            {isSyncing && <Text style={styles.syncingText}>Securing to decentralised storage...</Text>}
+                    <SectionHeader icon="palette">Appearance</SectionHeader>
+                    <Card padding={6}>
+                        <View style={styles.themeRow}>
+                            {themeOptions.map((opt) => {
+                                const active = mode === opt.key;
+                                return (
+                                    <TouchableOpacity
+                                        key={opt.key}
+                                        onPress={() => setMode(opt.key)}
+                                        accessibilityRole="radio"
+                                        accessibilityState={{ selected: active }}
+                                        accessibilityLabel={`${opt.label} theme`}
+                                        style={[styles.themeOption, active && { backgroundColor: t.locketBlueTint }]}
+                                    >
+                                        <Icon name={opt.icon} size={18} color={active ? t.locketBlue : t.fog} />
+                                        <Text
+                                            style={{
+                                                fontFamily: font(active ? 700 : 500),
+                                                fontSize: 13,
+                                                color: active ? t.locketBlue : t.fog,
+                                            }}
+                                        >
+                                            {opt.label}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
                         </View>
-                        <Text style={styles.actionIcon}>{'>'}</Text>
-                    </TouchableOpacity>
+                    </Card>
                 </View>
 
                 <View style={styles.section}>
-                    <Text style={[styles.sectionTitle, { color: colors.alert }]}>Danger Zone</Text>
-
-                    <TouchableOpacity style={[styles.actionRow, { borderBottomWidth: 0 }]} onPress={handleFactoryReset}>
-                        <Text style={[styles.actionLabel, { color: colors.alert, fontWeight: 'bold' }]}>Factory Reset</Text>
-                    </TouchableOpacity>
+                    <SectionHeader icon="lock">Network &amp; Security</SectionHeader>
+                    <Card padding={0}>
+                        <Row label="Cryptographic Integrity" right={<IntegritySeal status={sealStatus || 'pending'} />} />
+                        <Row
+                            label="Force Cloud Sync"
+                            sub={isSyncing ? 'Securing to decentralised storage...' : undefined}
+                            onPress={() => {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                navigation.navigate({ name: 'Ledger', params: { action: 'triggerSync' }, merge: true });
+                            }}
+                            isLast
+                        />
+                    </Card>
                 </View>
 
+                <View style={styles.section}>
+                    <SectionHeader icon="code">Developer</SectionHeader>
+                    <Card padding={0}>
+                        <Row
+                            label="Cycle Baseline"
+                            icon="tune"
+                            onPress={() => setBaselineSheetOpen(true)}
+                            isLast
+                        />
+                    </Card>
+                </View>
+
+                <View style={styles.section}>
+                    <SectionHeader icon="warning" danger>Danger Zone</SectionHeader>
+                    <Card padding={0}>
+                        <Row label="Factory Reset" danger onPress={handleFactoryReset} isLast />
+                    </Card>
+                </View>
+
+                <EncryptionBadge />
             </ScrollView>
 
             <PasswordPromptModal
@@ -221,6 +280,18 @@ export const SettingsScreen = () => {
                 onSubmit={pwModal?.onSubmit ?? (() => { })}
                 onClose={() => setPwModal(null)}
             />
+
+            <BaselineConfigSheet
+                visible={baselineSheetOpen}
+                onClose={() => setBaselineSheetOpen(false)}
+                onSaved={() => {
+                    // Tell the Ledger to reload the baseline so predictions recompute.
+                    navigation.navigate({ name: 'Ledger', params: { action: 'configChanged' }, merge: true });
+                }}
+                onCleared={() => {
+                    navigation.reset({ index: 0, routes: [{ name: 'Onboarding' }] });
+                }}
+            />
         </SafeAreaView>
     );
 };
@@ -228,88 +299,32 @@ export const SettingsScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: colors.paper,
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingVertical: 15,
-        borderBottomWidth: 1,
-        borderBottomColor: '#E5E7EB',
-    },
-    backButton: {
-        width: 44,
-        height: 44,
-        justifyContent: 'center',
-    },
-    backButtonText: {
-        fontSize: 28,
-        color: colors.charcoal,
-        fontWeight: '300',
-    },
-    headerTitle: {
-        fontFamily: typography.heading,
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: colors.charcoal,
     },
     scrollContent: {
-        flex: 1,
         padding: 20,
+        paddingBottom: 40,
     },
     section: {
-        marginBottom: 30,
-        backgroundColor: '#FFFFFF',
-        borderRadius: 12,
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: '#E5E7EB',
+        marginBottom: 28,
     },
-    sectionTitle: {
-        fontFamily: typography.body,
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#6B7280',
-        textTransform: 'uppercase',
-        letterSpacing: 1,
+    row: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 14,
         paddingHorizontal: 16,
-        paddingVertical: 12,
-        backgroundColor: '#F9FAFB',
-        borderBottomWidth: 1,
-        borderBottomColor: '#E5E7EB',
     },
-    actionRow: {
+    themeRow: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: '#E5E7EB',
+        gap: 6,
     },
-    statusRow: {
+    themeOption: {
+        flex: 1,
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
-        padding: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: '#E5E7EB',
+        justifyContent: 'center',
+        gap: 6,
+        paddingVertical: 10,
+        borderRadius: 10,
     },
-    actionLabel: {
-        fontFamily: typography.body,
-        fontSize: 16,
-        color: colors.charcoal,
-    },
-    actionIcon: {
-        fontSize: 18,
-        color: '#9CA3AF',
-        fontWeight: '500',
-    },
-    syncingText: {
-        fontSize: 12,
-        color: '#3B82F6',
-        marginTop: 4,
-        fontWeight: '600',
-    }
 });
