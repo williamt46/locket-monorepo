@@ -7,7 +7,8 @@ vi.mock('expo-secure-store', () => ({
     setItemAsync: async (k: string, v: string) => { store.set(k, v); },
     deleteItemAsync: async (k: string) => { store.delete(k); },
 }));
-vi.mock('@locket/secure-storage', () => ({ createPersistentLedger: vi.fn() }));
+const createPersistentLedger = vi.fn();
+vi.mock('@locket/secure-storage', () => ({ createPersistentLedger: (...a: any[]) => createPersistentLedger(...a) }));
 vi.mock('../../src/services/SecureKeyService', () => ({
     SecureKeyService: { getOrGenerateKey: async () => 'ab'.repeat(32) },
 }));
@@ -20,14 +21,31 @@ vi.mock('react-native-quick-crypto', () => ({
     },
 }));
 
-import { saveUserConfig, getUserConfig, nukeBaseline, resetBaselineCache } from '../../src/services/StorageService';
+import {
+    saveUserConfig, getUserConfig, nukeBaseline, resetBaselineCache,
+    getLedger, resetLedgerSingleton,
+} from '../../src/services/StorageService';
 
 const CFG = { lastPeriodDate: '2026-02-12', periodLength: 5, cycleLength: 28 };
 const USER_CONFIG_KEY = 'locket_user_config';
 const BASELINE_KEY = 'locket_baseline_v2';
 
 describe('StorageService — baseline at-rest wrap + shred', () => {
-    beforeEach(() => { store.clear(); resetBaselineCache(); });
+    beforeEach(() => { store.clear(); resetBaselineCache(); resetLedgerSingleton(); createPersistentLedger.mockReset(); });
+
+    it('getUserConfig serves from the in-memory cache without touching SecureStore', async () => {
+        await saveUserConfig(CFG); // populates the cache as a side effect
+        const getSpy = vi.spyOn(await import('expo-secure-store'), 'getItemAsync');
+        const result = await getUserConfig();
+        expect(result).toMatchObject(CFG);
+        expect(getSpy).not.toHaveBeenCalled(); // cache hit — no disk read
+        getSpy.mockRestore();
+    });
+
+    it('getUserConfig with an unparseable legacy entry returns null without throwing', async () => {
+        store.set(USER_CONFIG_KEY, '{not valid json');
+        await expect(getUserConfig()).resolves.toBeNull();
+    });
 
     it('saveUserConfig writes a wrapped v2 entry (no plaintext); getUserConfig reads it back', async () => {
         await saveUserConfig(CFG);
@@ -60,5 +78,33 @@ describe('StorageService — baseline at-rest wrap + shred', () => {
         store.set(BASELINE_KEY, JSON.stringify(env));
         resetBaselineCache();
         expect(await getUserConfig()).toBeNull();
+    });
+
+    describe('getLedger / resetLedgerSingleton', () => {
+        it('builds the ledger once and reuses the singleton across calls', async () => {
+            const fakeLedger = { id: 'ledger-1' };
+            createPersistentLedger.mockResolvedValue(fakeLedger);
+
+            const a = await getLedger();
+            const b = await getLedger();
+
+            expect(a).toBe(fakeLedger);
+            expect(b).toBe(fakeLedger);
+            expect(createPersistentLedger).toHaveBeenCalledTimes(1); // singleton — not rebuilt
+        });
+
+        it('resetLedgerSingleton forces the next getLedger() to build a fresh instance', async () => {
+            createPersistentLedger.mockResolvedValueOnce({ id: 'ledger-old' });
+            const first = await getLedger();
+
+            resetLedgerSingleton();
+
+            createPersistentLedger.mockResolvedValueOnce({ id: 'ledger-new' });
+            const second = await getLedger();
+
+            expect(first).not.toBe(second);
+            expect((second as any).id).toBe('ledger-new');
+            expect(createPersistentLedger).toHaveBeenCalledTimes(2);
+        });
     });
 });

@@ -69,4 +69,75 @@ describe('MigrationService — legacy plaintext baseline → locket_baseline_v2'
         expect(store.has(USER_CONFIG_KEY)).toBe(false);        // stale plaintext removed
         expect(store.get(BASELINE_KEY)).toBe('PRE_EXISTING_V2'); // existing v2 NOT re-wrapped
     });
+
+    it('unparseable legacy entry: does not destroy it, does not write v2, never throws', async () => {
+        store.set(USER_CONFIG_KEY, '{not valid json');
+        const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+        await expect(runMigrations()).resolves.toBeUndefined(); // never throws to caller
+
+        expect(store.get(USER_CONFIG_KEY)).toBe('{not valid json'); // untouched
+        expect(store.has(BASELINE_KEY)).toBe(false);                // no v2 written
+        expect(errSpy).toHaveBeenCalledWith(expect.stringContaining('legacy baseline unparseable; skipping'));
+        errSpy.mockRestore();
+    });
+
+    it('verify read-fails after write: legacy is preserved, failure is swallowed (retried next launch)', async () => {
+        store.set(USER_CONFIG_KEY, JSON.stringify(LEGACY));
+        const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+        // Simulate the SecureStore write silently not landing: after setItemAsync
+        // writes BASELINE_KEY, immediately delete it so the verify-read finds nothing.
+        const secureStore = await import('expo-secure-store');
+        const originalSet = (secureStore as any).setItemAsync;
+        (secureStore as any).setItemAsync = async (k: string, v: string) => {
+            await originalSet(k, v);
+            if (k === BASELINE_KEY) store.delete(k); // sabotage the verify read
+        };
+
+        await expect(runMigrations()).resolves.toBeUndefined(); // caught, never throws
+
+        expect(store.has(USER_CONFIG_KEY)).toBe(true); // legacy preserved — NOT deleted
+        expect(errSpy).toHaveBeenCalledWith(
+            '[Migration] baseline migration failed; legacy entry preserved',
+            expect.objectContaining({ message: expect.stringContaining('verify read failed after write') }),
+        );
+
+        (secureStore as any).setItemAsync = originalSet;
+        errSpy.mockRestore();
+    });
+
+    it('verify mismatch after round-trip: legacy is preserved, failure is swallowed', async () => {
+        store.set(USER_CONFIG_KEY, JSON.stringify(LEGACY));
+        const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+        // Corrupt the verify-read only: after the wrapped v2 entry is written for
+        // real, swap in an envelope wrapping a DIFFERENT config (divergent
+        // cycleLength) so the migration's own round-trip compare fails, without
+        // touching the two initial reads (wrapped/legacy existence checks).
+        const secureStore = await import('expo-secure-store');
+        const { wrapBaseline } = await import('../../src/services/BaselineCryptoService');
+        const originalGet = (secureStore as any).getItemAsync;
+        let getCalls = 0;
+        (secureStore as any).getItemAsync = async (k: string) => {
+            getCalls += 1;
+            // Calls 1-2 are the initial wrapped/legacy existence checks; call 3
+            // is the post-write verify-read for BASELINE_KEY — return a mismatch.
+            if (k === BASELINE_KEY && getCalls === 3) {
+                return JSON.stringify(wrapBaseline(MK, { ...LEGACY, cycleLength: 999 }));
+            }
+            return originalGet(k);
+        };
+
+        await expect(runMigrations()).resolves.toBeUndefined(); // caught, never throws
+
+        expect(store.has(USER_CONFIG_KEY)).toBe(true); // legacy preserved — NOT deleted
+        expect(errSpy).toHaveBeenCalledWith(
+            '[Migration] baseline migration failed; legacy entry preserved',
+            expect.objectContaining({ message: expect.stringContaining('verify mismatch') }),
+        );
+
+        (secureStore as any).getItemAsync = originalGet;
+        errSpy.mockRestore();
+    });
 });
