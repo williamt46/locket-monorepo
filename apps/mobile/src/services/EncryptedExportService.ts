@@ -8,6 +8,7 @@ import {
     DEFAULT_KDF_PARAMS,
 } from '@locket/core-crypto';
 import { LocketBackupFileV1, LocketBackupFileV2 } from '../types/BackupTypes';
+import { keyFingerprint } from '../utils/keyFingerprint';
 import {
     initStorage, loadEvents, getUserConfig, saveUserConfig, rawNukeData, rawSaveEvents,
 } from './StorageService';
@@ -82,6 +83,7 @@ export const EncryptedExportService = {
             dek,
             data,
         };
+        console.log(`[Backup] v2 envelope created; embedded master key fp=${keyFingerprint(masterKeyHex)}`);
         return JSON.stringify(file, null, 2);
     },
 
@@ -139,7 +141,8 @@ export const EncryptedExportService = {
 
     /**
      * v1 same-device restore (legacy). Side-effecting: overwrites local events +
-     * config. v2 password-restore with master-key rebind is wired in PR2 S2.4.
+     * config. See restoreFromBackup/applyDecoded below for v2 password-restore
+     * with master-key rebind.
      */
     async parseAndRestore(backupJson: string, masterKeyHex: string): Promise<number> {
         const { events, config } = await this.decodeBackup(backupJson, { masterKeyHex });
@@ -189,7 +192,17 @@ export const EncryptedExportService = {
         }
 
         const { SecureKeyService } = await import('./SecureKeyService');
+        // Witness the rebind: peek (never create) the resident key before it is
+        // overwritten, so QA logs prove the restore worked against a DIFFERENT
+        // resident key (the cross-device condition) rather than passing by luck.
+        const residentBefore = await SecureKeyService.peekKey?.();
         await SecureKeyService.installKey(decoded.masterKeyHex); // rebind FIRST
+        const fromFp = keyFingerprint(residentBefore);
+        const toFp = keyFingerprint(decoded.masterKeyHex);
+        console.log(
+            `[Restore] master-key rebind: resident fp=${fromFp} -> backup fp=${toFp}` +
+            (fromFp === toFp ? ' (same key — rebind was a no-op)' : ' (key changed — cross-device rebind exercised)'),
+        );
 
         if (decoded.config) {
             await saveUserConfig(decoded.config);

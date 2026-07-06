@@ -27,6 +27,10 @@ export const SecureKeyService = {
   // Must run before the restore decrypt pass.
   installKey: (keyHex) => vault.installMasterKey(keyHex),
 
+  // Read the resident key WITHOUT creating one (null if absent). Used to
+  // witness the key identity before a restore rebind overwrites it.
+  peekKey: () => vault.getMasterKey(),
+
   // Crypto-shredding: delete the master key.
   nukeKey: () => vault.nukeMasterKey(),
 };

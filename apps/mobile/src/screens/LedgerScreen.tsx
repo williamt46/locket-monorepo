@@ -13,6 +13,7 @@ import { LocketCryptoService } from '@locket/core-crypto';
 import { getUserConfig, saveUserConfig } from '../services/StorageService';
 import { BaselineCycleData } from '../models/BaselineCycleData';
 import { usePredictions } from '../hooks/usePredictions';
+import { keyFingerprint } from '../utils/keyFingerprint';
 
 import { Alert } from 'react-native';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
@@ -146,6 +147,7 @@ export const LedgerScreen = () => {
                     }
                     // Generate a fresh key only after a fully-confirmed wipe.
                     const newKey = await SecureKeyService.getOrGenerateKey();
+                    console.log(`[Reset] fresh master key minted fp=${keyFingerprint(newKey)}`);
                     setKeyHex(newKey);
                     Alert.alert('Reset Complete', 'Your local ledger has been wiped.');
                 };
@@ -157,6 +159,7 @@ export const LedgerScreen = () => {
                 // fire on freshly-restored data — then reload the ledger.
                 const reload = async () => {
                     const restoredKey = await SecureKeyService.getOrGenerateKey();
+                    console.log(`[Restore] resident master key now fp=${keyFingerprint(restoredKey)}`);
                     setKeyHex(restoredKey);
                     await refresh(true);
                 };

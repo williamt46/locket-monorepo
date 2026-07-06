@@ -36,6 +36,7 @@ vi.mock('../../src/services/SecureKeyService', () => ({
         installKey: vi.fn(),
         getOrGenerateKey: vi.fn(),
         nukeKey: vi.fn(),
+        peekKey: vi.fn().mockResolvedValue(null),
     },
 }));
 
@@ -113,6 +114,39 @@ describe('EncryptedExportService — envelope v2 + version dispatch', () => {
         const installOrder = (SecureKeyService.installKey as any).mock.invocationCallOrder[0];
         const saveOrder = (storage.rawSaveEvents as any).mock.invocationCallOrder[0];
         expect(installOrder).toBeLessThan(saveOrder);
+    });
+
+    it('rebind logs a key-change witness when the resident key differs from the backup key', async () => {
+        // Simulates the cross-device condition: a DIFFERENT key is resident
+        // (fresh device / post-reset mint) when the backup is restored.
+        const json = await EncryptedExportService.createBackup(MK, PW);
+        const { SecureKeyService } = await import('../../src/services/SecureKeyService');
+        const residentKey = crypto.randomBytes(32).toString('hex');
+        (SecureKeyService.peekKey as any).mockResolvedValueOnce(residentKey);
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+        await EncryptedExportService.restoreFromBackup(json, PW);
+
+        const rebindLine = logSpy.mock.calls.map(c => c[0]).find((m: any) => typeof m === 'string' && m.includes('[Restore] master-key rebind'));
+        expect(rebindLine).toContain('key changed — cross-device rebind exercised');
+        // The witness must never leak raw key material.
+        expect(rebindLine).not.toContain(MK);
+        expect(rebindLine).not.toContain(residentKey);
+        logSpy.mockRestore();
+    });
+
+    it('applyDecoded rejects a malformed (non-array) events field and installs nothing', async () => {
+        const { SecureKeyService } = await import('../../src/services/SecureKeyService');
+        const storage = await import('../../src/services/StorageService');
+        const malformed = { version: 2, masterKeyHex: MK, events: { not: 'an array' }, config: null } as any;
+
+        await expect(EncryptedExportService.applyDecoded(malformed)).rejects.toThrow(/Invalid backup payload structure/);
+
+        // The shape guard must fire BEFORE the rebind — a malformed payload must
+        // never touch the resident master key or existing data.
+        expect(SecureKeyService.installKey).not.toHaveBeenCalled();
+        expect(storage.rawNukeData).not.toHaveBeenCalled();
+        expect(storage.rawSaveEvents).not.toHaveBeenCalled();
     });
 
     it('restoreFromBackup with the wrong password installs nothing and writes nothing', async () => {
