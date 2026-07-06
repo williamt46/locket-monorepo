@@ -25,6 +25,18 @@ export const DEFAULT_KDF_PARAMS: KdfParams = {
 const SALT_LENGTH = 16;
 const qc: any = QuickCrypto;
 
+// Bounds for kdf.params read back from a backup file. A restore reads these
+// straight from untrusted JSON (a corrupted or malicious .locket file); without
+// a ceiling, an absurd `memory` value can hang/OOM the device mid-restore, and
+// without a floor, a tampered file could silently ask for a weaker derivation
+// than this app ever produces. Ceiling is generous (4x default) to stay
+// forward-compatible with future cost increases.
+const MIN_MEMORY = DEFAULT_KDF_PARAMS.memory;
+const MAX_MEMORY = DEFAULT_KDF_PARAMS.memory * 4;
+const MIN_PASSES = DEFAULT_KDF_PARAMS.passes;
+const MAX_PARALLELISM = 4;
+const REQUIRED_TAG_LENGTH = DEFAULT_KDF_PARAMS.tagLength;
+
 /** Fresh random salt (hex). One per backup export; stored in the envelope. */
 export function generateSalt(): string {
     return Buffer.from(qc.randomBytes(SALT_LENGTH)).toString('hex');
@@ -46,6 +58,14 @@ export function deriveKeyFromPassword(
 ): string {
     if (params.algorithm !== 'argon2id') {
         throw new Error(`Unsupported KDF algorithm: ${params.algorithm}`);
+    }
+    if (
+        params.memory < MIN_MEMORY || params.memory > MAX_MEMORY ||
+        params.passes < MIN_PASSES ||
+        params.parallelism < 1 || params.parallelism > MAX_PARALLELISM ||
+        params.tagLength !== REQUIRED_TAG_LENGTH
+    ) {
+        throw new Error('Backup file has invalid or corrupted KDF parameters.');
     }
     const derived = qc.argon2Sync('argon2id', {
         message: Buffer.from(password, 'utf8'),

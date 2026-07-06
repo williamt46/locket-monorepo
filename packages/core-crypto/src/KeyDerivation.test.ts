@@ -44,4 +44,41 @@ describe('KeyDerivation (Argon2id wrapper)', () => {
             .toThrow(/Unsupported KDF algorithm/);
         expect(argon2Sync).not.toHaveBeenCalled();
     });
+
+    describe('rejects out-of-bounds params from an untrusted backup file', () => {
+        it('rejects memory below the OWASP floor', () => {
+            expect(() => deriveKeyFromPassword('xxxxxxxxxxxx', '00', { ...DEFAULT_KDF_PARAMS, memory: 1 }))
+                .toThrow(/invalid or corrupted KDF parameters/);
+            expect(argon2Sync).not.toHaveBeenCalled();
+        });
+
+        it('rejects an absurdly large memory value (DoS guard)', () => {
+            expect(() => deriveKeyFromPassword('xxxxxxxxxxxx', '00', { ...DEFAULT_KDF_PARAMS, memory: 2_147_483_647 }))
+                .toThrow(/invalid or corrupted KDF parameters/);
+            expect(argon2Sync).not.toHaveBeenCalled();
+        });
+
+        it('rejects passes below the floor', () => {
+            expect(() => deriveKeyFromPassword('xxxxxxxxxxxx', '00', { ...DEFAULT_KDF_PARAMS, passes: 1 }))
+                .toThrow(/invalid or corrupted KDF parameters/);
+        });
+
+        it('rejects parallelism of 0 or above the ceiling', () => {
+            expect(() => deriveKeyFromPassword('xxxxxxxxxxxx', '00', { ...DEFAULT_KDF_PARAMS, parallelism: 0 }))
+                .toThrow(/invalid or corrupted KDF parameters/);
+            expect(() => deriveKeyFromPassword('xxxxxxxxxxxx', '00', { ...DEFAULT_KDF_PARAMS, parallelism: 99 }))
+                .toThrow(/invalid or corrupted KDF parameters/);
+        });
+
+        it('rejects a tagLength other than 32', () => {
+            expect(() => deriveKeyFromPassword('xxxxxxxxxxxx', '00', { ...DEFAULT_KDF_PARAMS, tagLength: 16 }))
+                .toThrow(/invalid or corrupted KDF parameters/);
+        });
+
+        it('accepts params at exactly the bounds', () => {
+            argon2Sync.mockReturnValue(Buffer.alloc(32, 0xcd));
+            expect(() => deriveKeyFromPassword('xxxxxxxxxxxx', '00', { ...DEFAULT_KDF_PARAMS, memory: DEFAULT_KDF_PARAMS.memory * 4 }))
+                .not.toThrow();
+        });
+    });
 });
