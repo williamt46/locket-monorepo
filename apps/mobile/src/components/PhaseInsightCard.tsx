@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 import { phaseColor, phaseTint } from '../theme/colors';
-import { typography } from '../theme/typography';
+import { font } from '../theme/typography';
 import { useEukiContent } from '../hooks/useEukiContent';
 import { ContentSheet } from './ContentSheet';
 import type { CyclePhase } from '../utils/PredictionEngine';
@@ -54,7 +54,7 @@ export const PhaseInsightCard: React.FC<PhaseInsightCardProps> = ({ phase, dayIn
     : 'Learning about your cycle.';
 
   return (
-    <View style={[styles.card, { backgroundColor: phaseTintColor }]}>
+    <View style={[styles.card, { backgroundColor: phaseTintColor, shadowColor: t.shadowColor, shadowOpacity: t.shadowOpacity }]}>
       <View style={styles.row}>
         <MaterialIcons name={PHASE_ICON_NAMES[effectivePhase]} size={16} color={accentColor} />
         {phaseName ? (
@@ -82,9 +82,7 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 16,
     padding: 16,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
   },
@@ -95,22 +93,19 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   phaseName: {
-    fontFamily: typography.heading,
+    fontFamily: font(700),
     fontSize: 13,
-    fontWeight: '700',
     letterSpacing: 0.1 * 13,
     textTransform: 'uppercase',
   },
   snippet: {
-    fontFamily: typography.body,
+    fontFamily: font(400),
     fontSize: 14,
-    color: '#4A4A4A',
     lineHeight: 20,
     marginBottom: 8,
   },
   readMore: {
-    fontFamily: typography.body,
+    fontFamily: font(500),
     fontSize: 14,
-    fontWeight: '500',
   },
 });
