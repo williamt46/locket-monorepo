@@ -89,7 +89,7 @@ export const MonthGrid: React.FC<Props> = ({
                 </View>
                 {(hasOtherData || hasNotesWhenPeriod) && (
                     <View style={styles.dotWrap} pointerEvents="none">
-                        <View style={[styles.dot, { backgroundColor: hasNotesWhenPeriod ? t.paper : t.gold }]} />
+                        <View style={[styles.dot, { backgroundColor: t.gold }]} />
                     </View>
                 )}
             </>
@@ -160,10 +160,13 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     dotWrap: {
+        // The day circle is inset 3px from the cell edge; sit the marker ~4px
+        // above the circle's bottom edge so it reads comfortably inside the
+        // circle on period days rather than touching (and looking clipped at) it.
         ...StyleSheet.absoluteFillObject,
         alignItems: 'center',
         justifyContent: 'flex-end',
-        paddingBottom: 3,
+        paddingBottom: 7,
     },
     dot: {
         width: 4,
