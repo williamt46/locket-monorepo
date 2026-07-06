@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Alert, ScrollView, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, Alert, ScrollView, StyleSheet, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme, ThemeMode } from '../theme/ThemeContext';
 import { font } from '../theme/typography';
@@ -7,7 +7,9 @@ import * as Haptics from 'expo-haptics';
 import * as Sharing from 'expo-sharing';
 import { File, Paths } from 'expo-file-system';
 import * as DocumentPicker from 'expo-document-picker';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { EncryptedExportService } from '../services/EncryptedExportService';
+import { getBiometricEnabled, setBiometricEnabled } from '../services/BiometricPreference';
 import { PasswordPromptModal } from '../components/PasswordPromptModal';
 import { BaselineConfigSheet } from '../components/BaselineConfigSheet';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -28,6 +30,37 @@ export const SettingsScreen = () => {
 
     const [pwModal, setPwModal] = useState<{ mode: 'create' | 'enter'; onSubmit: (pw: string) => void } | null>(null);
     const [baselineSheetOpen, setBaselineSheetOpen] = useState(false);
+
+    // Face/Touch ID unlock preference. `available` gates whether the device can
+    // actually enforce it (hardware present + a biometric enrolled).
+    const [biometricEnabled, setBiometricEnabledState] = useState(true);
+    const [biometricAvailable, setBiometricAvailable] = useState(false);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            const [enabled, hasHardware, isEnrolled] = await Promise.all([
+                getBiometricEnabled(),
+                LocalAuthentication.hasHardwareAsync(),
+                LocalAuthentication.isEnrolledAsync(),
+            ]);
+            if (cancelled) return;
+            setBiometricEnabledState(enabled);
+            setBiometricAvailable(hasHardware && isEnrolled);
+        })();
+        return () => { cancelled = true; };
+    }, []);
+
+    const toggleBiometric = async (next: boolean) => {
+        setBiometricEnabledState(next); // optimistic
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        try {
+            await setBiometricEnabled(next);
+        } catch {
+            setBiometricEnabledState(!next); // revert on write failure
+            Alert.alert('Could not save', 'Your Face/Touch ID setting was not saved. Please try again.');
+        }
+    };
 
     const handleExportBackup = () => {
         if (!keyHex) return;
@@ -240,6 +273,19 @@ export const SettingsScreen = () => {
                     <SectionHeader icon="lock">Network &amp; Security</SectionHeader>
                     <Card padding={0}>
                         <Row label="Cryptographic Integrity" right={<IntegritySeal status={sealStatus || 'pending'} />} />
+                        <Row
+                            label="Require Face / Touch ID"
+                            sub={biometricAvailable ? undefined : 'No Face / Touch ID enrolled on this device'}
+                            right={
+                                <Switch
+                                    value={biometricEnabled}
+                                    onValueChange={toggleBiometric}
+                                    disabled={!biometricAvailable}
+                                    trackColor={{ false: t.divider, true: t.locketBlue }}
+                                    accessibilityLabel="Require Face or Touch ID to unlock"
+                                />
+                            }
+                        />
                         <Row
                             label="Force Cloud Sync"
                             sub={isSyncing ? 'Securing to decentralised storage...' : undefined}

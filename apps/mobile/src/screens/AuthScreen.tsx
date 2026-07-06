@@ -7,20 +7,24 @@ import { useTheme } from '../theme/ThemeContext';
 import { font } from '../theme/typography';
 import * as LocalAuthentication from 'expo-local-authentication';
 import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
+import { getBiometricEnabled } from '../services/BiometricPreference';
 
 export const AuthScreen = ({ navigation }: any) => {
     const { t } = useTheme();
 
     const authenticate = async () => {
         try {
-            // Gate on biometrics only. When no biometric is enrolled (simulator,
-            // or a device without Face/Touch ID), tap-to-unlock proceeds straight
-            // to the ledger instead of falling back to the OS passcode screen —
-            // the data at rest is already encrypted, and the passcode prompt is
-            // the "password screen" the design removes.
+            // Gate on biometrics only. Skip when the user has turned the Face/Touch
+            // ID requirement off in Settings, or when no biometric is enrolled
+            // (simulator, or a device without Face/Touch ID). In those cases
+            // tap-to-unlock proceeds straight to the ledger instead of falling
+            // back to the OS passcode screen — the data at rest is already
+            // encrypted, and the passcode prompt is the "password screen" the
+            // design removes.
+            const biometricEnabled = await getBiometricEnabled();
             const hasHardware = await LocalAuthentication.hasHardwareAsync();
             const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-            if (!hasHardware || !isEnrolled) {
+            if (!biometricEnabled || !hasHardware || !isEnrolled) {
                 navigation.replace('Ledger');
                 return;
             }
