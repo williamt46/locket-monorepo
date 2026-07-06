@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Alert, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
@@ -7,7 +7,8 @@ import * as Haptics from 'expo-haptics';
 import * as Sharing from 'expo-sharing';
 import { File, Paths } from 'expo-file-system';
 import * as DocumentPicker from 'expo-document-picker';
-import { CloudBackupService } from '../services/CloudBackupService';
+import { EncryptedExportService } from '../services/EncryptedExportService';
+import { PasswordPromptModal } from '../components/PasswordPromptModal';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { SecureKeyService } from '../services/SecureKeyService';
 import { IntegritySeal } from '../components/IntegritySeal';
@@ -22,69 +23,106 @@ export const SettingsScreen = () => {
         sealStatus
     } = route.params || {};
 
-    const handleExportBackup = async () => {
+    const [pwModal, setPwModal] = useState<{ mode: 'create' | 'enter'; onSubmit: (pw: string) => void } | null>(null);
+
+    const handleExportBackup = () => {
         if (!keyHex) return;
-        try {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            const backupJson = await CloudBackupService.createBackup(keyHex);
+        // Prompt for a backup password → v2 export (restorable on a new device).
+        setPwModal({
+            mode: 'create',
+            onSubmit: async (password: string) => {
+                try {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    const backupJson = await EncryptedExportService.createBackup(keyHex, password);
 
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-            const file = new File(Paths.document, `locket-backup-${timestamp}.locket`);
+                    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                    const file = new File(Paths.document, `locket-backup-${timestamp}.locket`);
+                    await file.write(backupJson);
 
-            await file.write(backupJson);
+                    if (await Sharing.isAvailableAsync()) {
+                        await Sharing.shareAsync(file.uri, {
+                            mimeType: 'application/json',
+                            dialogTitle: 'Save Locket Backup'
+                        });
+                    } else {
+                        Alert.alert('Error', 'Sharing is not available on this device');
+                    }
+                } catch (e: any) {
+                    Alert.alert('Backup Failed', e.message);
+                }
+            },
+        });
+    };
 
-            if (await Sharing.isAvailableAsync()) {
-                await Sharing.shareAsync(file.uri, {
-                    mimeType: 'application/json',
-                    dialogTitle: 'Save Locket Backup'
-                });
-            } else {
-                Alert.alert('Error', 'Sharing is not available on this device');
-            }
-        } catch (e: any) {
-            Alert.alert('Backup Failed', e.message);
-        }
+    const confirmAndRestore = (run: () => Promise<void>) => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        Alert.alert(
+            'Restore Backup?',
+            'This will overwrite your current ledger and settings. This action cannot be undone.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Restore', style: 'destructive', onPress: () => { run(); } },
+            ]
+        );
     };
 
     const handleRestoreBackup = async () => {
-        if (!keyHex) return;
         try {
             const result = await DocumentPicker.getDocumentAsync({
                 type: ['*/*'],
                 copyToCacheDirectory: true,
             });
+            if (result.canceled || !result.assets || result.assets.length === 0) return;
 
-            if (result.canceled || !result.assets || result.assets.length === 0) {
-                return;
-            }
+            const content = await new File(result.assets[0].uri).text();
 
-            const file = result.assets[0];
-            const restoredFile = new File(file.uri);
-            const content = await restoredFile.text();
+            let version: number | undefined;
+            try { version = JSON.parse(content).version; } catch { /* handled below */ }
 
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-            Alert.alert(
-                "Restore Backup?",
-                "This will overwrite your current ledger and settings. This action cannot be undone.",
-                [
-                    { text: "Cancel", style: "cancel" },
-                    {
-                        text: "Restore",
-                        style: "destructive",
-                        onPress: async () => {
-                            try {
-                                const count = await CloudBackupService.parseAndRestore(content, keyHex);
-                                Alert.alert("Success", `Restored ${count} events.`);
-                                // Trigger full refresh to reload state
-                                navigation.navigate({ name: 'Ledger', params: { action: 'triggerSync' }, merge: true });
-                            } catch (e: any) {
-                                Alert.alert("Restore Failed", e.message || "Invalid backup file or wrong master key.");
-                            }
+            if (version === 2) {
+                // New-device restore: needs the backup password, then rebinds the key.
+                setPwModal({
+                    mode: 'enter',
+                    onSubmit: async (password: string) => {
+                        // Validate the password by decoding BEFORE closing the modal.
+                        // A wrong password throws here → the modal shows the error and
+                        // stays open, never reaching the "Restore Backup?" confirm.
+                        let decoded;
+                        try {
+                            decoded = await EncryptedExportService.decodeBackup(content, { password });
+                        } catch {
+                            throw new Error('Incorrect password. Please try again.');
                         }
+                        // Valid → modal closes, then confirm + apply (rebind + write).
+                        setTimeout(() => {
+                            confirmAndRestore(async () => {
+                                try {
+                                    const count = await EncryptedExportService.applyDecoded(decoded);
+                                    Alert.alert('Success', `Restored ${count} events.`);
+                                    // 'restored' makes the Ledger re-read the rebound master key.
+                                    navigation.navigate({ name: 'Ledger', params: { action: 'restored' }, merge: true });
+                                } catch (e: any) {
+                                    Alert.alert('Restore Failed', e.message || 'Could not apply the backup.');
+                                }
+                            });
+                        }, 50);
+                    },
+                });
+            } else if (version === 1) {
+                // Legacy same-device restore (no embedded master key).
+                if (!keyHex) return;
+                confirmAndRestore(async () => {
+                    try {
+                        const count = await EncryptedExportService.parseAndRestore(content, keyHex);
+                        Alert.alert('Success', `Restored ${count} events.`);
+                        navigation.navigate({ name: 'Ledger', params: { action: 'triggerSync' }, merge: true });
+                    } catch (e: any) {
+                        Alert.alert('Restore Failed', e.message || 'This backup can only be restored on the device that created it.');
                     }
-                ]
-            );
-
+                });
+            } else {
+                Alert.alert('Restore Failed', 'This file is not a recognized Locket backup.');
+            }
         } catch (e) {
             console.error(e);
         }
@@ -176,6 +214,13 @@ export const SettingsScreen = () => {
                 </View>
 
             </ScrollView>
+
+            <PasswordPromptModal
+                visible={!!pwModal}
+                mode={pwModal?.mode ?? 'enter'}
+                onSubmit={pwModal?.onSubmit ?? (() => { })}
+                onClose={() => setPwModal(null)}
+            />
         </SafeAreaView>
     );
 };

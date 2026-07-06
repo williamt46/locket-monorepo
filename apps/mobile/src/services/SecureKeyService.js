@@ -1,41 +1,36 @@
 import * as SecureStore from 'expo-secure-store';
-import { generateKey } from './CryptoService';
+import { KeyVault, LocketCryptoService } from '@locket/core-crypto';
 
 const KEY_ALIAS = 'locket_master_key';
 
-export const SecureKeyService = {
-  // Get existing key or generate/save a new one
-  getOrGenerateKey: async () => {
-    console.log('[SecureKey] getOrGenerateKey called');
-    try {
-      console.log('[SecureKey] Reading from SecureStore...');
-      let key = await SecureStore.getItemAsync(KEY_ALIAS);
-      
-      if (!key) {
-        console.log('[SecureKey] No key found. Generating new one...');
-        key = await generateKey();
-        console.log('[SecureKey] Key generated. Saving...');
-        await SecureStore.setItemAsync(KEY_ALIAS, key);
-        console.log('[SecureKey] Key Saved.');
-      } else {
-        console.log('[SecureKey] Loaded existing key from SecureStore.');
-      }
-      
-      return key;
-    } catch (error) {
-      console.error('[SecureKey] Error accessing SecureStore:', error);
-      throw error;
-    }
-  },
+// expo-secure-store adapter implementing core-crypto's StoragePort.
+const securePort = {
+  getItem: (k) => SecureStore.getItemAsync(k),
+  setItem: (k, v) => SecureStore.setItemAsync(k, v),
+  deleteItem: (k) => SecureStore.deleteItemAsync(k),
+};
 
-  // Delete the key (Crypto-Shredding)
-  nukeKey: async () => {
-    try {
-      await SecureStore.deleteItemAsync(KEY_ALIAS);
-      console.log('[SecureKey] Key Nuked.');
-    } catch (error) {
-      console.error('[SecureKey] Error nuking key:', error);
-      throw error;
-    }
-  }
+const crypto = new LocketCryptoService();
+const vault = new KeyVault({
+  port: securePort,
+  keyAlias: KEY_ALIAS,
+  generateKey: () => crypto.generateKey(),
+});
+
+// Single owner of the locket_master_key lifecycle; delegates to KeyVault so the
+// logic is shared and unit-tested in core-crypto.
+export const SecureKeyService = {
+  // Get the existing master key or generate + persist a new one.
+  getOrGenerateKey: () => vault.getOrCreateMasterKey(),
+
+  // Install a master key recovered from a backup (new-device restore, PR2 S2.4).
+  // Must run before the restore decrypt pass.
+  installKey: (keyHex) => vault.installMasterKey(keyHex),
+
+  // Read the resident key WITHOUT creating one (null if absent). Used to
+  // witness the key identity before a restore rebind overwrites it.
+  peekKey: () => vault.getMasterKey(),
+
+  // Crypto-shredding: delete the master key.
+  nukeKey: () => vault.nukeMasterKey(),
 };

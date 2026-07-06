@@ -2,7 +2,7 @@ import React, { useCallback } from 'react';
 import { ScreenWrapper } from '../components/ScreenWrapper';
 import { OnboardingLayout } from '../components/onboarding/OnboardingLayout';
 import { saveUserConfig } from '../services/StorageService';
-import type { UserConfig } from '../models/UserConfig';
+import type { BaselineCycleData } from '../models/BaselineCycleData';
 
 /**
  * OnboardingScreen — Thin wrapper that composes OnboardingLayout
@@ -10,7 +10,7 @@ import type { UserConfig } from '../models/UserConfig';
  */
 export const OnboardingScreen = ({ navigation }: any) => {
     const handleComplete = useCallback(
-        async (config: UserConfig) => {
+        async (config: BaselineCycleData) => {
             console.log(`[Onboarding] Sealing ledger with final config:`, JSON.stringify(config));
             await saveUserConfig(config);
             console.log(`[Onboarding] Config saved to SecureStore.`);

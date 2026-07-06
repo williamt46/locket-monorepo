@@ -11,8 +11,9 @@ import { useLedger } from '../hooks/useLedger';
 import { SecureKeyService } from '../services/SecureKeyService';
 import { LocketCryptoService } from '@locket/core-crypto';
 import { getUserConfig, saveUserConfig } from '../services/StorageService';
-import { UserConfig } from '../models/UserConfig';
+import { BaselineCycleData } from '../models/BaselineCycleData';
 import { usePredictions } from '../hooks/usePredictions';
+import { keyFingerprint } from '../utils/keyFingerprint';
 
 import { Alert } from 'react-native';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
@@ -99,7 +100,7 @@ export const LedgerScreen = () => {
 
     // Current Date State
     const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
-    const [config, setConfig] = useState<UserConfig | null>(null);
+    const [config, setConfig] = useState<BaselineCycleData | null>(null);
 
     // Initialize Key and Config
     useEffect(() => {
@@ -136,16 +137,36 @@ export const LedgerScreen = () => {
             } else if (action === 'factoryReset') {
                 const clearAll = async () => {
                     setKeyHex(undefined);
-                    await superNuke();
-                    // Generate a fresh key only after nuke is confirmed complete.
+                    try {
+                        await superNuke();
+                    } catch (e) {
+                        // Fail loud: do NOT mint a new key over a half-shredded
+                        // state, and do NOT claim success.
+                        Alert.alert('Reset Failed', 'Some data could not be wiped. Please try again.');
+                        return;
+                    }
+                    // Generate a fresh key only after a fully-confirmed wipe.
                     const newKey = await SecureKeyService.getOrGenerateKey();
+                    console.log(`[Reset] fresh master key minted fp=${keyFingerprint(newKey)}`);
                     setKeyHex(newKey);
                     Alert.alert('Reset Complete', 'Your local ledger has been wiped.');
                 };
                 clearAll();
+            } else if (action === 'restored') {
+                // A v2 restore just rebound the master key. Re-read it so the
+                // ledger decrypts the restored events under the correct (installed)
+                // key — keeps undecryptableIds empty so the purge prompt does not
+                // fire on freshly-restored data — then reload the ledger.
+                const reload = async () => {
+                    const restoredKey = await SecureKeyService.getOrGenerateKey();
+                    console.log(`[Restore] resident master key now fp=${keyFingerprint(restoredKey)}`);
+                    setKeyHex(restoredKey);
+                    await refresh(true);
+                };
+                reload();
             }
         }
-    }, [route.params?.action, triggerSync, superNuke, setKeyHex, navigation]);
+    }, [route.params?.action, triggerSync, superNuke, setKeyHex, navigation, refresh]);
 
     // Decrypt events for UI with memoization
     const [decryptedData, setDecryptedData] = useState<Record<string, any>>({});

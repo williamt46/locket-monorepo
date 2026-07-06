@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
-import { UserConfig } from '../models/UserConfig';
+import { BaselineCycleData } from '../models/BaselineCycleData';
 import { calculatePredictedPeriods, getLatestPeriodStart, getCurrentPhase } from '../utils/PredictionEngine';
 import type { CyclePhase } from '../utils/PredictionEngine';
 
-export function usePredictions(decryptedData: Record<string, any>, config: UserConfig | null) {
+export function usePredictions(decryptedData: Record<string, any>, config: BaselineCycleData | null) {
     // ⚡ Bolt: Use useMemo instead of useState + useEffect to derive futureData
     // This prevents a costly secondary re-render cycle in LedgerScreen whenever decryptedData or config changes.
     // Derived state is calculated synchronously during render, avoiding the cascade effect.

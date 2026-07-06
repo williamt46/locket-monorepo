@@ -10,21 +10,48 @@ import { SettingsScreen } from '../screens/SettingsScreen';
 import { LogScreen } from '../screens/LogScreen';
 import { CycleInsightsScreen } from '../screens/CycleInsightsScreen';
 import { AddSymptomsScreen } from '../screens/AddSymptomsScreen';
-import { getUserConfig } from '../services/StorageService';
+import { LedgerInitErrorScreen } from '../screens/LedgerInitErrorScreen';
+import { getUserConfig, initStorage } from '../services/StorageService';
+import { runMigrations } from '../services/MigrationService';
 import { colors } from '../theme/colors';
 
 const Stack = createStackNavigator();
 
 export const AppNavigator = () => {
     const [initialRoute, setInitialRoute] = useState<string | null>(null);
+    const [initError, setInitError] = useState<unknown | null>(null);
+    const [bootAttempt, setBootAttempt] = useState(0);
 
     useEffect(() => {
+        let cancelled = false;
         (async () => {
-            const config = await getUserConfig();
-            // If no config exists → user hasn't completed onboarding
-            setInitialRoute(config ? 'Auth' : 'Onboarding');
+            try {
+                // Fail fast: surface an encrypted-storage failure here, before any
+                // data screen, rather than letting the Ledger screen render broken.
+                await initStorage();
+                // Convert any legacy plaintext baseline to the wrapped v2 entry
+                // before it is read/used. Non-throwing; safe on the boot path.
+                await runMigrations();
+                const config = await getUserConfig();
+                // If no config exists → user hasn't completed onboarding
+                if (!cancelled) setInitialRoute(config ? 'Auth' : 'Onboarding');
+            } catch (e) {
+                if (!cancelled) setInitError(e);
+            }
         })();
-    }, []);
+        return () => { cancelled = true; };
+    }, [bootAttempt]);
+
+    const retryBoot = () => {
+        setInitError(null);
+        setInitialRoute(null);
+        setBootAttempt((n) => n + 1);
+    };
+
+    // Encrypted ledger failed to initialize → full-screen error, no silent downgrade.
+    if (initError) {
+        return <LedgerInitErrorScreen error={initError} onRetry={retryBoot} />;
+    }
 
     // Don't render navigation until we've determined the initial route
     if (!initialRoute) return null;

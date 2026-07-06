@@ -35,7 +35,7 @@ const SYMPTOM_LABELS: Record<SymptomKey, string> = {
   trigger_intense_exercise: 'Intense Exercise',
 };
 
-// Fallback period length when UserConfig isn't plumbed through route params (matches UserConfig default).
+// Fallback period length when BaselineCycleData isn't plumbed through route params (matches BaselineCycleData default).
 const DEFAULT_PERIOD_LENGTH = 5;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -54,7 +54,7 @@ export const LogScreen: React.FC = () => {
   const { date, initialData, keyHex, currentPhase, periodLength } = route.params ?? {};
 
   // Period length used to auto-fill a full period span when a boundary (start/end) is marked.
-  // Plumbed from LedgerScreen's UserConfig; falls back to the config default.
+  // Plumbed from LedgerScreen's BaselineCycleData; falls back to the config default.
   const effectivePeriodLength = Math.max(1, periodLength ?? DEFAULT_PERIOD_LENGTH);
 
   // Guard: if critical params are missing (e.g. deep link / state restoration), bail immediately

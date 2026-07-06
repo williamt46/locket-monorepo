@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { layout } from '../../theme/layout';
-import { clampValue } from '../../models/UserConfig';
+import { clampValue } from '../../models/BaselineCycleData';
 
 // ── Props ───────────────────────────────────────────────────────────
 

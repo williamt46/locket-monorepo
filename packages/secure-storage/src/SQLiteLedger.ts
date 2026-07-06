@@ -1,18 +1,20 @@
 import * as SQLite from 'expo-sqlite';
+import { requireOptionalNativeModule } from 'expo';
 import { LedgerStorage, StorageRecord } from './types.js';
 
 export class SQLiteLedger implements LedgerStorage {
     private db: SQLite.SQLiteDatabase | null = null;
 
     static isAvailable(): boolean {
-        const g = global as any;
-        const available = !!(g.ExpoModules?.ExpoSQLite || g.nativeModuleProxy?.ExpoSQLite || g.NativeModules?.ExpoSQLite);
+        // SDK 54+ (new architecture) registers native modules under
+        // globalThis.expo.modules — the official resolver checks there plus the
+        // TurboModule registry and bridge proxy. The previous heuristic checked
+        // global.ExpoModules / nativeModuleProxy / NativeModules, none of which
+        // hold the module on the new architecture, so it was a false negative
+        // that silently forced the plaintext FileSystem fallback on every boot.
+        const available = requireOptionalNativeModule('ExpoSQLite') != null;
         if (!available) {
-            console.log('[SQLiteLedger] Module check failed:', {
-                ExpoModules: !!g.ExpoModules,
-                ExpoSQLite: !!g.ExpoModules?.ExpoSQLite,
-                NativeModules: !!g.NativeModules?.ExpoSQLite
-            });
+            console.log('[SQLiteLedger] ExpoSQLite native module not found via requireOptionalNativeModule');
         }
         return available;
     }
