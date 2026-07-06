@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import { colors } from '../theme/colors';
-import { typography } from '../theme/typography';
+import { useTheme } from '../theme/ThemeContext';
+import { font } from '../theme/typography';
 import { assessPasswordStrength } from '@locket/core-crypto';
 
 interface Props {
@@ -17,6 +17,7 @@ interface Props {
 }
 
 export const PasswordPromptModal = ({ visible, mode, onSubmit, onClose }: Props) => {
+    const { t } = useTheme();
     const [pw, setPw] = useState('');
     const [err, setErr] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
@@ -63,20 +64,20 @@ export const PasswordPromptModal = ({ visible, mode, onSubmit, onClose }: Props)
     return (
         <Modal visible={visible} transparent animationType="fade" onRequestClose={cancel}>
             <View style={styles.overlay}>
-                <View style={styles.card}>
-                    <Text style={styles.title}>{mode === 'create' ? 'Set a backup password' : 'Enter backup password'}</Text>
-                    <Text style={styles.body}>
+                <View style={[styles.card, { backgroundColor: t.cardWhite }]}>
+                    <Text style={[styles.title, { color: t.ink }]}>{mode === 'create' ? 'Set a backup password' : 'Enter backup password'}</Text>
+                    <Text style={[styles.body, { color: t.graphite }]}>
                         {mode === 'create'
                             ? 'This password protects only this backup file. Save it in your password manager — if you lose it, this backup cannot be recovered.'
                             : 'Enter the password this backup was created with.'}
                     </Text>
 
                     <TextInput
-                        style={styles.input}
+                        style={[styles.input, { borderColor: t.divider, color: t.ink }]}
                         value={pw}
-                        onChangeText={(t) => { setPw(t); setErr(null); }}
+                        onChangeText={(v) => { setPw(v); setErr(null); }}
                         placeholder="Backup password"
-                        placeholderTextColor="#9CA3AF"
+                        placeholderTextColor={t.whisper}
                         secureTextEntry
                         autoCapitalize="none"
                         autoCorrect={false}
@@ -88,19 +89,19 @@ export const PasswordPromptModal = ({ visible, mode, onSubmit, onClose }: Props)
 
                     {mode === 'create' && (
                         <TouchableOpacity onPress={copyPassword} disabled={!pw} accessibilityRole="button" style={styles.copyRow}>
-                            <Text style={[styles.copyText, !pw && styles.copyDisabled]}>
+                            <Text style={[styles.copyText, { color: t.locketBlue }, !pw && { color: t.whisper }]}>
                                 {copied ? 'Copied ✓' : 'Copy password'}
                             </Text>
                         </TouchableOpacity>
                     )}
 
-                    {err && <Text style={styles.err}>{err}</Text>}
+                    {err && <Text style={[styles.err, { color: t.alert }]}>{err}</Text>}
 
                     <View style={styles.row}>
                         <TouchableOpacity onPress={cancel} style={styles.btn} accessibilityRole="button" disabled={busy}>
-                            <Text style={styles.btnText}>Cancel</Text>
+                            <Text style={[styles.btnText, { color: t.ink }]}>Cancel</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity onPress={submit} style={[styles.btn, styles.primary]} accessibilityRole="button" disabled={busy}>
+                        <TouchableOpacity onPress={submit} style={[styles.btn, styles.primary, { backgroundColor: t.locketBlue }]} accessibilityRole="button" disabled={busy}>
                             {busy
                                 ? <ActivityIndicator color="#FFFFFF" />
                                 : <Text style={styles.primaryText}>{mode === 'create' ? 'Export' : 'Restore'}</Text>}
@@ -120,50 +121,38 @@ const styles = StyleSheet.create({
         paddingHorizontal: 28,
     },
     card: {
-        backgroundColor: '#FFFFFF',
         borderRadius: 16,
         padding: 22,
     },
     title: {
-        fontFamily: typography.heading,
+        fontFamily: font(700),
         fontSize: 18,
-        fontWeight: '700',
-        color: colors.charcoal,
         marginBottom: 8,
     },
     body: {
-        fontFamily: typography.body,
+        fontFamily: font(400),
         fontSize: 14,
-        color: colors.graphite,
         lineHeight: 20,
         marginBottom: 16,
     },
     input: {
         borderWidth: 1,
-        borderColor: '#E5E7EB',
         borderRadius: 10,
         paddingHorizontal: 14,
         paddingVertical: 12,
         fontSize: 16,
-        fontFamily: typography.body,
-        color: colors.charcoal,
+        fontFamily: font(400),
     },
     copyRow: {
         marginTop: 10,
         alignSelf: 'flex-start',
     },
     copyText: {
-        fontFamily: typography.body,
+        fontFamily: font(600),
         fontSize: 14,
-        color: colors.locketBlue,
-        fontWeight: '600',
-    },
-    copyDisabled: {
-        color: '#9CA3AF',
     },
     err: {
-        color: colors.alert,
-        fontFamily: typography.body,
+        fontFamily: font(400),
         fontSize: 13,
         marginTop: 8,
     },
@@ -181,17 +170,13 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     btnText: {
-        fontFamily: typography.body,
+        fontFamily: font(400),
         fontSize: 16,
-        color: colors.charcoal,
     },
-    primary: {
-        backgroundColor: colors.locketBlue,
-    },
+    primary: {},
     primaryText: {
-        fontFamily: typography.heading,
+        fontFamily: font(700),
         fontSize: 16,
-        fontWeight: '700',
         color: '#FFFFFF',
     },
 });
