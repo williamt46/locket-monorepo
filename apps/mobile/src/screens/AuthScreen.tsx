@@ -13,8 +13,21 @@ export const AuthScreen = ({ navigation }: any) => {
 
     const authenticate = async () => {
         try {
+            // Gate on biometrics only. When no biometric is enrolled (simulator,
+            // or a device without Face/Touch ID), tap-to-unlock proceeds straight
+            // to the ledger instead of falling back to the OS passcode screen —
+            // the data at rest is already encrypted, and the passcode prompt is
+            // the "password screen" the design removes.
+            const hasHardware = await LocalAuthentication.hasHardwareAsync();
+            const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+            if (!hasHardware || !isEnrolled) {
+                navigation.replace('Ledger');
+                return;
+            }
             const result = await LocalAuthentication.authenticateAsync({
                 promptMessage: 'Unlock your Locket',
+                // Never show the iOS device-passcode fallback; biometric only.
+                disableDeviceFallback: true,
             });
             if (result.success) {
                 navigation.replace('Ledger');
