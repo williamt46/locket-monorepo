@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Animated, Easing } from 'react-native';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 
 export type SealStatus = 'secure' | 'anchored' | 'pending' | 'compromised' | 'syncing';
 
@@ -9,6 +9,7 @@ interface Props {
 }
 
 export const IntegritySeal: React.FC<Props> = ({ status }) => {
+    const { t } = useTheme();
     const pulseAnim = useRef(new Animated.Value(1)).current;
 
     useEffect(() => {
@@ -37,12 +38,12 @@ export const IntegritySeal: React.FC<Props> = ({ status }) => {
 
     const getColor = () => {
         switch (status) {
-            case 'secure': return colors.gold;
+            case 'secure': return t.gold;
             case 'anchored': return '#10B981'; // Emerald/Green for blockchain confirmation
             case 'syncing': return '#3B82F6'; // Blue for active work
-            case 'pending': return colors.watermark;
-            case 'compromised': return colors.alert;
-            default: return colors.watermark;
+            case 'pending': return t.watermark;
+            case 'compromised': return t.alert;
+            default: return t.watermark;
         }
     };
 
