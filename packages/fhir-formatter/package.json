@@ -9,11 +9,10 @@
         "test": "vitest run"
     },
     "dependencies": {
-        "uuid": "^11.1.0"
+        "uuid": "^14.0.1"
     },
     "devDependencies": {
         "@types/fhir": "^0.0.41",
-        "@types/uuid": "^10.0.0",
         "vitest": "*"
     }
 }
