@@ -14,10 +14,10 @@
     "test": "turbo run test"
   },
   "devDependencies": {
-    "turbo": "^2.3.3",
+    "turbo": "^2.10.4",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.62.0",
-    "vitest": "^4.0.18"
+    "vitest": "^4.1.10"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
