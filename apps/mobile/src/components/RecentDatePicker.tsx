@@ -24,11 +24,11 @@ export { RECENT_DAYS };
 
 const ITEM_HEIGHT = 64;
 
-/** Format "YYYY-MM-DD" → "Mon DD" (e.g. "Feb 24"). tz-neutral (calendar date). */
+/** Format "YYYY-MM-DD" → "Mon DD YYYY" (e.g. "Feb 24 2026"). tz-neutral. */
 function formatShort(dateStr: string): string {
     const d = new Date(dateStr + 'T00:00:00Z');
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return `${months[d.getUTCMonth()]} ${d.getUTCDate()}`;
+    return `${months[d.getUTCMonth()]} ${d.getUTCDate()} ${d.getUTCFullYear()}`;
 }
 
 /** Format "YYYY-MM-DD" → short weekday (e.g. "Mon"). */
