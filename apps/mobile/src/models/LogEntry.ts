@@ -1,7 +1,7 @@
 export type BleedingIntensity = 'spotting' | 'light' | 'medium' | 'heavy';
 export type SymptomKey =
   // Physical
-  | 'cramps' | 'bloating' | 'nausea_fatigue' | 'headache' | 'back_pain' | 'acne' | 'breast_tenderness'
+  | 'cramps' | 'bloating' | 'nausea' | 'fatigue' | 'headache' | 'back_pain' | 'acne' | 'breast_tenderness'
   // Mood
   | 'mood_low' | 'mood_anxious' | 'mood_irritable' | 'mood_happy' | 'mood_energized' | 'mood_calm'
   // Sex
@@ -28,3 +28,35 @@ export interface LogEntry {
 }
 
 export type TemperatureUnit = 'F' | 'C';
+
+/**
+ * Retired SymptomKey → its replacement(s).
+ *
+ * `nausea_fatigue` was split into the separate `nausea` and `fatigue` pills.
+ * Entries saved before the split still carry the old key; map it to BOTH new
+ * pills so the original "logged nausea and fatigue" intent survives the split.
+ */
+const LEGACY_SYMPTOM_KEYS: Record<string, SymptomKey[]> = {
+  nausea_fatigue: ['nausea', 'fatigue'],
+};
+
+/**
+ * Normalize a stored symptoms array on read: expand any retired keys to their
+ * current equivalents and drop duplicates, preserving first-seen order. Current
+ * keys pass through untouched. Used when hydrating a saved LogEntry into the
+ * editor so historical entries keep showing (and stay editable as) real pills.
+ */
+export function migrateLegacySymptomKeys(symptoms: readonly SymptomKey[]): SymptomKey[] {
+  const out: SymptomKey[] = [];
+  const seen = new Set<SymptomKey>();
+  for (const key of symptoms) {
+    const replacements = LEGACY_SYMPTOM_KEYS[key] ?? [key];
+    for (const r of replacements) {
+      if (!seen.has(r)) {
+        seen.add(r);
+        out.push(r);
+      }
+    }
+  }
+  return out;
+}

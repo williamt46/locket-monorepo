@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { LogEntry, BleedingIntensity, SymptomKey } from '../../src/models/LogEntry';
+import { migrateLegacySymptomKeys } from '../../src/models/LogEntry';
 
 describe('LogEntry model', () => {
   it('constructs a minimal valid LogEntry (period_start)', () => {
@@ -71,7 +72,8 @@ describe('LogEntry model', () => {
     const symptoms: SymptomKey[] = [
       'cramps',
       'bloating',
-      'nausea_fatigue',
+      'nausea',
+      'fatigue',
       'mood_low',
       'mood_anxious',
       'mood_irritable',
@@ -85,7 +87,22 @@ describe('LogEntry model', () => {
       ts: Date.now(),
       symptoms,
     };
-    expect(entry.symptoms?.length).toBe(9);
+    expect(entry.symptoms?.length).toBe(10);
+  });
+
+  it('migrates the retired nausea_fatigue key to both nausea and fatigue on read', () => {
+    const migrated = migrateLegacySymptomKeys(['cramps', 'nausea_fatigue', 'back_pain'] as SymptomKey[]);
+    expect(migrated).toEqual(['cramps', 'nausea', 'fatigue', 'back_pain']);
+  });
+
+  it('de-duplicates when a split target is already present', () => {
+    const migrated = migrateLegacySymptomKeys(['nausea', 'nausea_fatigue'] as SymptomKey[]);
+    expect(migrated).toEqual(['nausea', 'fatigue']);
+  });
+
+  it('passes current keys through untouched', () => {
+    const keys: SymptomKey[] = ['cramps', 'bloating', 'nausea', 'fatigue'];
+    expect(migrateLegacySymptomKeys(keys)).toEqual(keys);
   });
 
   it('ts field is a number (Unix ms)', () => {
