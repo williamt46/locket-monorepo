@@ -148,7 +148,6 @@ export const CycleInsightsScreen: React.FC = () => {
         : history.cycles.slice(0, COLLAPSED);
     const showExpander = history.cycles.length > COLLAPSED;
 
-    const monthName = new Date().toLocaleDateString('en-US', { month: 'long' });
     const fmtStart = (iso: string) => {
         const [y, m, d] = iso.split('-').map(Number);
         return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -198,8 +197,7 @@ export const CycleInsightsScreen: React.FC = () => {
                             ))}
                         </View>
 
-                        {/* Month + full-cycle day strip (shares selection with the gauge) */}
-                        <Text style={{ fontFamily: font(500), fontSize: 14, color: t.fog }}>{monthName}</Text>
+                        {/* Full-cycle day strip (shares selection with the gauge) */}
                         <DayStrip
                             dayInCycle={today}
                             cycleLength={cycleLength}

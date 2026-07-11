@@ -333,15 +333,16 @@ export const OrbitGauge: React.FC<OrbitGaugeProps> = ({
                 importantForAccessibility="no-hide-descendants"
                 accessibilityElementsHidden
             >
+                {/* Small caps tag → phase hero → prominent date. */}
                 <Text
-                    style={[styles.dayLabel, { color: t.ink }]}
+                    style={[styles.dayLabel, { color: t.fog }]}
                     numberOfLines={1}
                     adjustsFontSizeToFit
                 >
                     {overdue ? gaugeDayLine(dayInCycle, cycle) : `Cycle day ${day + 1}`}
                 </Text>
-                <Text style={[styles.dateLabel, { color: t.fog }]}>{formatMonDay(shownDate)}</Text>
                 <Text style={[styles.phaseLabel, { color: t.ink }]}>{phaseLabel(phase)} Phase</Text>
+                <Text style={[styles.dateLabel, { color: t.ink }]}>{formatMonDay(shownDate)}</Text>
                 {isPreviewing && (
                     <Text style={[styles.resetLabel, { color: t.locketBlue }]}>Back to today</Text>
                 )}
@@ -359,20 +360,21 @@ const styles = StyleSheet.create({
     },
     dayLabel: {
         fontFamily: font(700),
-        fontSize: 14,
-        opacity: 0.78,
-        marginBottom: 2,
-    },
-    dateLabel: {
-        fontFamily: font(500),
-        fontSize: 13,
-        marginBottom: 4,
+        fontSize: 12,
+        letterSpacing: 0.8,
+        textTransform: 'uppercase',
+        marginBottom: 6,
     },
     phaseLabel: {
         fontFamily: font(800),
         fontSize: 22,
         letterSpacing: -0.2,
         textAlign: 'center',
+        marginBottom: 8,
+    },
+    dateLabel: {
+        fontFamily: font(600),
+        fontSize: 15,
     },
     resetLabel: {
         fontFamily: font(600),
