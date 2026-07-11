@@ -11,25 +11,33 @@ describe('deriveCalendarRange', () => {
     // Reference "now": July 2026 (monthIndex 6).
     const today = new Date(2026, 6, 15);
 
-    it('fresh user (no logged data): 24-month floor back → last predicted +1', () => {
-        // Predictions run out to Sep 2026 (monthIndex 8) for a 3-cycle horizon.
-        const futureKeys = [key(2026, 7, 10), key(2026, 8, 8)];
+    it('fresh user (no logged data): 10-year floor back → full forward year', () => {
+        // Predictions now blanket the forward year; last predicted month here is
+        // within the guaranteed window, so the forward floor (today + 12) governs.
+        const futureKeys = [key(2026, 7, 10), key(2027, 5, 8)];
         const list = deriveCalendarRange([], futureKeys, today);
 
-        // Start = today − 24 months = July 2024.
-        expect(first(list)).toEqual({ year: 2024, monthIndex: 6 });
-        // End = last predicted month (Sep 2026) + 1 = Oct 2026.
-        expect(last(list)).toEqual({ year: 2026, monthIndex: 9 });
-        // Inclusive span July 2024 → Oct 2026 = 28 months.
-        expect(list.length).toBe(28);
+        // Start = today − 120 months = July 2016.
+        expect(first(list)).toEqual({ year: 2016, monthIndex: 6 });
+        // End = today + 12 months = July 2027.
+        expect(last(list)).toEqual({ year: 2027, monthIndex: 6 });
+        // Inclusive span July 2016 → July 2027 = 133 months.
+        expect(list.length).toBe(133);
     });
 
-    it('with no predictions at all, still ends no earlier than the current month', () => {
+    it('predictions running past the forward year extend the end further', () => {
+        // A stray predicted key in Sep 2027 lies beyond today + 12 (July 2027).
+        const list = deriveCalendarRange([], [key(2027, 8, 8)], today);
+        // End = last predicted month (Sep 2027) + 1 = Oct 2027.
+        expect(last(list)).toEqual({ year: 2027, monthIndex: 9 });
+    });
+
+    it('with no predictions at all, still gives a full forward year', () => {
         const list = deriveCalendarRange([], [], today);
-        // lastFuture defaults to today, so end = today + 1 = Aug 2026.
-        expect(last(list)).toEqual({ year: 2026, monthIndex: 7 });
-        // Start still floored at July 2024.
-        expect(first(list)).toEqual({ year: 2024, monthIndex: 6 });
+        // Forward floor: end = today + 12 months = July 2027.
+        expect(last(list)).toEqual({ year: 2027, monthIndex: 6 });
+        // Start floored at July 2016 (10 years back).
+        expect(first(list)).toEqual({ year: 2016, monthIndex: 6 });
     });
 
     it('old imported data extends the range back to its earliest month', () => {
@@ -38,8 +46,8 @@ describe('deriveCalendarRange', () => {
         const list = deriveCalendarRange(dataKeys, [key(2026, 8, 8)], today);
 
         expect(first(list)).toEqual({ year: 2010, monthIndex: 2 });
-        // Still ends one month past the last prediction.
-        expect(last(list)).toEqual({ year: 2026, monthIndex: 9 });
+        // Prediction (Sep 2026) is inside the forward year, so end = today + 12.
+        expect(last(list)).toEqual({ year: 2027, monthIndex: 6 });
     });
 
     it('caps history at 20 years even with older imported data', () => {
@@ -55,22 +63,22 @@ describe('deriveCalendarRange', () => {
         // Only data in the last few months — floor still governs the start.
         const dataKeys = [key(2026, 4, 3), key(2026, 5, 20)];
         const list = deriveCalendarRange(dataKeys, [], today);
-        expect(first(list)).toEqual({ year: 2024, monthIndex: 6 });
+        expect(first(list)).toEqual({ year: 2016, monthIndex: 6 });
     });
 
     it('ignores malformed keys', () => {
         const list = deriveCalendarRange(['garbage', '', 'x-y'], ['also-bad'], today);
-        expect(first(list)).toEqual({ year: 2024, monthIndex: 6 });
-        expect(last(list)).toEqual({ year: 2026, monthIndex: 7 });
+        expect(first(list)).toEqual({ year: 2016, monthIndex: 6 });
+        expect(last(list)).toEqual({ year: 2027, monthIndex: 6 });
     });
 
     it('handles a year-boundary today correctly', () => {
         // January 2026 (monthIndex 0): floor crosses the year boundary.
         const jan = new Date(2026, 0, 10);
         const list = deriveCalendarRange([], [], jan);
-        // Start = Jan 2026 − 24 months = Jan 2024.
-        expect(first(list)).toEqual({ year: 2024, monthIndex: 0 });
-        // End = Jan 2026 + 1 = Feb 2026.
-        expect(last(list)).toEqual({ year: 2026, monthIndex: 1 });
+        // Start = Jan 2026 − 120 months = Jan 2016.
+        expect(first(list)).toEqual({ year: 2016, monthIndex: 0 });
+        // End = Jan 2026 + 12 months = Jan 2027.
+        expect(last(list)).toEqual({ year: 2027, monthIndex: 0 });
     });
 });

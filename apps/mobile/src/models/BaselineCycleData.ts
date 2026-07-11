@@ -87,6 +87,47 @@ export function hasRealAnchor(config: Pick<BaselineCycleData, 'lastPeriodDate' |
 }
 
 /**
+ * Toggle the "estimated" (I'm not sure) state of a field on a baseline config. Pure.
+ *
+ * T7/§4 (QA item 7b): "I'm not sure" is toggleable and mutually exclusive with a
+ * manual value.
+ *  - When the field is NOT currently estimated → SELECT: flag it estimated and
+ *    apply the clinical default (period 5 / cycle 28; lastPeriodDate is cleared so
+ *    predictions stay dormant, matching the original handleUnsure semantics).
+ *  - When the field IS currently estimated → DESELECT: remove the flag. Numeric
+ *    fields keep their default value (the picker un-dims and the user may adjust);
+ *    lastPeriodDate stays undefined until the user picks a date.
+ *
+ * Returns a new config; never mutates the input.
+ */
+export function toggleEstimatedField(
+    config: BaselineCycleData,
+    field: EstimatedField,
+): BaselineCycleData {
+    const currentlyEstimated = (config.estimatedFields ?? []).includes(field);
+    if (currentlyEstimated) {
+        const next: BaselineCycleData = {
+            ...config,
+            estimatedFields: (config.estimatedFields ?? []).filter((f) => f !== field),
+        };
+        return next;
+    }
+    const next: BaselineCycleData = {
+        ...config,
+        estimatedFields: [...(config.estimatedFields ?? []), field],
+    };
+    if (field === 'lastPeriodDate') {
+        // No real anchor — leave the date undefined. No ledger seeding.
+        delete next.lastPeriodDate;
+    } else if (field === 'periodLength') {
+        next.periodLength = PERIOD_DEFAULT;
+    } else if (field === 'cycleLength') {
+        next.cycleLength = CYCLE_DEFAULT;
+    }
+    return next;
+}
+
+/**
  * Read-side normalizer for baseline payloads decoded from storage/backup.
  *
  * Pre-T7 payloads (encrypted `locket_baseline_v2` or legacy plaintext) have no

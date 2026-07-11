@@ -84,6 +84,26 @@ const BLEEDING_OPTIONS: Array<{ key: BleedingIntensity; label: string }> = [
   { key: 'heavy', label: 'Heavy' },
 ];
 
+/**
+ * Display-only summary of an accordion's selections, shown on its collapsed face:
+ * small white-filled 999px pills bordered + labelled in the accordion's accent color.
+ */
+const SelectionSummary: React.FC<{ items: string[]; color: string }> = ({ items, color }) => {
+  const { t } = useTheme();
+  return (
+    <View style={styles.summaryRow}>
+      {items.map((label) => (
+        <View
+          key={label}
+          style={[styles.summaryPill, { backgroundColor: t.cardWhite, borderColor: color }]}
+        >
+          <Text style={[styles.summaryPillText, { color }]}>{label}</Text>
+        </View>
+      ))}
+    </View>
+  );
+};
+
 export const LogScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
@@ -210,8 +230,8 @@ export const LogScreen: React.FC = () => {
   const [reminderVisible, setReminderVisible] = useState(false);
   const pendingActionRef = useRef<any>(null);
 
-  // Guard ALL exit paths (header ✕, Android hardware back, iOS swipe-back all
-  // route through the same goBack/beforeRemove). Prompt to save when dirty.
+  // Guard the button/hardware-back exit paths (header ✕, Android hardware back)
+  // through beforeRemove. Prompt to save when dirty.
   useEffect(() => {
     const sub = navigation.addListener('beforeRemove', (e: any) => {
       if (allowLeaveRef.current || !dirtyRef.current) return;
@@ -221,6 +241,16 @@ export const LogScreen: React.FC = () => {
     });
     return sub;
   }, [navigation]);
+
+  // This screen sits in the JS `@react-navigation/stack`, whose iOS swipe-back is
+  // a gesture-driven pop. Intercepting that pop with beforeRemove's preventDefault
+  // leaves the card stranded mid-transition (gesture visually completed, nav
+  // cancelled → orphaned screen). We can't make the gesture safely interceptable,
+  // so while there are unsaved changes we disable the swipe entirely; the ✕ / hardware
+  // back still route through beforeRemove and show the reminder. Clean state re-enables it.
+  useEffect(() => {
+    navigation.setOptions({ gestureEnabled: !dirty });
+  }, [navigation, dirty]);
 
   const leaveNow = () => {
     allowLeaveRef.current = true;
@@ -436,9 +466,7 @@ export const LogScreen: React.FC = () => {
             accessibilityState={{ selected: isStart }}
           >
             {isStart && <Icon name="check" size={16} color="#FFFFFF" />}
-            <Text style={[styles.periodBtnText, !isStart && { color: t.luteal }]}>Start</Text>
-            <Text style={[styles.periodBtnDivider, !isStart && { color: t.luteal, opacity: 0.5 }]}>|</Text>
-            <Icon name="arrow-forward" size={16} color={isStart ? '#FFFFFF' : t.luteal} />
+            <Text style={[styles.periodBtnText, !isStart && { color: t.luteal }]}>Period Start</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={periodBtn(isEnd)}
@@ -448,9 +476,7 @@ export const LogScreen: React.FC = () => {
             accessibilityState={{ selected: isEnd }}
           >
             {isEnd && <Icon name="check" size={16} color="#FFFFFF" />}
-            <Icon name="arrow-back" size={16} color={isEnd ? '#FFFFFF' : t.luteal} />
-            <Text style={[styles.periodBtnDivider, !isEnd && { color: t.luteal, opacity: 0.5 }]}>|</Text>
-            <Text style={[styles.periodBtnText, !isEnd && { color: t.luteal }]}>End</Text>
+            <Text style={[styles.periodBtnText, !isEnd && { color: t.luteal }]}>Period End</Text>
           </TouchableOpacity>
         </View>
 
@@ -484,21 +510,87 @@ export const LogScreen: React.FC = () => {
           )}
         </View>
 
-        {/* Temperature (BBT) */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionHeader, { color: t.locketBlue }]}>TEMPERATURE</Text>
-          {!tempExpanded ? (
-            <TouchableOpacity
-              onPress={handleAddTemperature}
-              accessibilityRole="button"
-              accessibilityLabel="Add temperature"
-              style={styles.addTempBtn}
+        {/* Log experiences — accordion pills expand in place */}
+        <Card padding={18} style={{ marginBottom: 20 }}>
+          <Text style={[styles.cardTitle, { color: t.ink }]}>Log experiences</Text>
+          <View style={{ gap: 10 }}>
+            {CATEGORIES.map((cat) => {
+              const catColor = cat.phase === 'ovulatory' ? t.ovulatoryDeep : phaseColor(t, cat.phase);
+              const selectedKeys = cat.chips.filter((c) => selectedSymptoms.has(c));
+              const isOpen = openCategory === cat.key;
+              return (
+                <AccordionPill
+                  key={cat.key}
+                  icon={cat.icon}
+                  label={cat.label}
+                  color={catColor}
+                  tint={phaseTint(t, cat.phase)}
+                  expanded={isOpen}
+                  count={selectedKeys.length}
+                  onToggle={() => setOpenCategory((o) => (o === cat.key ? null : cat.key))}
+                  summary={
+                    selectedKeys.length > 0 ? (
+                      <SelectionSummary
+                        items={selectedKeys.map((k) => SYMPTOM_LABELS[k])}
+                        color={catColor}
+                      />
+                    ) : undefined
+                  }
+                >
+                  <View style={[styles.chipRow, { paddingBottom: 6 }]}>
+                    {cat.chips.map((key) => (
+                      <Chip
+                        key={key}
+                        label={SYMPTOM_LABELS[key]}
+                        phase={cat.phase}
+                        selected={selectedSymptoms.has(key)}
+                        onPress={() => toggleSymptom(key)}
+                        onLongPress={getSymptomContent(key) ? () => handleWhyPress(key) : undefined}
+                        accessibilityHint={getSymptomContent(key) ? 'Long press for more information' : undefined}
+                      />
+                    ))}
+                  </View>
+                  <View style={{ alignItems: 'flex-end', marginTop: 4 }}>
+                    <TouchableOpacity
+                      onPress={() => setOpenCategory(null)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Confirm ${cat.label}`}
+                      style={[styles.confirmBtn, { backgroundColor: catColor }]}
+                    >
+                      <Icon name="check" size={18} color="#FFFFFF" />
+                    </TouchableOpacity>
+                  </View>
+                </AccordionPill>
+              );
+            })}
+
+            {/* Temperature (BBT) — accordion card, locket-blue accent, after Triggers */}
+            <AccordionPill
+              icon="device-thermostat"
+              label="Temperature"
+              color={t.locketBlue}
+              tint={t.locketBlueTint}
+              expanded={openCategory === 'temperature'}
+              count={temperature ? 1 : 0}
+              onToggle={() => setOpenCategory((o) => (o === 'temperature' ? null : 'temperature'))}
+              summary={
+                temperature && displayTemp != null ? (
+                  <SelectionSummary items={[`${displayTemp}°${tempUnit}`]} color={t.locketBlue} />
+                ) : undefined
+              }
             >
-              <Text style={[styles.addTempText, { color: phaseColor(t, currentPhase) }]}>+ Add temperature</Text>
-            </TouchableOpacity>
-          ) : (
-            <View>
-              <View style={styles.tempRow}>
+              {!tempExpanded ? (
+                <TouchableOpacity
+                  onPress={handleAddTemperature}
+                  accessibilityRole="button"
+                  accessibilityLabel="Add temperature"
+                  style={styles.addTempBtn}
+                >
+                  <Text style={[styles.addTempText, { color: t.locketBlue }]}>+ Add temperature</Text>
+                </TouchableOpacity>
+              ) : (
+                <View>
+                  <View style={styles.tempRow}>
                 <TouchableOpacity
                   onPress={() => handleTempStep(-TEMP_STEP)}
                   accessibilityRole="button"
@@ -536,11 +628,11 @@ export const LogScreen: React.FC = () => {
                         accessibilityState={{ selected }}
                         style={[
                           styles.tempUnitPill,
-                          { borderColor: phaseColor(t, currentPhase) },
-                          selected && { backgroundColor: phaseColor(t, currentPhase) },
+                          { borderColor: t.locketBlue },
+                          selected && { backgroundColor: t.locketBlue },
                         ]}
                       >
-                        <Text style={[styles.tempUnitText, { color: selected ? '#FFFFFF' : phaseColor(t, currentPhase) }]}>°{u}</Text>
+                        <Text style={[styles.tempUnitText, { color: selected ? '#FFFFFF' : t.locketBlue }]}>°{u}</Text>
                       </TouchableOpacity>
                     );
                   })}
@@ -555,58 +647,12 @@ export const LogScreen: React.FC = () => {
                   <Icon name="close" size={20} color={t.whisper} />
                 </TouchableOpacity>
               </View>
-              <Text style={[styles.tempHelper, { color: t.whisper }]}>
-                Between {TEMP_LIMITS[tempUnit].min}–{TEMP_LIMITS[tempUnit].max} °{tempUnit}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* Log experiences — accordion pills expand in place */}
-        <Card padding={18} style={{ marginBottom: 20 }}>
-          <Text style={[styles.cardTitle, { color: t.ink }]}>Log experiences</Text>
-          <View style={{ gap: 10 }}>
-            {CATEGORIES.map((cat) => {
-              const catColor = cat.phase === 'ovulatory' ? t.ovulatoryDeep : phaseColor(t, cat.phase);
-              const selectedCount = cat.chips.filter((c) => selectedSymptoms.has(c)).length;
-              const isOpen = openCategory === cat.key;
-              return (
-                <AccordionPill
-                  key={cat.key}
-                  icon={cat.icon}
-                  label={cat.label}
-                  color={catColor}
-                  tint={phaseTint(t, cat.phase)}
-                  expanded={isOpen}
-                  count={selectedCount}
-                  onToggle={() => setOpenCategory((o) => (o === cat.key ? null : cat.key))}
-                >
-                  <View style={[styles.chipRow, { paddingBottom: 6 }]}>
-                    {cat.chips.map((key) => (
-                      <Chip
-                        key={key}
-                        label={SYMPTOM_LABELS[key]}
-                        phase={cat.phase}
-                        selected={selectedSymptoms.has(key)}
-                        onPress={() => toggleSymptom(key)}
-                        onLongPress={getSymptomContent(key) ? () => handleWhyPress(key) : undefined}
-                        accessibilityHint={getSymptomContent(key) ? 'Long press for more information' : undefined}
-                      />
-                    ))}
-                  </View>
-                  <View style={{ alignItems: 'flex-end', marginTop: 4 }}>
-                    <TouchableOpacity
-                      onPress={() => setOpenCategory(null)}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Confirm ${cat.label}`}
-                      style={[styles.confirmBtn, { backgroundColor: catColor }]}
-                    >
-                      <Icon name="check" size={18} color="#FFFFFF" />
-                    </TouchableOpacity>
-                  </View>
-                </AccordionPill>
-              );
-            })}
+                  <Text style={[styles.tempHelper, { color: t.whisper }]}>
+                    Between {TEMP_LIMITS[tempUnit].min}–{TEMP_LIMITS[tempUnit].max} °{tempUnit}
+                  </Text>
+                </View>
+              )}
+            </AccordionPill>
           </View>
         </Card>
 
@@ -735,9 +781,22 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#FFFFFF',
   },
-  periodBtnDivider: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 15,
+  summaryRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 8,
+    paddingHorizontal: 6,
+  },
+  summaryPill: {
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  summaryPillText: {
+    fontFamily: font(600),
+    fontSize: 12,
   },
   section: {
     marginBottom: 20,

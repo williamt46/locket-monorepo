@@ -113,7 +113,9 @@ export const AccordionPill: React.FC<{
     count?: number;
     onToggle: () => void;
     children: React.ReactNode;
-}> = ({ icon, label, color, tint, expanded, count, onToggle, children }) => {
+    /** Display-only summary (e.g. selected-symptom pills) shown on the collapsed face. */
+    summary?: React.ReactNode;
+}> = ({ icon, label, color, tint, expanded, count, onToggle, children, summary }) => {
     const { t } = useTheme();
     return (
         <View>
@@ -138,6 +140,7 @@ export const AccordionPill: React.FC<{
                 </Text>
                 <Icon name={expanded ? 'expand-less' : 'add'} size={20} color={color} />
             </TouchableOpacity>
+            {!expanded && summary}
             {expanded && (
                 <View
                     style={{

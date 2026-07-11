@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { BaselineCycleData } from '../models/BaselineCycleData';
-import { calculatePredictedPeriods, getLatestPeriodStart, getCurrentPhase } from '../utils/PredictionEngine';
+import { calculatePredictedPeriods, forwardCycleCount, getLatestPeriodStart, getCurrentPhase } from '../utils/PredictionEngine';
 import type { CyclePhase } from '../utils/PredictionEngine';
 
 export function usePredictions(decryptedData: Record<string, any>, config: BaselineCycleData | null) {
@@ -18,11 +18,14 @@ export function usePredictions(decryptedData: Record<string, any>, config: Basel
         if (!latestStart) {
             return {};
         }
+        // §5: blanket the full forward year of the calendar with watermark dots,
+        // not just the old 3-cycle horizon. forwardCycleCount derives how many
+        // cycles reach one year past today from the current anchor.
         return calculatePredictedPeriods(
             latestStart,
             config.cycleLength,
             config.periodLength,
-            3 // Forecast next 3 cycles
+            forwardCycleCount(latestStart, config.cycleLength)
         );
     }, [decryptedData, config]);
 

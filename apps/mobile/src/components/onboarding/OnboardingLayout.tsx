@@ -6,12 +6,11 @@ import { layout } from '../../theme/layout';
 import {
     createDefaultBaselineCycleData,
     clampValue,
+    toggleEstimatedField,
     PERIOD_MIN,
     PERIOD_MAX,
     CYCLE_MIN,
     CYCLE_MAX,
-    PERIOD_DEFAULT,
-    CYCLE_DEFAULT,
     type BaselineCycleData,
     type EstimatedField,
 } from '../../models/BaselineCycleData';
@@ -37,12 +36,6 @@ const STEP_FIELD: Record<number, EstimatedField | undefined> = {
 };
 
 // ── Pure helpers ────────────────────────────────────────────────────
-
-/** Add a field to the estimated set (idempotent). */
-function markEstimated(fields: EstimatedField[] | undefined, field: EstimatedField): EstimatedField[] {
-    const arr = fields ?? [];
-    return arr.includes(field) ? arr : [...arr, field];
-}
 
 /** Remove a field from the estimated set — the user supplied a real value. */
 function clearEstimated(fields: EstimatedField[] | undefined, field: EstimatedField): EstimatedField[] {
@@ -70,6 +63,14 @@ export const OnboardingLayout: React.FC<OnboardingLayoutProps> = ({
     const [step, setStep] = useState(0);
     const [config, setConfig] = useState<BaselineCycleData>(createDefaultBaselineCycleData);
 
+    // Per-step gating (QA item 7a): pickers default to a value, so "answered"
+    // is an EXPLICIT interaction — the user either touched the picker/date list
+    // or tapped "I'm not sure". Nav stays disabled until then. Keyed by step index.
+    const [answeredSteps, setAnsweredSteps] = useState<Record<number, boolean>>({});
+    const markAnswered = useCallback((s: number, answered: boolean) => {
+        setAnsweredSteps((prev) => ({ ...prev, [s]: answered }));
+    }, []);
+
     // ── Step navigation ───────────────────────────────────────────────
     const goBack = useCallback(() => {
         setStep((s) => Math.max(0, s - 1));
@@ -83,14 +84,18 @@ export const OnboardingLayout: React.FC<OnboardingLayoutProps> = ({
         onComplete(config);
     }, [config, onComplete]);
 
-    // ── Config updaters (manual entry clears the "estimated" flag) ─────
+    // ── Config updaters ───────────────────────────────────────────────
+    // Manual entry clears the "estimated" flag (mutual exclusivity with "I'm not
+    // sure") and marks the step answered (QA item 7a/7b). Each setter belongs to a
+    // fixed step, so the step index is a constant here — no stale-closure risk.
     const setLastPeriodDate = useCallback((date: string) => {
         setConfig((c) => ({
             ...c,
             lastPeriodDate: date,
             estimatedFields: clearEstimated(c.estimatedFields, 'lastPeriodDate'),
         }));
-    }, []);
+        markAnswered(1, true);
+    }, [markAnswered]);
 
     const setPeriodLength = useCallback((v: number) => {
         const clamped = clampValue(v, PERIOD_MIN, PERIOD_MAX);
@@ -99,7 +104,8 @@ export const OnboardingLayout: React.FC<OnboardingLayoutProps> = ({
             periodLength: clamped,
             estimatedFields: clearEstimated(c.estimatedFields, 'periodLength'),
         }));
-    }, []);
+        markAnswered(2, true);
+    }, [markAnswered]);
 
     const setCycleLength = useCallback((v: number) => {
         const clamped = clampValue(v, CYCLE_MIN, CYCLE_MAX);
@@ -108,31 +114,26 @@ export const OnboardingLayout: React.FC<OnboardingLayoutProps> = ({
             cycleLength: clamped,
             estimatedFields: clearEstimated(c.estimatedFields, 'cycleLength'),
         }));
-    }, []);
+        markAnswered(3, true);
+    }, [markAnswered]);
 
-    // ── "I'm not sure" — apply the clinical default & flag as estimated ──
+    // ── "I'm not sure" — toggleable (QA item 7b) ──────────────────────
+    // First tap SELECTS: flag estimated, apply the clinical default, step answered.
+    // Second tap DESELECTS: un-flag, picker un-dims, step returns to unanswered.
     const handleUnsure = useCallback(() => {
         const field = STEP_FIELD[step];
         if (!field) return;
-        setConfig((c) => {
-            const next = { ...c, estimatedFields: markEstimated(c.estimatedFields, field) };
-            if (field === 'lastPeriodDate') {
-                // No real anchor — leave the date undefined. No ledger seeding;
-                // predictions stay dormant until a Period Start is logged.
-                delete next.lastPeriodDate;
-            } else if (field === 'periodLength') {
-                next.periodLength = PERIOD_DEFAULT;
-            } else if (field === 'cycleLength') {
-                next.cycleLength = CYCLE_DEFAULT;
-            }
-            return next;
-        });
-        goNext();
-    }, [step, goNext]);
+        const wasEstimated = (config.estimatedFields ?? []).includes(field);
+        setConfig((c) => toggleEstimatedField(c, field));
+        // Selecting unsure answers the step; deselecting returns it to unanswered.
+        markAnswered(step, !wasEstimated);
+    }, [step, config.estimatedFields, markAnswered]);
 
     // ── Derived per-step state ────────────────────────────────────────
     const currentField = STEP_FIELD[step];
     const isEstimated = currentField ? (config.estimatedFields ?? []).includes(currentField) : false;
+    // The Welcome step needs no answer; input steps require an explicit interaction.
+    const isCurrentAnswered = currentField ? answeredSteps[step] === true : true;
 
     // ── Step rendering ────────────────────────────────────────────────
     const renderStep = () => {
@@ -213,16 +214,30 @@ export const OnboardingLayout: React.FC<OnboardingLayoutProps> = ({
                     </Text>
                 )}
 
-                {/* Tertiary "I'm not sure" — only on input steps, only when not already estimated */}
-                {isInputStep && !isEstimated && (
+                {/* Tertiary "I'm not sure" — toggleable (QA item 7b). Always shown on
+                    input steps; a second tap deselects and returns the step to
+                    unanswered. Reflects its selected state via accessibilityState. */}
+                {isInputStep && (
                     <TouchableOpacity
                         onPress={handleUnsure}
                         style={styles.unsureButton}
                         hitSlop={layout.hitSlop}
                         accessibilityRole="button"
-                        accessibilityLabel="I'm not sure — use a typical value"
+                        accessibilityState={{ selected: isEstimated }}
+                        accessibilityLabel={
+                            isEstimated
+                                ? "I'm not sure — selected, tap to undo"
+                                : "I'm not sure — use a typical value"
+                        }
                     >
-                        <Text style={[styles.unsureText, { color: t.fog }]}>I'm not sure</Text>
+                        <Text
+                            style={[
+                                styles.unsureText,
+                                { color: isEstimated ? t.locketBlue : t.fog },
+                            ]}
+                        >
+                            I'm not sure
+                        </Text>
                     </TouchableOpacity>
                 )}
             </View>
@@ -253,20 +268,34 @@ export const OnboardingLayout: React.FC<OnboardingLayoutProps> = ({
                 {isLastStep ? (
                     <TouchableOpacity
                         onPress={handleSeal}
-                        style={[styles.navButton, styles.ctaButton, { backgroundColor: t.gold }]}
+                        disabled={!isCurrentAnswered}
+                        style={[
+                            styles.navButton,
+                            styles.ctaButton,
+                            { backgroundColor: t.gold },
+                            !isCurrentAnswered && styles.ctaDisabled,
+                        ]}
                         hitSlop={layout.hitSlop}
                         accessibilityLabel="Seal your ledger"
                         accessibilityRole="button"
+                        accessibilityState={{ disabled: !isCurrentAnswered }}
                     >
                         <Text style={[styles.ctaText, { color: t.ink }]}>Seal Ledger</Text>
                     </TouchableOpacity>
                 ) : (
                     <TouchableOpacity
                         onPress={goNext}
-                        style={[styles.navButton, styles.ctaButton, { backgroundColor: t.locketBlue }]}
+                        disabled={!isCurrentAnswered}
+                        style={[
+                            styles.navButton,
+                            styles.ctaButton,
+                            { backgroundColor: t.locketBlue },
+                            !isCurrentAnswered && styles.ctaDisabled,
+                        ]}
                         hitSlop={layout.hitSlop}
                         accessibilityLabel="Next step"
                         accessibilityRole="button"
+                        accessibilityState={{ disabled: !isCurrentAnswered }}
                     >
                         <Text style={[styles.ctaText, styles.ctaTextLight]}>Next</Text>
                     </TouchableOpacity>
@@ -351,6 +380,9 @@ const styles = StyleSheet.create({
     },
     ctaButton: {
         paddingHorizontal: layout.spacing.l,
+    },
+    ctaDisabled: {
+        opacity: 0.4,
     },
     ctaText: {
         fontFamily: typography.heading,

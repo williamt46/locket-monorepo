@@ -2,10 +2,11 @@
  * Data-derived month range for the VerticalCalendar (plan §1 / task T1).
  *
  * Replaces the old fixed −24/+3 window. The range starts at the earliest
- * logged month but never later than a 24-month floor (so a fresh user still
- * gets ~2 years of scroll) and never earlier than a 20-year cap (so a stray
+ * logged month but never later than a 10-year floor (so even a fresh user gets
+ * a decade of back-scroll) and never earlier than a 20-year cap (so a stray
  * mis-dated import can't spawn a blank century of empty grids). It ends one
- * month after the last predicted period, derived from `futureData`.
+ * full year ahead of today (a guaranteed 12 months of forward scroll), or one
+ * month past the last predicted period when predictions run further.
  *
  * Pure and side-effect free so it can be unit-tested with an injected `today`.
  */
@@ -16,9 +17,11 @@ export interface MonthRef {
 }
 
 /** Default floor: always show at least this many months of history. */
-const FLOOR_MONTHS = 24;
+const FLOOR_MONTHS = 120; // 10 years
 /** Hard cap: imports may extend history no further back than this. */
 const CAP_MONTHS = 240; // 20 years
+/** Forward floor: always show at least this many months ahead of today. */
+const FORWARD_MONTHS = 12; // 1 year
 
 /**
  * Parse a ledger/prediction day key ("YYYY-M-D", 0-indexed month) into an
@@ -58,14 +61,16 @@ export function deriveCalendarRange(
     }
     if (startNum < capNum) startNum = capNum;
 
-    // End: one month after the last predicted period; never before today.
+    // End: one month after the last predicted period, but always at least a full
+    // year ahead of today so forward scroll is guaranteed even without predictions.
     let lastFuture = todayNum;
     for (const k of futureKeys) {
         const n = keyToMonthNum(k);
         if (n !== null && n > lastFuture) lastFuture = n;
     }
     let endNum = lastFuture + 1;
-    if (endNum < todayNum) endNum = todayNum;
+    const forwardFloor = todayNum + FORWARD_MONTHS;
+    if (endNum < forwardFloor) endNum = forwardFloor;
 
     const list: MonthRef[] = [];
     for (let n = startNum; n <= endNum; n++) {

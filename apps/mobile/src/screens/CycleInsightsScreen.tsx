@@ -147,7 +147,7 @@ export const CycleInsightsScreen: React.FC = () => {
     const monthName = new Date().toLocaleDateString('en-US', { month: 'long' });
     const fmtStart = (iso: string) => {
         const [y, m, d] = iso.split('-').map(Number);
-        return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     };
 
     return (

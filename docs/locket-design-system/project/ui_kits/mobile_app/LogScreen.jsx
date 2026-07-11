@@ -18,6 +18,7 @@ const LogScreen = ({ date, onBack, onSave }) => {
   const [openCat,  setOpenCat]  = React.useState(null);
   const [selected, setSelected] = React.useState({});
   const [note,     setNote]     = React.useState('');
+  const [temp,     setTemp]     = React.useState(null); // { value, unit } | null
 
   const toggleChip = (cat, key) => setSelected(s => {
     const next = { ...s };
@@ -61,11 +62,11 @@ const LogScreen = ({ date, onBack, onSave }) => {
 
         {/* Period Start / End */}
         <div style={{ display: 'flex', gap: 12 }}>
-          <button onClick={() => setIsStart(v => !v)} style={periodBtnStyle(isStart)} aria-pressed={isStart}>
-            {isStart && <span style={{ marginRight: 6 }}>✓</span>}Start <span style={{ opacity: 0.5, margin: '0 6px' }}>|</span> <span>→</span>
+          <button onClick={() => { setIsStart(v => !v); setIsEnd(false); }} style={periodBtnStyle(isStart)} aria-pressed={isStart}>
+            {isStart && <span style={{ marginRight: 6 }}>✓</span>}Period Start
           </button>
-          <button onClick={() => setIsEnd(v => !v)} style={periodBtnStyle(isEnd)} aria-pressed={isEnd}>
-            {isEnd && <span style={{ marginRight: 6 }}>✓</span>}<span>←</span> <span style={{ opacity: 0.5, margin: '0 6px' }}>|</span> End
+          <button onClick={() => { setIsEnd(v => !v); setIsStart(false); }} style={periodBtnStyle(isEnd)} aria-pressed={isEnd}>
+            {isEnd && <span style={{ marginRight: 6 }}>✓</span>}Period End
           </button>
         </div>
 
@@ -86,7 +87,19 @@ const LogScreen = ({ date, onBack, onSave }) => {
                   color={cat.color}
                   tint={pillTint}
                   expanded={isOpen}
+                  count={sel.size}
                   onToggle={() => setOpenCat(o => o === cat.key ? null : cat.key)}
+                  summary={sel.size > 0 && !isOpen ? (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8, paddingInline: 6 }}>
+                      {Array.from(sel).map(c => (
+                        <span key={c} style={{
+                          padding: '4px 12px', borderRadius: 999,
+                          background: th.cardWhite, border: `1px solid ${cat.color}`,
+                          color: cat.color, fontSize: 12, fontWeight: 600, fontFamily: th.font,
+                        }}>{c}</span>
+                      ))}
+                    </div>
+                  ) : null}
                 >
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, paddingBottom: 6 }}>
                     {cat.chips.map(c => (
@@ -109,6 +122,52 @@ const LogScreen = ({ date, onBack, onSave }) => {
                 </AccordionPill>
               );
             })}
+
+            {/* Temperature (BBT) — accordion card, locket-blue accent, after Triggers */}
+            {(() => {
+              const isOpen = openCat === 'temperature';
+              return (
+                <AccordionPill
+                  icon="device_thermostat"
+                  label="Temperature"
+                  color={T.locketBlue}
+                  tint={th.locketBlueTint}
+                  expanded={isOpen}
+                  count={temp ? 1 : 0}
+                  onToggle={() => setOpenCat(o => o === 'temperature' ? null : 'temperature')}
+                  summary={temp && !isOpen ? (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8, paddingInline: 6 }}>
+                      <span style={{
+                        padding: '4px 12px', borderRadius: 999,
+                        background: th.cardWhite, border: `1px solid ${T.locketBlue}`,
+                        color: T.locketBlue, fontSize: 12, fontWeight: 600, fontFamily: th.font,
+                      }}>{`${temp.value}°${temp.unit}`}</span>
+                    </div>
+                  ) : null}
+                >
+                  {!temp ? (
+                    <button onClick={() => setTemp({ value: 98.2, unit: 'F' })}
+                      style={{ background: 'none', border: 'none', color: T.locketBlue, fontSize: 15, fontWeight: 600, fontFamily: th.font, padding: '8px 0', cursor: 'pointer' }}>
+                      + Add temperature
+                    </button>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                      <button onClick={() => setTemp(p => ({ ...p, value: Math.round((p.value - 0.1) * 10) / 10 }))}
+                        style={{ width: 44, height: 44, borderRadius: 12, border: `1px solid ${th.divider}`, background: th.cardWhite, cursor: 'pointer' }}>–</button>
+                      <div style={{ width: 78, height: 44, borderRadius: 12, border: `1px solid ${th.divider}`, background: th.cardWhite, color: th.ink, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: 17 }}>{temp.value}</div>
+                      <button onClick={() => setTemp(p => ({ ...p, value: Math.round((p.value + 0.1) * 10) / 10 }))}
+                        style={{ width: 44, height: 44, borderRadius: 12, border: `1px solid ${th.divider}`, background: th.cardWhite, cursor: 'pointer' }}>+</button>
+                      {['F', 'C'].map(u => (
+                        <button key={u} onClick={() => setTemp(p => ({ ...p, unit: u }))}
+                          style={{ minWidth: 44, height: 44, paddingInline: 12, borderRadius: 999, border: `1px solid ${T.locketBlue}`, background: temp.unit === u ? T.locketBlue : 'transparent', color: temp.unit === u ? '#FFF' : T.locketBlue, fontWeight: 700, fontSize: 15, cursor: 'pointer', fontFamily: th.font }}>°{u}</button>
+                      ))}
+                      <button onClick={() => setTemp(null)} aria-label="Remove temperature"
+                        style={{ width: 44, height: 44, border: 'none', background: 'none', color: th.whisper, cursor: 'pointer', marginLeft: 'auto' }}>✕</button>
+                    </div>
+                  )}
+                </AccordionPill>
+              );
+            })()}
           </div>
         </Card>
 

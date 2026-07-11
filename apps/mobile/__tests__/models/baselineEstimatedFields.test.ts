@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
     normalizeBaseline,
     hasRealAnchor,
+    toggleEstimatedField,
     createDefaultBaselineCycleData,
     PERIOD_DEFAULT,
     CYCLE_DEFAULT,
@@ -116,6 +117,96 @@ describe('hasRealAnchor', () => {
             hasSeededInitialData: false,
         };
         expect(hasRealAnchor(config)).toBe(false);
+    });
+});
+
+// ── toggleEstimatedField (QA item 7b: "I'm not sure" is toggleable) ──
+//
+// Selecting unsure flags the field and applies the clinical default; a second
+// tap deselects it. Mutually exclusive with a manual value. Pure — never mutates.
+
+describe('toggleEstimatedField', () => {
+    it('SELECT: flags periodLength estimated and applies the default', () => {
+        const config: BaselineCycleData = {
+            periodLength: 8,
+            cycleLength: 28,
+            estimatedFields: [],
+        };
+        const next = toggleEstimatedField(config, 'periodLength');
+        expect(next.estimatedFields).toContain('periodLength');
+        expect(next.periodLength).toBe(PERIOD_DEFAULT);
+    });
+
+    it('SELECT: flags cycleLength estimated and applies the default', () => {
+        const config: BaselineCycleData = {
+            periodLength: 5,
+            cycleLength: 42,
+            estimatedFields: [],
+        };
+        const next = toggleEstimatedField(config, 'cycleLength');
+        expect(next.estimatedFields).toContain('cycleLength');
+        expect(next.cycleLength).toBe(CYCLE_DEFAULT);
+    });
+
+    it('SELECT: flags lastPeriodDate estimated and clears the date (no anchor)', () => {
+        const config: BaselineCycleData = {
+            lastPeriodDate: '2026-02-01',
+            periodLength: 5,
+            cycleLength: 28,
+            estimatedFields: [],
+        };
+        const next = toggleEstimatedField(config, 'lastPeriodDate');
+        expect(next.estimatedFields).toContain('lastPeriodDate');
+        expect(next.lastPeriodDate).toBeUndefined();
+        expect(hasRealAnchor(next)).toBe(false);
+    });
+
+    it('DESELECT: a second toggle removes the estimated flag', () => {
+        const config: BaselineCycleData = {
+            periodLength: 5,
+            cycleLength: 28,
+            estimatedFields: ['periodLength'],
+        };
+        const next = toggleEstimatedField(config, 'periodLength');
+        expect(next.estimatedFields).not.toContain('periodLength');
+    });
+
+    it('DESELECT: leaves other estimated fields intact', () => {
+        const config: BaselineCycleData = {
+            periodLength: 5,
+            cycleLength: 28,
+            estimatedFields: ['periodLength', 'cycleLength'],
+        };
+        const next = toggleEstimatedField(config, 'periodLength');
+        expect(next.estimatedFields).toEqual(['cycleLength']);
+    });
+
+    it('is a round-trip: select then deselect returns to an empty flag set', () => {
+        const config: BaselineCycleData = {
+            periodLength: 9,
+            cycleLength: 28,
+            estimatedFields: [],
+        };
+        const selected = toggleEstimatedField(config, 'periodLength');
+        const deselected = toggleEstimatedField(selected, 'periodLength');
+        expect(deselected.estimatedFields).toEqual([]);
+    });
+
+    it('tolerates a missing estimatedFields (old payload shape) on select', () => {
+        const config = { periodLength: 5, cycleLength: 28 } as BaselineCycleData;
+        const next = toggleEstimatedField(config, 'cycleLength');
+        expect(next.estimatedFields).toEqual(['cycleLength']);
+    });
+
+    it('does not mutate the input config', () => {
+        const config: BaselineCycleData = {
+            periodLength: 5,
+            cycleLength: 28,
+            estimatedFields: [],
+        };
+        toggleEstimatedField(config, 'periodLength');
+        expect(config.estimatedFields).toEqual([]);
+        expect(config.periodLength).toBe(5);
     });
 });
 

@@ -32,6 +32,39 @@ export function calculatePredictedPeriods(
     return predictions;
 }
 
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+/**
+ * How many predicted cycles to forecast so predictions blanket the full forward
+ * year of the calendar (QA §5). Because `latestPeriodStart` may sit up to a
+ * cycle in the past, we count from that anchor forward to `today + windowDays`
+ * and round up, so the last predicted cycle start lands at or beyond the window
+ * edge. A 28-day cycle over a 365-day window yields ~13–14 cycles.
+ *
+ * @param latestPeriodStart ISO "YYYY-MM-DD" anchor (from getLatestPeriodStart).
+ * @param cycleLength       typical cycle length in days.
+ * @param windowDays        forward horizon to cover (default one year).
+ * @param today             injectable "now".
+ */
+export function forwardCycleCount(
+    latestPeriodStart: string,
+    cycleLength: number,
+    windowDays: number = 365,
+    today: Date = new Date(),
+): number {
+    if (!cycleLength || cycleLength <= 0) return 1;
+
+    const [yStr, mStr, dStr] = latestPeriodStart.split('-');
+    const startUTC = Date.UTC(+yStr, +mStr - 1, +dStr);
+    if (isNaN(startUTC)) return 1;
+
+    const todayUTC = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+    const targetUTC = todayUTC + windowDays * MS_PER_DAY;
+
+    const daysAhead = (targetUTC - startUTC) / MS_PER_DAY;
+    return Math.max(1, Math.ceil(daysAhead / cycleLength));
+}
+
 export function getLatestPeriodStart(
     decryptedData: Record<string, any>,
     configLastDate?: string
