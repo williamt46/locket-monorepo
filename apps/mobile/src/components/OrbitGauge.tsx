@@ -49,6 +49,10 @@ interface OrbitGaugeProps {
     learning?: boolean;
     /** Fires as the user drags/taps around the ring; day is 0-indexed. Null = back to today. */
     onPreview?: (day: number | null, phase: Phase) => void;
+    /** Fired when a ring drag begins / ends so the parent can disable scroll
+     *  while scrubbing (belt-and-suspenders with the capture-phase responder). */
+    onInteractionStart?: () => void;
+    onInteractionEnd?: () => void;
 }
 
 /**
@@ -94,6 +98,8 @@ export const OrbitGauge: React.FC<OrbitGaugeProps> = ({
     cycleStartDate: cycleStartProp,
     learning = false,
     onPreview,
+    onInteractionStart,
+    onInteractionEnd,
 }) => {
     const { t } = useTheme();
     const isControlled = previewDay !== undefined;
@@ -193,13 +199,29 @@ export const OrbitGauge: React.FC<OrbitGaugeProps> = ({
     learningRef.current = learning;
     const handleTouchRef = useRef(handleTouch);
     handleTouchRef.current = handleTouch;
+    const onInteractionStartRef = useRef(onInteractionStart);
+    onInteractionStartRef.current = onInteractionStart;
+    const onInteractionEndRef = useRef(onInteractionEnd);
+    onInteractionEndRef.current = onInteractionEnd;
 
     const panResponder = useRef(
         PanResponder.create({
+            // Start in the BUBBLE phase so a stationary tap still reaches the
+            // center "Back to today" button (child wins). Claim MOVE in the
+            // CAPTURE phase so a drag beats the enclosing ScrollView before it
+            // can start scrolling, and refuse to yield the gesture back mid-drag
+            // (TerminationRequest → false). This is what lets you scrub the ring
+            // without the screen scroll stealing the vertical drag.
             onStartShouldSetPanResponder: () => !learningRef.current,
-            onMoveShouldSetPanResponder: () => !learningRef.current,
-            onPanResponderGrant: (evt) => handleTouchRef.current(evt.nativeEvent.locationX, evt.nativeEvent.locationY),
+            onMoveShouldSetPanResponderCapture: () => !learningRef.current,
+            onPanResponderTerminationRequest: () => false,
+            onPanResponderGrant: (evt) => {
+                onInteractionStartRef.current?.();
+                handleTouchRef.current(evt.nativeEvent.locationX, evt.nativeEvent.locationY);
+            },
             onPanResponderMove: (evt) => handleTouchRef.current(evt.nativeEvent.locationX, evt.nativeEvent.locationY),
+            onPanResponderRelease: () => onInteractionEndRef.current?.(),
+            onPanResponderTerminate: () => onInteractionEndRef.current?.(),
         })
     ).current;
 

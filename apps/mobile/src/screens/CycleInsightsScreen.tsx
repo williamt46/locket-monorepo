@@ -42,6 +42,9 @@ export const CycleInsightsScreen: React.FC = () => {
     const { currentPhase, dayInCycle } = usePredictions(decryptedData, config);
 
     const [tab, setTab] = useState('Insights');
+    // Disable screen scroll while the gauge ring is being dragged so the vertical
+    // drag scrubs the marker instead of scrolling the page.
+    const [gaugeActive, setGaugeActive] = useState(false);
 
     const cycleLength = baseline?.cycleLength ?? 28;
     const periodLength = baseline?.periodLength ?? 5;
@@ -167,7 +170,10 @@ export const CycleInsightsScreen: React.FC = () => {
 
             <TabBar tabs={['Insights', 'Cycle Trends']} active={tab} onChange={setTab} />
 
-            <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 40 }]}>
+            <ScrollView
+                contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 40 }]}
+                scrollEnabled={!gaugeActive}
+            >
                 {tab === 'Insights' ? (
                     <View style={{ alignItems: 'center', gap: 24 }}>
                         {/* Phase insight card — follows the gauge preview */}
@@ -185,6 +191,8 @@ export const CycleInsightsScreen: React.FC = () => {
                             cycleStartDate={startDate}
                             learning={learning}
                             onPreview={(day) => selectDay(day)}
+                            onInteractionStart={() => setGaugeActive(true)}
+                            onInteractionEnd={() => setGaugeActive(false)}
                         />
 
                         {/* Phase legend */}
