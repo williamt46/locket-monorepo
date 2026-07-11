@@ -64,7 +64,7 @@ export const PhaseBar: React.FC<PhaseBarProps> = ({ segments, t, simplified }) =
                             borderBottomRightRadius: isLast ? 100 : 0,
                         }}
                     >
-                        {showLabel && <Text style={styles.phaseBarLabel}>{s.count}d</Text>}
+                        {showLabel && <Text style={[styles.phaseBarLabel, { color: t.onAccent }]}>{s.count}d</Text>}
                     </View>
                 );
             })}
@@ -83,7 +83,6 @@ const styles = StyleSheet.create({
     phaseBarLabel: {
         fontFamily: font(800),
         fontSize: 9.5,
-        color: '#FFFFFF',
         letterSpacing: 0.3,
     },
 });

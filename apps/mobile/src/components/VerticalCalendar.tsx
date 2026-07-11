@@ -1,5 +1,5 @@
-import React, { useMemo, useRef, useImperativeHandle, forwardRef, useCallback } from 'react';
-import { StyleSheet, View, Text, FlatList, Dimensions } from 'react-native';
+import React, { useMemo, useRef, useImperativeHandle, forwardRef, useCallback, useState, useEffect } from 'react';
+import { StyleSheet, View, Text, FlatList, Dimensions, AppState } from 'react-native';
 import { MonthGrid } from './MonthGrid';
 import { Card } from './DesignSystem';
 import { useTheme } from '../theme/ThemeContext';
@@ -37,6 +37,10 @@ function bucketByMonth<V>(map: Record<string, V>): Record<string, Record<string,
     return buckets;
 }
 
+// Today as "year-monthIndex-day" (0-indexed month, matching the data-key/grid
+// coordinate format MonthGrid indexes by).
+const makeTodayKey = (d: Date = new Date()) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const H_PADDING = 20;   // list horizontal padding
 const CARD_PADDING = 16;
@@ -64,6 +68,20 @@ export const VerticalCalendar = forwardRef<VerticalCalendarHandle, VerticalCalen
     ({ data, futureData, onToggleDate }, ref) => {
         const { t } = useTheme();
         const listRef = useRef<FlatList<MonthRef>>(null);
+
+        // Recompute "today" when the app returns to foreground so the today ring
+        // and the no-future-logging guard don't stick on a stale day across
+        // midnight. Only re-renders the grids when the day actually changed.
+        const [todayKey, setTodayKey] = useState(makeTodayKey);
+        useEffect(() => {
+            const sub = AppState.addEventListener('change', (state) => {
+                if (state === 'active') {
+                    const next = makeTodayKey();
+                    setTodayKey((prev) => (prev === next ? prev : next));
+                }
+            });
+            return () => sub.remove();
+        }, []);
 
         // Data-derived month range (replaces the fixed −24/+3 window).
         const months = useMemo<MonthRef[]>(
@@ -121,6 +139,7 @@ export const VerticalCalendar = forwardRef<VerticalCalendarHandle, VerticalCalen
                             futureData={futureByMonth[monthKey] ?? EMPTY_FUTURE}
                             onToggleDate={onToggleDate}
                             cellSize={CELL_SIZE}
+                            todayKey={todayKey}
                         />
                     </Card>
                 </View>
@@ -134,6 +153,7 @@ export const VerticalCalendar = forwardRef<VerticalCalendarHandle, VerticalCalen
                 renderItem={renderItem}
                 keyExtractor={(m) => `${m.year}-${m.monthIndex}`}
                 showsVerticalScrollIndicator={false}
+                extraData={todayKey}
                 initialScrollIndex={todayIndex}
                 getItemLayout={(_, index) => ({ length: ITEM_HEIGHT, offset: ITEM_HEIGHT * index, index })}
                 contentContainerStyle={{ paddingHorizontal: H_PADDING, paddingTop: 8, paddingBottom: 64 }}

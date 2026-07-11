@@ -64,7 +64,7 @@ export const SaveReminderModal: React.FC<SaveReminderModalProps> = ({
             accessibilityRole="button"
             accessibilityLabel="Save your changes"
           >
-            <Text style={styles.primaryText}>Save</Text>
+            <Text style={[styles.primaryText, { color: t.onAccent }]}>Save</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -141,7 +141,6 @@ const styles = StyleSheet.create({
   primaryText: {
     fontFamily: font(600),
     fontSize: 15,
-    color: '#FFFFFF',
   },
   destructiveButton: {
     paddingVertical: 12,

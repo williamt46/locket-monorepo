@@ -253,12 +253,21 @@ export const OrbitGauge: React.FC<OrbitGaugeProps> = ({
             accessible
             accessibilityRole="adjustable"
             accessibilityLabel={a11yLabel}
-            accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+            accessibilityActions={
+                isPreviewing
+                    ? [{ name: 'increment' }, { name: 'decrement' }, { name: 'activate', label: 'Back to today' }]
+                    : [{ name: 'increment' }, { name: 'decrement' }]
+            }
             onAccessibilityAction={(e) => {
                 if (e.nativeEvent.actionName === 'increment') {
                     emitPreview(Math.min(day + 1, cycle - 1));
                 } else if (e.nativeEvent.actionName === 'decrement') {
                     emitPreview(Math.max(day - 1, 0));
+                } else if (e.nativeEvent.actionName === 'activate') {
+                    // Restores the "Back to today" affordance lost when the center
+                    // reset button was hidden from the a11y tree (VoiceOver
+                    // double-tap on the adjustable snaps the preview back to today).
+                    emitPreview(null);
                 }
             }}
         >

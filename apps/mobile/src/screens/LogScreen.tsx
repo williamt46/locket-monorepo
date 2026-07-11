@@ -482,7 +482,7 @@ export const LogScreen: React.FC = () => {
             accessibilityLabel={isStart ? 'Period start marked' : 'Mark period start'}
             accessibilityState={{ selected: isStart }}
           >
-            {isStart && <Icon name="check" size={16} color="#FFFFFF" />}
+            {isStart && <Icon name="check" size={16} color={t.onAccent} />}
             <Text style={[styles.periodBtnText, !isStart && { color: t.luteal }]}>Period Start</Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -492,7 +492,7 @@ export const LogScreen: React.FC = () => {
             accessibilityLabel={isEnd ? 'Period end marked' : 'Mark period end'}
             accessibilityState={{ selected: isEnd }}
           >
-            {isEnd && <Icon name="check" size={16} color="#FFFFFF" />}
+            {isEnd && <Icon name="check" size={16} color={t.onAccent} />}
             <Text style={[styles.periodBtnText, !isEnd && { color: t.luteal }]}>Period End</Text>
           </TouchableOpacity>
         </View>
@@ -649,7 +649,7 @@ export const LogScreen: React.FC = () => {
                           selected && { backgroundColor: t.locketBlue },
                         ]}
                       >
-                        <Text style={[styles.tempUnitText, { color: selected ? '#FFFFFF' : t.locketBlue }]}>°{u}</Text>
+                        <Text style={[styles.tempUnitText, { color: selected ? t.onAccent : t.locketBlue }]}>°{u}</Text>
                       </TouchableOpacity>
                     );
                   })}

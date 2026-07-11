@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, View, Text, TouchableOpacity, TextInput, StyleSheet, Alert } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { font } from '../theme/typography';
 import { Icon } from './Icon';
+import { RecentDatePicker } from './RecentDatePicker';
 import { getUserConfig, saveUserConfig, nukeBaseline } from '../services/StorageService';
 import {
     BaselineCycleData,
@@ -156,19 +157,26 @@ export const BaselineConfigSheet: React.FC<BaselineConfigSheetProps> = ({ visibl
                         Edits the stored BaselineCycleData used for predictions. Developer tool — changes apply immediately.
                     </Text>
 
-                    <View style={styles.fieldRow}>
+                    <View style={styles.dateSectionHeader}>
                         <Text style={[styles.fieldLabel, { color: t.ink }]}>Last period start</Text>
-                        <TextInput
-                            style={[styles.dateInput, { borderColor: t.divider, color: t.ink }]}
-                            value={lastPeriodDate}
-                            onChangeText={setLastPeriodDate}
-                            placeholder="YYYY-MM-DD"
-                            placeholderTextColor={t.whisper}
-                            autoCapitalize="none"
-                            autoCorrect={false}
-                            accessibilityLabel="Last period start date"
-                        />
+                        <TouchableOpacity
+                            onPress={() => setLastPeriodDate('')}
+                            accessibilityRole="button"
+                            accessibilityLabel="I'm not sure — clear the date"
+                        >
+                            <Text style={[styles.unsure, { color: lastPeriodDate ? t.locketBlue : t.fog }]}>
+                                I'm not sure
+                            </Text>
+                        </TouchableOpacity>
                     </View>
+                    <View style={[styles.pickerBox, { borderColor: t.divider }]}>
+                        <RecentDatePicker value={lastPeriodDate} onChange={setLastPeriodDate} />
+                    </View>
+                    {!lastPeriodDate && (
+                        <Text style={[styles.unsureHint, { color: t.fog }]}>
+                            No date set — predictions stay dormant until you log a period start.
+                        </Text>
+                    )}
 
                     <Stepper label={`Period length (${PERIOD_MIN}–${PERIOD_MAX})`} value={periodLength} min={PERIOD_MIN} max={PERIOD_MAX} onChange={setPeriodLength} />
                     <Stepper label={`Cycle length (${CYCLE_MIN}–${CYCLE_MAX})`} value={cycleLength} min={CYCLE_MIN} max={CYCLE_MAX} onChange={setCycleLength} />
@@ -180,7 +188,7 @@ export const BaselineConfigSheet: React.FC<BaselineConfigSheetProps> = ({ visibl
                         accessibilityRole="button"
                         accessibilityLabel="Save baseline"
                     >
-                        <Text style={styles.saveText}>Save Baseline</Text>
+                        <Text style={[styles.saveText, { color: t.onAccent }]}>Save Baseline</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity onPress={handleClear} style={styles.clearBtn} accessibilityRole="button" accessibilityLabel="Clear config and restart onboarding">
@@ -232,15 +240,29 @@ const styles = StyleSheet.create({
         fontSize: 15,
         flexShrink: 1,
     },
-    dateInput: {
+    dateSectionHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 8,
+    },
+    unsure: {
+        fontFamily: font(600),
+        fontSize: 14,
+    },
+    pickerBox: {
+        height: 200,
         borderWidth: 1,
-        borderRadius: 10,
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        fontFamily: font(500),
-        fontSize: 15,
-        minWidth: 140,
-        textAlign: 'center',
+        borderRadius: 12,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        marginBottom: 12,
+    },
+    unsureHint: {
+        fontFamily: font(400),
+        fontSize: 13,
+        lineHeight: 18,
+        marginBottom: 12,
     },
     stepper: {
         flexDirection: 'row',
@@ -269,7 +291,6 @@ const styles = StyleSheet.create({
     saveText: {
         fontFamily: font(600),
         fontSize: 15,
-        color: '#FFFFFF',
     },
     clearBtn: {
         alignItems: 'center',

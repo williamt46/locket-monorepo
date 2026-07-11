@@ -297,7 +297,7 @@ export const OnboardingLayout: React.FC<OnboardingLayoutProps> = ({
                         accessibilityRole="button"
                         accessibilityState={{ disabled: !isCurrentAnswered }}
                     >
-                        <Text style={[styles.ctaText, styles.ctaTextLight]}>Next</Text>
+                        <Text style={[styles.ctaText, { color: t.onAccent }]}>Next</Text>
                     </TouchableOpacity>
                 )}
             </View>
@@ -388,8 +388,5 @@ const styles = StyleSheet.create({
         fontFamily: typography.heading,
         fontSize: typography.sizes.body,
         fontWeight: typography.weights.bold as any,
-    },
-    ctaTextLight: {
-        color: '#FFFFFF',
     },
 });

@@ -18,6 +18,14 @@ interface Props {
      */
     onToggleDate?: (year: number, monthIndex: number, day: number) => void;
     cellSize: number;
+    /**
+     * Today as "year-monthIndex-day" (0-indexed month). Passing it as a prop
+     * (rather than reading new Date() only in render) lets the memoized grid
+     * re-render when the calendar day actually changes — e.g. the parent bumps
+     * it on app foreground so the "today" ring doesn't stick on yesterday across
+     * midnight. Also the reference point for the no-future-logging guard.
+     */
+    todayKey?: string;
 }
 
 /**
@@ -35,6 +43,7 @@ const MonthGridComponent: React.FC<Props> = ({
     futureData = {},
     onToggleDate,
     cellSize,
+    todayKey,
 }) => {
     const { t } = useTheme();
 
@@ -43,9 +52,16 @@ const MonthGridComponent: React.FC<Props> = ({
     const blanks = Array.from({ length: startDay }, (_, i) => i);
     const days = Array.from({ length: totalDays }, (_, i) => i + 1);
 
-    const today = new Date();
-    const isCurrentMonth = today.getFullYear() === year && today.getMonth() === monthIndex;
-    const currentDay = today.getDate();
+    // Parse today from the prop (falls back to now); "year-monthIndex-day".
+    const [ty, tm, td] = todayKey
+        ? todayKey.split('-').map(Number)
+        : (() => {
+            const n = new Date();
+            return [n.getFullYear(), n.getMonth(), n.getDate()];
+        })();
+    const isCurrentMonth = ty === year && tm === monthIndex;
+    const currentDay = td;
+    const todayTime = new Date(ty, tm, td).getTime();
 
     const renderCell = (day: number) => {
         const key = `${year}-${monthIndex}-${day}`;
@@ -58,6 +74,9 @@ const MonthGridComponent: React.FC<Props> = ({
 
         const isFuture = futureData[key];
         const isToday = isCurrentMonth && day === currentDay;
+        // A calendar date after today can't be logged (distinct from `isFuture`,
+        // which is a *prediction* watermark). Such cells are non-interactive.
+        const isFutureCalendar = new Date(year, monthIndex, day).getTime() > todayTime;
 
         let backgroundColor = 'transparent';
         let textColor = t.charcoal;
@@ -67,7 +86,7 @@ const MonthGridComponent: React.FC<Props> = ({
 
         if (isPeriod) {
             backgroundColor = t.menstrual;
-            textColor = '#FFFFFF';
+            textColor = t.onAccent;
             weight = 600;
         } else if (isFuture) {
             backgroundColor = t.watermark;
@@ -78,6 +97,10 @@ const MonthGridComponent: React.FC<Props> = ({
             borderColor = t.locketBlue;
             textColor = t.locketBlue;
             weight = 600;
+        }
+        // Non-predicted future days read as inactive (muted, not loggable).
+        if (isFutureCalendar && !isFuture) {
+            textColor = t.whisper;
         }
 
         const inner = (
@@ -104,9 +127,15 @@ const MonthGridComponent: React.FC<Props> = ({
             </>
         );
 
-        if (!onToggleDate) {
+        // Read-only when there's no toggle handler, or the day is in the future
+        // (future dates can't be logged).
+        if (!onToggleDate || isFutureCalendar) {
             return (
-                <View key={day} style={[styles.dateContainer, { width: cellSize, height: cellSize }]}>
+                <View
+                    key={day}
+                    style={[styles.dateContainer, { width: cellSize, height: cellSize }]}
+                    accessibilityElementsHidden={isFutureCalendar}
+                >
                     {inner}
                 </View>
             );
