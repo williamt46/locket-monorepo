@@ -4,6 +4,7 @@ import { MonthGrid } from './MonthGrid';
 import { Card } from './DesignSystem';
 import { useTheme } from '../theme/ThemeContext';
 import { font } from '../theme/typography';
+import { deriveCalendarRange, MonthRef } from '../utils/calendarRange';
 
 const MONTH_NAMES = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -11,10 +12,30 @@ const MONTH_NAMES = [
 ];
 
 // One continuous vertical scroll of months (design-system Ledger pattern).
-// Window: MONTHS_BACK before the current month through MONTHS_FORWARD after,
-// covering logged history and the 3-cycle prediction horizon.
-const MONTHS_BACK = 24;
-const MONTHS_FORWARD = 3;
+// The visible range is data-derived (see deriveCalendarRange): earliest logged
+// month with a 24-month floor / 20-year cap → one month past the last predicted
+// period. No fixed window constants.
+
+// Shared frozen empties so months with no data/predictions pass a *stable*
+// reference into the memoized MonthGrid and never re-render.
+const EMPTY_DATA: Record<string, any> = Object.freeze({});
+const EMPTY_FUTURE: Record<string, boolean> = Object.freeze({});
+
+// Bucket a "YYYY-M-D"-keyed map into per-month sub-maps keyed "YYYY-M".
+// Each bucket keeps the original full day keys, so MonthGrid still indexes by
+// `${year}-${monthIndex}-${day}` unchanged.
+function bucketByMonth<V>(map: Record<string, V>): Record<string, Record<string, V>> {
+    const buckets: Record<string, Record<string, V>> = {};
+    for (const key in map) {
+        const first = key.indexOf('-');
+        if (first < 0) continue;
+        const second = key.indexOf('-', first + 1);
+        if (second < 0) continue;
+        const monthKey = key.slice(0, second);
+        (buckets[monthKey] ??= {})[key] = map[key];
+    }
+    return buckets;
+}
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const H_PADDING = 20;   // list horizontal padding
@@ -27,11 +48,6 @@ const WEEK_HEADER = 27;
 const GRID_HEIGHT = CELL_SIZE * 6;
 const MONTH_MARGIN = 28;
 const ITEM_HEIGHT = TITLE_BLOCK + CARD_PADDING * 2 + WEEK_HEADER + GRID_HEIGHT + MONTH_MARGIN;
-
-interface MonthRef {
-    year: number;
-    monthIndex: number;
-}
 
 interface VerticalCalendarProps {
     data: Record<string, any>;
@@ -49,24 +65,35 @@ export const VerticalCalendar = forwardRef<VerticalCalendarHandle, VerticalCalen
         const { t } = useTheme();
         const listRef = useRef<FlatList<MonthRef>>(null);
 
-        const months = useMemo<MonthRef[]>(() => {
+        // Data-derived month range (replaces the fixed −24/+3 window).
+        const months = useMemo<MonthRef[]>(
+            () => deriveCalendarRange(Object.keys(data), Object.keys(futureData ?? {}), new Date()),
+            [data, futureData]
+        );
+
+        // Index of the current month within the derived range — the calendar
+        // opens here and the Today pill scrolls back to it.
+        const todayIndex = useMemo(() => {
             const now = new Date();
-            const list: MonthRef[] = [];
-            for (let offset = -MONTHS_BACK; offset <= MONTHS_FORWARD; offset++) {
-                const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
-                list.push({ year: d.getFullYear(), monthIndex: d.getMonth() });
-            }
-            return list;
-        }, []);
+            const idx = months.findIndex(
+                (m) => m.year === now.getFullYear() && m.monthIndex === now.getMonth()
+            );
+            return idx >= 0 ? idx : Math.max(0, months.length - 1);
+        }, [months]);
+
+        // Pre-bucket both maps by "year-monthIndex" once per data change so each
+        // MonthGrid receives only its own slice (stable ref → memo holds).
+        const dataByMonth = useMemo(() => bucketByMonth(data), [data]);
+        const futureByMonth = useMemo(() => bucketByMonth(futureData ?? {}), [futureData]);
 
         const indexOfDate = useCallback(
             (date: Date) => {
                 const idx = months.findIndex(
                     (m) => m.year === date.getFullYear() && m.monthIndex === date.getMonth()
                 );
-                return idx >= 0 ? idx : MONTHS_BACK;
+                return idx >= 0 ? idx : todayIndex;
             },
-            [months]
+            [months, todayIndex]
         );
 
         useImperativeHandle(ref, () => ({
@@ -74,38 +101,40 @@ export const VerticalCalendar = forwardRef<VerticalCalendarHandle, VerticalCalen
                 listRef.current?.scrollToIndex({ index: indexOfDate(date), animated, viewPosition: 0.15 });
             },
             scrollToToday: () => {
-                listRef.current?.scrollToIndex({ index: MONTHS_BACK, animated: true, viewPosition: 0.15 });
+                listRef.current?.scrollToIndex({ index: todayIndex, animated: true, viewPosition: 0.15 });
             },
         }));
 
-        const renderItem = ({ item }: { item: MonthRef }) => (
-            <View style={{ height: ITEM_HEIGHT }}>
-                <View style={styles.titleBlock}>
-                    <Text style={[styles.monthTitle, { color: t.ink }]}>{MONTH_NAMES[item.monthIndex]}</Text>
-                    <Text style={[styles.yearTitle, { color: t.fog }]}>{item.year}</Text>
+        const renderItem = ({ item }: { item: MonthRef }) => {
+            const monthKey = `${item.year}-${item.monthIndex}`;
+            return (
+                <View style={{ height: ITEM_HEIGHT }}>
+                    <View style={styles.titleBlock}>
+                        <Text style={[styles.monthTitle, { color: t.ink }]}>{MONTH_NAMES[item.monthIndex]}</Text>
+                        <Text style={[styles.yearTitle, { color: t.fog }]}>{item.year}</Text>
+                    </View>
+                    <Card padding={CARD_PADDING}>
+                        <MonthGrid
+                            year={item.year}
+                            monthIndex={item.monthIndex}
+                            data={dataByMonth[monthKey] ?? EMPTY_DATA}
+                            futureData={futureByMonth[monthKey] ?? EMPTY_FUTURE}
+                            onToggleDate={onToggleDate}
+                            cellSize={CELL_SIZE}
+                        />
+                    </Card>
                 </View>
-                <Card padding={CARD_PADDING}>
-                    <MonthGrid
-                        year={item.year}
-                        monthIndex={item.monthIndex}
-                        data={data}
-                        futureData={futureData}
-                        onToggle={(day) => onToggleDate(item.year, item.monthIndex, day)}
-                        cellSize={CELL_SIZE}
-                    />
-                </Card>
-            </View>
-        );
+            );
+        };
 
         return (
             <FlatList
                 ref={listRef}
                 data={months}
-                extraData={data}
                 renderItem={renderItem}
                 keyExtractor={(m) => `${m.year}-${m.monthIndex}`}
                 showsVerticalScrollIndicator={false}
-                initialScrollIndex={MONTHS_BACK}
+                initialScrollIndex={todayIndex}
                 getItemLayout={(_, index) => ({ length: ITEM_HEIGHT, offset: ITEM_HEIGHT * index, index })}
                 contentContainerStyle={{ paddingHorizontal: H_PADDING, paddingTop: 8, paddingBottom: 64 }}
                 onScrollToIndexFailed={(info) => {

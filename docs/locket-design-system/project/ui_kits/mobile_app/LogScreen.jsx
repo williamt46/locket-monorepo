@@ -33,10 +33,9 @@ const LogScreen = ({ date, onBack, onSave }) => {
 
   const periodBtnStyle = (active) => ({
     flex: 1, padding: '14px 18px', borderRadius: 14,
-    background: T.luteal, color: '#FFF',
+    background: active ? T.luteal : T.lutealTint, color: active ? '#FFF' : T.luteal,
     fontSize: 15, fontWeight: 700, border: 'none', cursor: 'pointer',
     fontFamily: th.font,
-    opacity: active ? 1 : 0.92,
     boxShadow: active ? `0 4px 14px -4px ${T.luteal}` : 'none',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     transition: 'all 150ms',
@@ -62,11 +61,11 @@ const LogScreen = ({ date, onBack, onSave }) => {
 
         {/* Period Start / End */}
         <div style={{ display: 'flex', gap: 12 }}>
-          <button onClick={() => setIsStart(v => !v)} style={periodBtnStyle(isStart)}>
-            Start <span style={{ opacity: 0.5, margin: '0 6px' }}>|</span> <span>→</span>
+          <button onClick={() => setIsStart(v => !v)} style={periodBtnStyle(isStart)} aria-pressed={isStart}>
+            {isStart && <span style={{ marginRight: 6 }}>✓</span>}Start <span style={{ opacity: 0.5, margin: '0 6px' }}>|</span> <span>→</span>
           </button>
-          <button onClick={() => setIsEnd(v => !v)} style={periodBtnStyle(isEnd)}>
-            <span>←</span> <span style={{ opacity: 0.5, margin: '0 6px' }}>|</span> End
+          <button onClick={() => setIsEnd(v => !v)} style={periodBtnStyle(isEnd)} aria-pressed={isEnd}>
+            {isEnd && <span style={{ marginRight: 6 }}>✓</span>}<span>←</span> <span style={{ opacity: 0.5, margin: '0 6px' }}>|</span> End
           </button>
         </div>
 

@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
-import { colors } from '../../theme/colors';
+import { useTheme } from '../../theme/ThemeContext';
 import { typography } from '../../theme/typography';
 import { layout } from '../../theme/layout';
 import { clampValue } from '../../models/BaselineCycleData';
@@ -20,6 +20,8 @@ interface StepNumberPickerProps {
     label: string;
     /** Unit label (e.g. "days") */
     unit: string;
+    /** When true, the value is a typical/estimated default — dim the picker (T7/§4). */
+    dimmed?: boolean;
 }
 
 // ── Component ───────────────────────────────────────────────────────
@@ -35,7 +37,10 @@ export const StepNumberPicker: React.FC<StepNumberPickerProps> = ({
     max,
     label,
     unit,
+    dimmed = false,
 }) => {
+    const { t } = useTheme();
+
     const increment = useCallback(() => {
         onChange(clampValue(value + 1, min, max));
     }, [value, onChange, min, max]);
@@ -49,42 +54,46 @@ export const StepNumberPicker: React.FC<StepNumberPickerProps> = ({
 
     return (
         <View style={styles.container}>
-            <Text style={styles.label}>{label}</Text>
+            <Text style={[styles.label, { color: t.ink }]}>{label}</Text>
 
-            <View style={styles.pickerRow}>
+            <View style={[styles.pickerRow, dimmed && styles.dimmed]}>
                 <TouchableOpacity
                     onPress={decrement}
                     disabled={atMin}
-                    style={[styles.chevronButton, atMin && styles.chevronDisabled]}
+                    style={[
+                        styles.chevronButton,
+                        { backgroundColor: t.paleLavender },
+                        atMin && styles.chevronDisabled,
+                    ]}
                     hitSlop={layout.hitSlop}
                     accessibilityLabel={`Decrease ${label}`}
                     accessibilityRole="button"
                 >
-                    <Text style={[styles.chevron, atMin && styles.chevronTextDisabled]}>
-                        ▼
-                    </Text>
+                    <Text style={[styles.chevron, { color: atMin ? t.fog : t.ink }]}>▼</Text>
                 </TouchableOpacity>
 
                 <View style={styles.valueContainer}>
-                    <Text style={styles.value}>{value}</Text>
-                    <Text style={styles.unit}>{unit}</Text>
+                    <Text style={[styles.value, { color: t.locketBlue }]}>{value}</Text>
+                    <Text style={[styles.unit, { color: t.fog }]}>{unit}</Text>
                 </View>
 
                 <TouchableOpacity
                     onPress={increment}
                     disabled={atMax}
-                    style={[styles.chevronButton, atMax && styles.chevronDisabled]}
+                    style={[
+                        styles.chevronButton,
+                        { backgroundColor: t.paleLavender },
+                        atMax && styles.chevronDisabled,
+                    ]}
                     hitSlop={layout.hitSlop}
                     accessibilityLabel={`Increase ${label}`}
                     accessibilityRole="button"
                 >
-                    <Text style={[styles.chevron, atMax && styles.chevronTextDisabled]}>
-                        ▲
-                    </Text>
+                    <Text style={[styles.chevron, { color: atMax ? t.fog : t.ink }]}>▲</Text>
                 </TouchableOpacity>
             </View>
 
-            <Text style={styles.range}>
+            <Text style={[styles.range, { color: t.fog }]}>
                 {min} – {max} {unit}
             </Text>
         </View>
@@ -101,7 +110,6 @@ const styles = StyleSheet.create({
     label: {
         fontFamily: typography.heading,
         fontSize: typography.sizes.h2,
-        color: colors.charcoal,
         textAlign: 'center',
         marginBottom: layout.spacing.l,
     },
@@ -110,11 +118,13 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: layout.spacing.xl,
     },
+    dimmed: {
+        opacity: 0.4,
+    },
     chevronButton: {
         width: 56,
         height: 56,
         borderRadius: layout.borderRadius.l,
-        backgroundColor: colors.watermark,
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -123,10 +133,6 @@ const styles = StyleSheet.create({
     },
     chevron: {
         fontSize: 24,
-        color: colors.charcoal,
-    },
-    chevronTextDisabled: {
-        color: colors.graphite,
     },
     valueContainer: {
         alignItems: 'center',
@@ -135,19 +141,16 @@ const styles = StyleSheet.create({
     value: {
         fontFamily: typography.heading,
         fontSize: 48,
-        color: colors.inkBlue,
         fontWeight: typography.weights.bold as any,
     },
     unit: {
         fontFamily: typography.body,
         fontSize: typography.sizes.caption,
-        color: colors.graphite,
         marginTop: layout.spacing.xs,
     },
     range: {
         fontFamily: typography.body,
         fontSize: typography.sizes.caption,
-        color: colors.graphite,
         marginTop: layout.spacing.m,
         opacity: 0.6,
     },

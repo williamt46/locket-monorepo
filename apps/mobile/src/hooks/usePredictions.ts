@@ -13,6 +13,11 @@ export function usePredictions(decryptedData: Record<string, any>, config: Basel
         }
 
         const latestStart = getLatestPeriodStart(decryptedData, config.lastPeriodDate);
+        // T7/§4: no anchor (no logged Period Start and last-period-date unknown) →
+        // predictions stay dormant until the first Period Start is logged.
+        if (!latestStart) {
+            return {};
+        }
         return calculatePredictedPeriods(
             latestStart,
             config.cycleLength,
@@ -91,6 +96,8 @@ export function usePredictions(decryptedData: Record<string, any>, config: Basel
     const { phase: currentPhase, dayInCycle } = useMemo(() => {
         if (!config) return { phase: 'unknown' as CyclePhase, dayInCycle: 0 };
         const latestStart = getLatestPeriodStart(decryptedData, config.lastPeriodDate);
+        // T7/§4: dormant until a Period Start anchors the cycle.
+        if (!latestStart) return { phase: 'unknown' as CyclePhase, dayInCycle: 0 };
         return getCurrentPhase(latestStart, config.cycleLength, config.periodLength);
     }, [decryptedData, config]);
 

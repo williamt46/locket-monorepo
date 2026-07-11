@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildCycleHistory, segmentCycle } from '../../src/utils/cycleHistory';
+import { buildCycleHistory, segmentCycle, earliestLoggedDate } from '../../src/utils/cycleHistory';
 
 // Keys use the ledger's "YYYY-M-D" format (0-indexed month).
 const periodDays = (year: number, month0: number, startDay: number, len: number) => {
@@ -140,6 +140,93 @@ describe('buildCycleHistory', () => {
         const h = buildCycleHistory(periodDays(2026, 1, 1, 5), { cycleLength: 28, periodLength: 5 }, TODAY);
         expect(h.cycles[0].lengthDays).toBeGreaterThanOrEqual(134);
         expect(h.cycles[0].segments.find((s) => s.phase === 'future')).toBeUndefined();
+    });
+
+    describe('date-window (windowStart) param', () => {
+        // Four period starts: Jan, Feb, Mar, Apr 2026 (each 5 days, ~28d apart).
+        const data = {
+            ...periodDays(2026, 0, 1, 5),  // Jan 1
+            ...periodDays(2026, 0, 29, 5), // Jan 29 → cycle 28d
+            ...periodDays(2026, 1, 26, 5), // Feb 26 → cycle 28d
+            ...periodDays(2026, 2, 26, 5), // Mar 26 → cycle 28d
+        };
+        const APR_TODAY = new Date(2026, 3, 10); // Apr 10 2026
+
+        it('includes every cycle when windowStart is null/omitted', () => {
+            const h = buildCycleHistory(data, { cycleLength: 28, periodLength: 5 }, APR_TODAY, null);
+            // 4 runs → 3 completed + 1 in-flight current = 4 cycles
+            expect(h.cycles).toHaveLength(4);
+        });
+
+        it('drops cycles whose period days fall entirely before the window', () => {
+            // Window from Feb 26 → only the Feb, Mar runs contribute (Jan runs excluded)
+            const h = buildCycleHistory(data, { cycleLength: 28, periodLength: 5 }, APR_TODAY, new Date(2026, 1, 26));
+            const starts = h.cycles.map((c) => c.startDate);
+            expect(starts).toContain('2026-03-26');
+            expect(starts).toContain('2026-02-26');
+            expect(starts).not.toContain('2026-01-29');
+            expect(starts).not.toContain('2026-01-01');
+        });
+
+        it('recomputes averages from only the in-window cycles', () => {
+            // Full history avg cycle = 28. Add one long cycle before the window that
+            // would skew the all-time average, then window it out.
+            const skewed = {
+                ...periodDays(2025, 11, 1, 5),  // Dec 1 2025 (~87d before Feb → long completed cycle)
+                ...periodDays(2026, 1, 26, 5),  // Feb 26 2026
+                ...periodDays(2026, 2, 26, 5),  // Mar 26 2026 → 28d cycle
+            };
+            const all = buildCycleHistory(skewed, { cycleLength: 28, periodLength: 5 }, APR_TODAY, null);
+            const windowed = buildCycleHistory(skewed, { cycleLength: 28, periodLength: 5 }, APR_TODAY, new Date(2026, 1, 1));
+            // All-time avg is skewed by the ~87d Dec→Feb cycle; windowing to Feb keeps
+            // only the Feb/Mar runs so the average is the clean 28.
+            expect(all.avgCycleDays).toBeGreaterThan(28);
+            expect(windowed.avgCycleDays).toBe(28);
+            expect(windowed.cycles.every((c) => c.startDate >= '2026-02')).toBe(true);
+            expect(all.cycles.some((c) => c.startDate.startsWith('2025'))).toBe(true);
+        });
+
+        it('yields <2 cycles when the window is narrower than one full cycle', () => {
+            // Window from Apr 1 → only the in-flight Mar-26 run has any period day ≥ Apr 1?
+            // Mar 26-30 all < Apr 1, so nothing survives → empty history.
+            const h = buildCycleHistory(data, { cycleLength: 28, periodLength: 5 }, APR_TODAY, new Date(2026, 3, 1));
+            expect(h.cycles.length).toBeLessThan(2);
+        });
+
+        it('keeps a run whose period days straddle the window boundary', () => {
+            // Window Mar 28: Mar 26-30 run has Mar 28-30 ≥ boundary → survives as current.
+            const h = buildCycleHistory(data, { cycleLength: 28, periodLength: 5 }, APR_TODAY, new Date(2026, 2, 28));
+            const starts = h.cycles.map((c) => c.startDate);
+            expect(starts).toContain('2026-03-28');
+        });
+    });
+
+    describe('earliestLoggedDate', () => {
+        it('returns null when nothing is logged', () => {
+            expect(earliestLoggedDate({})).toBeNull();
+        });
+
+        it('returns the earliest period day as a local Date', () => {
+            const data = {
+                ...periodDays(2026, 2, 26, 5),
+                ...periodDays(2026, 0, 1, 5),
+            };
+            const d = earliestLoggedDate(data)!;
+            expect(d.getFullYear()).toBe(2026);
+            expect(d.getMonth()).toBe(0);
+            expect(d.getDate()).toBe(1);
+        });
+
+        it('ignores malformed keys and non-period entries', () => {
+            const data: Record<string, any> = {
+                'bad-key': { isPeriod: true },
+                '2026-5-10': { isPeriod: false },
+                ...periodDays(2026, 5, 15, 3),
+            };
+            const d = earliestLoggedDate(data)!;
+            expect(d.getMonth()).toBe(5);
+            expect(d.getDate()).toBe(15);
+        });
     });
 
     it('skips malformed keys and non-period entries', () => {

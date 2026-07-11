@@ -14,15 +14,24 @@ vi.mock('react-native-quick-crypto', () => ({
 import { wrapBaseline, unwrapBaseline } from '../../src/services/BaselineCryptoService';
 
 const MK = crypto.randomBytes(32).toString('hex');
+// Pre-T7 shape: no `estimatedFields` key (simulates an old encrypted payload).
 const BASELINE = { lastPeriodDate: '2026-02-12', periodLength: 5, cycleLength: 28, hasSeededInitialData: true };
 
 describe('BaselineCryptoService — HKDF wrap/unwrap', () => {
-    it('round-trips baseline data', () => {
+    it('round-trips baseline data, defaulting estimatedFields for pre-T7 payloads', () => {
         const env = wrapBaseline(MK, BASELINE);
         expect(env.v).toBe(1);
         expect(env.kdfContext).toBe('baseline-cycle-v1');
         expect(env.ct.encryptedData).toBeDefined();
-        expect(unwrapBaseline(MK, env)).toEqual(BASELINE);
+        // T7/§4: unwrap applies the read-side default, so an old payload decodes
+        // with estimatedFields: [] added, all other fields intact.
+        expect(unwrapBaseline(MK, env)).toEqual({ ...BASELINE, estimatedFields: [] });
+    });
+
+    it('round-trips a T7 payload with estimatedFields intact', () => {
+        const withEstimates = { periodLength: 5, cycleLength: 28, estimatedFields: ['lastPeriodDate', 'cycleLength'] as const };
+        const env = wrapBaseline(MK, withEstimates as any);
+        expect(unwrapBaseline(MK, env)).toEqual(withEstimates);
     });
 
     it('rejects a wrong master key (GCM auth)', () => {

@@ -6,17 +6,19 @@ import {
     FlatList,
     TouchableOpacity,
 } from 'react-native';
-import { colors } from '../../theme/colors';
+import { useTheme } from '../../theme/ThemeContext';
 import { typography } from '../../theme/typography';
 import { layout } from '../../theme/layout';
 
 // ── Props ───────────────────────────────────────────────────────────
 
 interface StepLastPeriodProps {
-    /** Currently selected date "YYYY-MM-DD" */
+    /** Currently selected date "YYYY-MM-DD" (empty string when unknown) */
     value: string;
     /** Called with the newly selected date string */
     onChange: (date: string) => void;
+    /** When true, the date is "unknown" (estimated) — dim the list (T7/§4). */
+    dimmed?: boolean;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -63,7 +65,9 @@ const ITEM_HEIGHT = 64;
 export const StepLastPeriod: React.FC<StepLastPeriodProps> = ({
     value,
     onChange,
+    dimmed = false,
 }) => {
+    const { t } = useTheme();
     const dates = useMemo(() => generateRecentDates(60), []);
 
     const renderItem = useCallback(
@@ -72,27 +76,30 @@ export const StepLastPeriod: React.FC<StepLastPeriodProps> = ({
             return (
                 <TouchableOpacity
                     onPress={() => onChange(item)}
-                    style={[styles.dateRow, selected && styles.dateRowSelected]}
+                    style={[
+                        styles.dateRow,
+                        selected && { backgroundColor: t.locketBlue },
+                    ]}
                     activeOpacity={0.7}
                     accessibilityLabel={`Select ${formatShort(item)}`}
                     accessibilityRole="button"
                     accessibilityState={{ selected }}
                 >
-                    <Text style={[styles.weekday, selected && styles.textSelected]}>
+                    <Text style={[styles.weekday, { color: selected ? '#FFFFFF' : t.fog }]}>
                         {formatWeekday(item)}
                     </Text>
-                    <Text style={[styles.dateText, selected && styles.textSelected]}>
+                    <Text style={[styles.dateText, { color: selected ? '#FFFFFF' : t.ink }]}>
                         {formatShort(item)}
                     </Text>
                     {item === dates[0] && (
-                        <Text style={[styles.todayBadge, selected && styles.textSelected]}>
+                        <Text style={[styles.todayBadge, { color: selected ? '#FFFFFF' : t.gold }]}>
                             Today
                         </Text>
                     )}
                 </TouchableOpacity>
             );
         },
-        [value, onChange, dates],
+        [value, onChange, dates, t],
     );
 
     const keyExtractor = useCallback((item: string) => item, []);
@@ -108,8 +115,10 @@ export const StepLastPeriod: React.FC<StepLastPeriodProps> = ({
 
     return (
         <View style={styles.container}>
-            <Text style={styles.heading}>When did your last period start?</Text>
-            <Text style={styles.subheading}>
+            <Text style={[styles.heading, { color: t.ink }]}>
+                When did your last period start?
+            </Text>
+            <Text style={[styles.subheading, { color: t.fog }]}>
                 Select the first day of your most recent period.
             </Text>
 
@@ -118,7 +127,7 @@ export const StepLastPeriod: React.FC<StepLastPeriodProps> = ({
                 renderItem={renderItem}
                 keyExtractor={keyExtractor}
                 getItemLayout={getItemLayout}
-                style={styles.list}
+                style={[styles.list, dimmed && styles.dimmed]}
                 showsVerticalScrollIndicator={false}
                 initialNumToRender={10}
                 windowSize={5}
@@ -137,19 +146,20 @@ const styles = StyleSheet.create({
     heading: {
         fontFamily: typography.heading,
         fontSize: typography.sizes.h2,
-        color: colors.charcoal,
         textAlign: 'center',
         marginBottom: layout.spacing.s,
     },
     subheading: {
         fontFamily: typography.body,
         fontSize: typography.sizes.body,
-        color: colors.graphite,
         textAlign: 'center',
         marginBottom: layout.spacing.l,
     },
     list: {
         flex: 1,
+    },
+    dimmed: {
+        opacity: 0.4,
     },
     dateRow: {
         height: ITEM_HEIGHT,
@@ -160,29 +170,20 @@ const styles = StyleSheet.create({
         marginBottom: layout.spacing.xs,
         backgroundColor: 'transparent',
     },
-    dateRowSelected: {
-        backgroundColor: colors.inkBlue,
-    },
     weekday: {
         fontFamily: typography.body,
         fontSize: typography.sizes.body,
-        color: colors.graphite,
         width: 40,
     },
     dateText: {
         flex: 1,
         fontFamily: typography.heading,
         fontSize: typography.sizes.body,
-        color: colors.charcoal,
         marginLeft: layout.spacing.m,
-    },
-    textSelected: {
-        color: colors.paper,
     },
     todayBadge: {
         fontFamily: typography.body,
         fontSize: typography.sizes.caption,
-        color: colors.gold,
         fontStyle: 'italic',
     },
 });

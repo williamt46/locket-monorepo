@@ -9,22 +9,31 @@ const DAYS_OF_WEEK = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 interface Props {
     year: number;
     monthIndex: number; // 0-11
-    data: Record<string, { isPeriod: boolean; isStart?: boolean; isEnd?: boolean; note?: string; flow?: number; bbt?: number; unmapped?: any; symptoms?: any[]; bleeding?: any }>; // key: "year-monthIndex-day"
-    futureData?: Record<string, boolean>; // Predictions
-    onToggle?: (day: number) => void;
+    data: Record<string, { isPeriod: boolean; isStart?: boolean; isEnd?: boolean; note?: string; flow?: number; temperature?: { value: number; unit: 'F' | 'C' } | null; unmapped?: any; symptoms?: any[]; bleeding?: any }>; // key: "year-monthIndex-day" (this month's slice only)
+    futureData?: Record<string, boolean>; // Predictions (this month's slice only)
+    /**
+     * Stable toggle callback keyed by full date coordinates. Passing month
+     * coords through here (rather than an inline `(day) => ...` arrow per
+     * render) is what lets React.memo skip off-screen months.
+     */
+    onToggleDate?: (year: number, monthIndex: number, day: number) => void;
     cellSize: number;
 }
 
 /**
  * Design-system month grid: period days render as solid menstrual-red circles,
  * predicted future days get a watermark fill, today gets a locket-blue ring.
+ *
+ * Wrapped in React.memo (see export below): receives only its own month's
+ * pre-bucketed data/future slices plus a stable `onToggleDate`, so a toggle on
+ * one day re-renders only the affected month rather than every mounted month.
  */
-export const MonthGrid: React.FC<Props> = ({
+const MonthGridComponent: React.FC<Props> = ({
     year,
     monthIndex,
     data,
     futureData = {},
-    onToggle,
+    onToggleDate,
     cellSize,
 }) => {
     const { t } = useTheme();
@@ -44,8 +53,8 @@ export const MonthGrid: React.FC<Props> = ({
         const isPeriod = !!dayData?.isPeriod;
         const hasSymptoms = !!(dayData && Array.isArray(dayData.symptoms) && dayData.symptoms.length > 0);
         const hasBleeding = !!(dayData && dayData.bleeding != null);
-        const hasOtherData = !isPeriod && dayData && (dayData.flow === 0 || dayData.note || dayData.bbt !== undefined || (dayData.unmapped && Object.keys(dayData.unmapped).length > 0) || hasSymptoms || hasBleeding);
-        const hasNotesWhenPeriod = isPeriod && dayData && (dayData.note || (dayData.unmapped && Object.keys(dayData.unmapped).length > 0) || dayData.bbt !== undefined || hasSymptoms || hasBleeding);
+        const hasOtherData = !isPeriod && dayData && (dayData.flow === 0 || dayData.note || dayData.temperature != null || (dayData.unmapped && Object.keys(dayData.unmapped).length > 0) || hasSymptoms || hasBleeding);
+        const hasNotesWhenPeriod = isPeriod && dayData && (dayData.note || (dayData.unmapped && Object.keys(dayData.unmapped).length > 0) || dayData.temperature != null || hasSymptoms || hasBleeding);
 
         const isFuture = futureData[key];
         const isToday = isCurrentMonth && day === currentDay;
@@ -95,7 +104,7 @@ export const MonthGrid: React.FC<Props> = ({
             </>
         );
 
-        if (!onToggle) {
+        if (!onToggleDate) {
             return (
                 <View key={day} style={[styles.dateContainer, { width: cellSize, height: cellSize }]}>
                     {inner}
@@ -111,7 +120,7 @@ export const MonthGrid: React.FC<Props> = ({
                 accessibilityLabel={`Day ${day}`}
                 onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    onToggle(day);
+                    onToggleDate(year, monthIndex, day);
                 }}
             >
                 {inner}
@@ -140,6 +149,15 @@ export const MonthGrid: React.FC<Props> = ({
         </View>
     );
 };
+
+/**
+ * Memoized so off-screen months in the (potentially 20-year) FlatList never
+ * re-render on an unrelated day toggle. Relies on the parent passing stable
+ * per-month slice references (empty months share one frozen EMPTY object) and a
+ * stable `onToggleDate` — an inline arrow prop would defeat this entirely.
+ */
+export const MonthGrid = React.memo(MonthGridComponent);
+MonthGrid.displayName = 'MonthGrid';
 
 const styles = StyleSheet.create({
     headerRow: {

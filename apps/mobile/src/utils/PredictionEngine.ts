@@ -1,3 +1,5 @@
+import { phaseForDay } from './phaseBoundaries';
+
 export function calculatePredictedPeriods(
     lastStartDate: string,
     cycleLength: number,
@@ -32,8 +34,8 @@ export function calculatePredictedPeriods(
 
 export function getLatestPeriodStart(
     decryptedData: Record<string, any>,
-    configLastDate: string
-): string {
+    configLastDate?: string
+): string | null {
     let highestTimestamp = 0;
     let latestDateStr: string | null = null;
 
@@ -54,7 +56,10 @@ export function getLatestPeriodStart(
         }
     }
 
-    return latestDateStr || configLastDate;
+    // T7/§4: when there is no logged Period Start and no baseline date (the
+    // "I'm not sure" path leaves `lastPeriodDate` undefined), return null so
+    // callers keep predictions dormant instead of crashing on `.split('-')`.
+    return latestDateStr ?? configLastDate ?? null;
 }
 
 export type CyclePhase = 'menstrual' | 'follicular' | 'ovulatory' | 'luteal' | 'unknown';
@@ -104,18 +109,9 @@ export function getCurrentPhase(
     return { phase: 'unknown', dayInCycle };
   }
 
-  if (dayInCycle < periodLength) {
-    return { phase: 'menstrual', dayInCycle };
-  }
-
-  const follicularEnd = Math.floor(cycleLength * 0.45);
-  const ovulatoryEnd = Math.floor(cycleLength * 0.55);
-
-  if (dayInCycle < follicularEnd) {
-    return { phase: 'follicular', dayInCycle };
-  }
-  if (dayInCycle < ovulatoryEnd) {
-    return { phase: 'ovulatory', dayInCycle };
-  }
-  return { phase: 'luteal', dayInCycle };
+  // Phase boundaries come from the single-source-of-truth util so this stays
+  // in lockstep with cycleHistory and OrbitGauge. dayInCycle is already bounded
+  // to [0, cycleLength] above, so the util's luteal-clamp and this function's
+  // legacy behaviour agree.
+  return { phase: phaseForDay(dayInCycle, cycleLength, periodLength), dayInCycle };
 }

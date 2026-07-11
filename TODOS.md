@@ -23,8 +23,13 @@ Generated: 2026-04-02 | Plan: Euki Education Layer
 
 ## Deferred from Eng Review (CycleTrends — 2026-04-23)
 
-- [ ] **CycleTrendsScreen — React Native implementation** — Once the HTML prototype design is locked (via /design-shotgun), build `CycleTrendsScreen` in `apps/mobile`. Consume real cycle data, use phase color tokens from the design system, wire into the navigation stack. Depends on: prototype sign-off. Context: prototype lives at `~/Downloads/stitch_locket_ui_v2/code.html`.
-- [ ] **CycleTrends phase-calculation wiring** — The prototype uses hardcoded day counts per phase (M/F/O/L). The real screen needs a phase-calculation function that takes `cycleLength + periodLength` → phase boundaries. Logic already exists partially in the codebase. Wire to the CycleTrends view during RN implementation. Blocked by: CycleTrendsScreen RN implementation.
+- [x] **CycleTrendsScreen — React Native implementation** — Completed by PR #14 (Cycle Trends tab in `CycleInsightsScreen`); struck per qol-uiux plan 2026-07-07.
+- [x] **CycleTrends phase-calculation wiring** — Completed by PR #14 (`utils/cycleHistory.ts`, consolidated into `utils/phaseBoundaries.ts` by the qol-uiux pass); struck per qol-uiux plan 2026-07-07.
+
+## Deferred from Design/Eng Review (qol-uiux — 2026-07-07)
+
+- [ ] **BBT charting on Cycle Trends** — Temperature is now logged (qol-uiux T4) with no read surface; decide chart vs list within 1–2 releases or logging feels pointless. Blocked by: T4 (shipped).
+- [ ] **Calendar "jump to year" index** — If 20-year import users appear, the Today pill alone may not be enough wayfinding in the data-derived calendar range.
 
 ## Deferred from Eng Review
 

@@ -42,7 +42,8 @@ export const BaselineConfigSheet: React.FC<BaselineConfigSheetProps> = ({ visibl
             .then((cfg) => {
                 setLoaded(cfg);
                 if (cfg) {
-                    setLastPeriodDate(cfg.lastPeriodDate);
+                    // lastPeriodDate is optional as of T7 (the "I'm not sure" path).
+                    setLastPeriodDate(cfg.lastPeriodDate ?? '');
                     setPeriodLength(cfg.periodLength);
                     setCycleLength(cfg.cycleLength);
                 }
@@ -62,6 +63,9 @@ export const BaselineConfigSheet: React.FC<BaselineConfigSheetProps> = ({ visibl
                 lastPeriodDate,
                 periodLength: clampValue(Math.round(periodLength), PERIOD_MIN, PERIOD_MAX),
                 cycleLength: clampValue(Math.round(cycleLength), CYCLE_MIN, CYCLE_MAX),
+                // The editor sets all three fields explicitly, so nothing remains
+                // "estimated" after a manual save (T7/§4).
+                estimatedFields: [],
             };
             await saveUserConfig(next);
             onSaved();

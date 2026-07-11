@@ -34,16 +34,27 @@ describe('ImportService - ledgerEntryToLogEntry (import -> app domain)', () => {
         expect(log.bleeding).toBeUndefined();
     });
 
-    it('text-parses bbt into the note (bug #2: bbt has no field yet, must not be dropped)', () => {
+    // REGRESSION (T4 behavior change): imported bbt now lands in the dedicated
+    // temperature field and is NO LONGER appended to the free-text note.
+    it('maps bbt into temperature (not the note) with °C inferred by magnitude', () => {
         const entry: LedgerEntry = { ts: TS, isPeriod: false, bbt: 36.5, source: 'clue' };
         const log = ledgerEntryToLogEntry(entry);
-        expect(log.note).toBe('BBT: 36.5');
+        expect(log.temperature).toEqual({ value: 36.5, unit: 'C' });
+        expect(log.note).toBeUndefined();
     });
 
-    it('appends bbt after an existing note rather than overwriting it', () => {
+    it('infers °F when the imported bbt magnitude is in the Fahrenheit range', () => {
+        const entry: LedgerEntry = { ts: TS, isPeriod: false, bbt: 98.6, source: 'csv' };
+        const log = ledgerEntryToLogEntry(entry);
+        expect(log.temperature).toEqual({ value: 98.6, unit: 'F' });
+    });
+
+    it('keeps an existing note untouched and does NOT append the bbt to it', () => {
         const entry: LedgerEntry = { ts: TS, isPeriod: true, flow: 2, note: 'Cramps', bbt: 36.8, source: 'clue' };
         const log = ledgerEntryToLogEntry(entry);
-        expect(log.note).toBe('Cramps, BBT: 36.8');
+        expect(log.note).toBe('Cramps');
+        expect(log.note).not.toContain('BBT');
+        expect(log.temperature).toEqual({ value: 36.8, unit: 'C' });
         expect(log.bleeding?.intensity).toBe('medium');
     });
 

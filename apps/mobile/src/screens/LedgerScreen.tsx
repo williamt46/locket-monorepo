@@ -5,44 +5,47 @@ import { VerticalCalendar, VerticalCalendarHandle } from '../components/Vertical
 import { NavPill } from '../components/DesignSystem';
 import { useTheme } from '../theme/ThemeContext';
 import { font } from '../theme/typography';
-import { useLedger } from '../hooks/useLedger';
+import { useDecryptedLedger } from '../hooks/useDecryptedLedger';
 import { SecureKeyService } from '../services/SecureKeyService';
-import { LocketCryptoService } from '@locket/core-crypto';
-import { getUserConfig, saveUserConfig } from '../services/StorageService';
-import { BaselineCycleData } from '../models/BaselineCycleData';
+import { saveUserConfig } from '../services/StorageService';
+import { hasRealAnchor } from '../models/BaselineCycleData';
 import { usePredictions } from '../hooks/usePredictions';
+import { buildLogNavParams } from '../utils/buildLogNavParams';
 import { keyFingerprint } from '../utils/keyFingerprint';
-import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 
 export const LedgerScreen = () => {
     const navigation = useNavigation<any>();
     const route = useRoute<any>();
     const { t } = useTheme();
-    const crypto = useMemo(() => new LocketCryptoService(), []);
 
     const [keyHex, setKeyHex] = useState<string | undefined>(undefined);
-    const { events, batchInscribe, purgeByIds, triggerSync, superNuke, refresh, isInitialized, isSyncing } = useLedger(keyHex);
+    const {
+        events,
+        decryptedData,
+        undecryptableIds,
+        setUndecryptableIds,
+        config,
+        setConfig,
+        reloadConfig,
+        batchInscribe,
+        purgeByIds,
+        triggerSync,
+        superNuke,
+        refresh,
+        isInitialized,
+        isSyncing,
+    } = useDecryptedLedger(keyHex);
 
     const calendarRef = useRef<VerticalCalendarHandle>(null);
 
-    // Ids of events that failed to decrypt (e.g. orphaned by a key reset). Surfaced
-    // to the user rather than silently dropped.
-    const [undecryptableIds, setUndecryptableIds] = useState<string[]>([]);
+    // Ids of events that failed to decrypt are surfaced (via the hook) rather than
+    // silently dropped; this ref throttles the purge prompt to once per set.
     const purgePromptedRef = useRef<string>('');
 
-    // Refresh event state whenever this screen comes into focus (e.g. after LogScreen inscribes)
-    useFocusEffect(
-        useCallback(() => {
-            refresh();
-        }, [refresh])
-    );
-
-    const [config, setConfig] = useState<BaselineCycleData | null>(null);
-
-    // Initialize Key and Config
+    // Initialize Key (baseline config is loaded live by useDecryptedLedger)
     useEffect(() => {
         SecureKeyService.getOrGenerateKey().then(setKeyHex).catch(console.error);
-        getUserConfig().then(setConfig).catch(console.error);
     }, []);
 
     // Handle incoming navigation jumps (e.g. from Import success)
@@ -96,86 +99,10 @@ export const LedgerScreen = () => {
             } else if (action === 'configChanged') {
                 // Baseline editor in Settings saved new cycle data — reload it so
                 // predictions recompute against the new baseline.
-                getUserConfig().then(setConfig).catch(console.error);
+                reloadConfig();
             }
         }
-    }, [route.params?.action, triggerSync, superNuke, setKeyHex, navigation, refresh]);
-
-    // Decrypt events for UI with memoization
-    const [decryptedData, setDecryptedData] = useState<Record<string, any>>({});
-    const decryptionCache = useRef<Record<string, any>>({});
-
-    useEffect(() => {
-        const decryptAll = async () => {
-            if (!keyHex) return;
-            if (events.length === 0) {
-                setDecryptedData({});
-                setUndecryptableIds([]);
-                return;
-            }
-
-            console.log(`[LedgerScreen] Decrypting ${events.length} events...`);
-
-            const newData: Record<string, any> = {};
-            const promises = events.map(async (event) => {
-                const cacheKey = `${event.id}_${event.signature}`;
-                if (decryptionCache.current[cacheKey]) {
-                    return { event, decrypted: decryptionCache.current[cacheKey] };
-                }
-
-                try {
-                    const decrypted = await crypto.decryptData(event.payload, keyHex);
-                    if (decrypted && typeof decrypted === 'object') {
-                        decryptionCache.current[cacheKey] = decrypted;
-                        return { event, decrypted };
-                    }
-                    // Decrypted to a non-object — unexpected; treat as unreadable
-                    // rather than silently discarding it.
-                    console.warn('Decryption produced a non-object payload for event', event.id);
-                    return { event, failed: true };
-                } catch (e: any) {
-                    // Surface the real reason (e.g. GCM auth failure from a key reset)
-                    // instead of swallowing it.
-                    console.error('Decryption failed for event', event.id, e?.message ?? e);
-                    return { event, failed: true };
-                }
-            });
-
-            const results = await Promise.all(promises);
-            const validResults = results.filter((r: any) => r && !r.failed);
-            const failedIds: string[] = results
-                .filter((r: any) => r && r.failed && r.event?.id)
-                .map((r: any) => r.event.id);
-            console.log(`[LedgerScreen] Decrypted ${validResults.length} / ${events.length} events successfully`);
-            if (failedIds.length > 0) {
-                console.warn(`[LedgerScreen] ${failedIds.length} event(s) unreadable (likely created before a key reset).`);
-            }
-            setUndecryptableIds(failedIds);
-
-            for (const result of validResults) {
-                const { event, decrypted } = result;
-                const tsToUse = decrypted?.ts || event.ts;
-                const d = new Date(tsToUse);
-                const k = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-
-                const dataObj = (decrypted && typeof decrypted === 'object') ? decrypted : { isPeriod: true };
-
-                // Events arrive newest-first (ORDER BY ts DESC, rowid DESC). Merge per-day:
-                // fields from newer events win, older events only fill gaps. This keeps a
-                // symptoms-only save and a period/bleeding save for the same day from
-                // clobbering each other (each inscribe appends a separate event).
-                const existing = newData[k];
-                const merged = { ...dataObj, ...(existing ?? {}) };
-                // Preserve the newest ts (existing is newer when present).
-                merged.ts = existing?.ts ?? tsToUse;
-                merged.isPeriod = merged.isPeriod !== undefined ? merged.isPeriod : true;
-                newData[k] = merged;
-            }
-            setDecryptedData(newData);
-
-        };
-        decryptAll();
-    }, [events, keyHex]);
+    }, [route.params?.action, triggerSync, superNuke, setKeyHex, navigation, refresh, reloadConfig]);
 
     // Surface unreadable entries (orphaned by a key reset) once per distinct set,
     // and offer to purge them. They are unrecoverable — their key no longer exists.
@@ -203,15 +130,19 @@ export const LedgerScreen = () => {
         );
     }, [undecryptableIds, purgeByIds]);
 
-    // Initial Seeding: if onboarding is complete but ledger is empty, generate initial period logs
+    // Initial Seeding: if onboarding is complete but ledger is empty, generate initial period logs.
+    // T7/§4: an "I'm not sure" onboarding run leaves `lastPeriodDate` undefined (or flags it as
+    // estimated). In that case there is NO real anchor to seed from — skip seeding entirely and let
+    // predictions stay dormant until the first logged Period Start. Guarding here also prevents the
+    // `config.lastPeriodDate.split('-')` crash on an undefined date.
     useEffect(() => {
-        if (isInitialized && keyHex && config && !config.hasSeededInitialData && events.length === 0 && !isSyncing) {
+        if (isInitialized && keyHex && config && !config.hasSeededInitialData && hasRealAnchor(config) && events.length === 0 && !isSyncing) {
             console.log('[LedgerScreen] Seeding initial data from Onboarding...');
 
             const seedData = async () => {
                 const batch = [];
-                // Parse UTC string strictly
-                const [y, m, d] = config.lastPeriodDate.split('-');
+                // Parse UTC string strictly (lastPeriodDate is guaranteed present by hasRealAnchor)
+                const [y, m, d] = config.lastPeriodDate!.split('-');
                 const startDate = new Date(Date.UTC(+y, +m - 1, +d));
 
                 for (let i = 0; i < config.periodLength; i++) {
@@ -245,29 +176,23 @@ export const LedgerScreen = () => {
         }
     }, [isInitialized, keyHex, config, events.length, isSyncing, batchInscribe]);
 
-    const { futureData, cycleStats, currentPhase, dayInCycle } = usePredictions(decryptedData, config);
+    const { futureData, currentPhase } = usePredictions(decryptedData, config);
 
-    const handleToggleDate = (year: number, monthIndex: number, day: number) => {
-        const date = new Date(year, monthIndex, day);
-        // Local-midnight timestamps of every logged period day — lets LogScreen clear the orphan
-        // days of an existing period run when a boundary is re-marked (span-clearing on re-mark).
-        const existingPeriodDays = Object.keys(decryptedData)
-            .filter((k) => decryptedData[k]?.isPeriod)
-            .map((k) => {
-                const [y, m, d] = k.split('-').map(Number);
-                return new Date(y, m, d).getTime();
+    // Stable across renders so the memoized MonthGrid never re-renders off-screen
+    // months just because the toggle handler identity changed (T1 memoization).
+    const handleToggleDate = useCallback(
+        (year: number, monthIndex: number, day: number) => {
+            const date = new Date(year, monthIndex, day);
+            navigation.navigate('Log', {
+                ...buildLogNavParams(decryptedData, config, date),
+                keyHex,
+                currentPhase,
+                // Note: inscribe and deleteByTimestamp are NOT passed — LogScreen calls useLedger(keyHex) directly.
+                // Passing functions via route.params causes React Navigation non-serializable warnings and breaks deep linking.
             });
-        navigation.navigate('Log', {
-            date: date.toISOString(),
-            initialData: decryptedData[`${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`],
-            keyHex,
-            currentPhase,
-            periodLength: config?.periodLength,
-            existingPeriodDays,
-            // Note: inscribe and deleteByTimestamp are NOT passed — LogScreen calls useLedger(keyHex) directly.
-            // Passing functions via route.params causes React Navigation non-serializable warnings and breaks deep linking.
-        });
-    };
+        },
+        [navigation, decryptedData, config, keyHex, currentPhase]
+    );
 
     // Aggregate Integrity Status
     const sealStatus = useMemo(() => {
@@ -305,16 +230,9 @@ export const LedgerScreen = () => {
                     active="ledger"
                     onCalendar={() => calendarRef.current?.scrollToToday()}
                     onInsights={() => navigation.navigate('CycleInsights', {
-                        currentPhase,
-                        dayInCycle,
-                        cycleStats,
-                        decryptedDays: decryptedData,
-                        baseline: config ? {
-                            cycleLength: config.cycleLength,
-                            periodLength: config.periodLength,
-                            lastPeriodDate: config.lastPeriodDate,
-                        } : null,
-                        // Pass-through so the nav pill on Insights can open Settings directly
+                        // Insights derives phase/day/history live via useDecryptedLedger(keyHex)
+                        // — decryptedDays/baseline are no longer passed by value (would go stale
+                        // after the Insights → Log → back loop). Only the key + status travel.
                         keyHex,
                         isSyncing,
                         sealStatus,

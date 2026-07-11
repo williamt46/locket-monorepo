@@ -1,6 +1,6 @@
 import { createPersistentLedger, LedgerStorage } from '@locket/secure-storage';
 import * as SecureStore from 'expo-secure-store';
-import { BaselineCycleData } from '../models/BaselineCycleData';
+import { BaselineCycleData, normalizeBaseline } from '../models/BaselineCycleData';
 import { SecureKeyService } from './SecureKeyService';
 import { wrapBaseline, unwrapBaseline } from './BaselineCryptoService';
 
@@ -112,7 +112,8 @@ export const getUserConfig = async (): Promise<BaselineCycleData | null> => {
     const legacy = await SecureStore.getItemAsync(USER_CONFIG_KEY);
     if (legacy) {
         try {
-            baselineCache = JSON.parse(legacy) as BaselineCycleData;
+            // Read-side default for the additive `estimatedFields` (T7/§4).
+            baselineCache = normalizeBaseline(JSON.parse(legacy) as BaselineCycleData);
             return baselineCache;
         } catch {
             baselineCache = null;

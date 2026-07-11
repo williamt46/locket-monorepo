@@ -19,4 +19,12 @@ export interface LogEntry {
   note?: string;
   bleeding?: { intensity: BleedingIntensity; clots?: 'small' | 'large' };
   symptoms?: SymptomKey[];
+  /**
+   * Basal body temperature, stored AS ENTERED (never normalized to a canonical
+   * unit at write). Display converts to the user's active unit preference.
+   * `null` is an explicit clear (distinct from `undefined` = never set).
+   */
+  temperature?: { value: number; unit: 'F' | 'C' } | null;
 }
+
+export type TemperatureUnit = 'F' | 'C';

@@ -8,6 +8,8 @@
  * (menstrual = logged period run, follicular ends at 45% of cycle, ovulatory at 55%).
  */
 
+import { computePhaseBoundaries } from './phaseBoundaries';
+
 export type SegmentPhase = 'menstrual' | 'follicular' | 'ovulatory' | 'luteal' | 'future';
 
 export interface CycleSegment {
@@ -44,10 +46,7 @@ const toISO = (d: Date): string =>
 
 /** Split a cycle into phase segments using the prediction-engine boundaries. */
 export function segmentCycle(lengthDays: number, periodDays: number, elapsedDays?: number): CycleSegment[] {
-    const len = Math.max(1, Math.round(lengthDays));
-    const period = Math.min(Math.max(1, Math.round(periodDays)), len);
-    const follicularEnd = Math.max(period, Math.floor(len * 0.45));
-    const ovulatoryEnd = Math.max(follicularEnd, Math.floor(len * 0.55));
+    const { cycleLength: len, period, follicularEnd, ovulatoryEnd } = computePhaseBoundaries(lengthDays, periodDays);
 
     const bounds: Array<{ phase: SegmentPhase; end: number }> = [
         { phase: 'menstrual', end: period },
@@ -68,12 +67,14 @@ export function segmentCycle(lengthDays: number, periodDays: number, elapsedDays
     return segments;
 }
 
-export function buildCycleHistory(
-    decryptedDays: Record<string, { isPeriod?: boolean } | undefined>,
-    baseline: { cycleLength?: number; periodLength?: number } | null | undefined,
-    today: Date = new Date()
-): CycleHistory {
-    // 1. Collect period days as local dates
+/**
+ * Parse the ledger's "YYYY-M-D" (0-indexed month) day-keys into local Dates,
+ * skipping malformed keys. Shared by buildCycleHistory and earliestLoggedDate so
+ * both agree on which keys are valid period days.
+ */
+function collectPeriodDates(
+    decryptedDays: Record<string, { isPeriod?: boolean } | undefined>
+): Date[] {
     const dates: Date[] = [];
     for (const key of Object.keys(decryptedDays ?? {})) {
         const entry = decryptedDays[key];
@@ -85,6 +86,37 @@ export function buildCycleHistory(
         dates.push(new Date(y, m, d));
     }
     dates.sort((a, b) => a.getTime() - b.getTime());
+    return dates;
+}
+
+/**
+ * Earliest logged period day, used to bound the "Since…" month picker. Returns
+ * null when nothing is logged so the caller can fall back to the current month.
+ */
+export function earliestLoggedDate(
+    decryptedDays: Record<string, { isPeriod?: boolean } | undefined>
+): Date | null {
+    const dates = collectPeriodDates(decryptedDays);
+    return dates.length ? dates[0] : null;
+}
+
+export function buildCycleHistory(
+    decryptedDays: Record<string, { isPeriod?: boolean } | undefined>,
+    baseline: { cycleLength?: number; periodLength?: number } | null | undefined,
+    today: Date = new Date(),
+    /**
+     * Optional inclusive lower bound. When set, only period days on or after this
+     * date contribute to the history — averages AND the cycle list both narrow to
+     * the window (Cycle Trends filter pills). `null`/omitted = no window (All).
+     */
+    windowStart?: Date | null
+): CycleHistory {
+    // 1. Collect period days as local dates, then drop anything before the window.
+    let dates = collectPeriodDates(decryptedDays);
+    if (windowStart) {
+        const floor = windowStart.getTime();
+        dates = dates.filter((d) => d.getTime() >= floor);
+    }
 
     // 2. Group into period runs (gap > 5 days = new period)
     const runs: PeriodRun[] = [];
