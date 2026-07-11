@@ -7,6 +7,8 @@ import {
     ImportStats
 } from '../models/ImportTypes';
 import { LogEntry, BleedingIntensity } from '../models/LogEntry';
+import { inferTemperatureUnit } from '../utils/temperature';
+import { parseBbtFromNote } from '../utils/bbtNoteMigration';
 
 // --- Type Guards and Detectors ---
 
@@ -513,14 +515,23 @@ function toLocalIsoDate(ts: number): string {
  * after import, spotting/flow never appeared on the Log modal and BBT was dropped.
  *
  *   flow (0..3) -> bleeding.intensity (spotting / light / medium / heavy)
- *   bbt         -> appended to note as text ("BBT: 36.5"); there is no dedicated
- *                  bbt field yet, so we preserve it in notes rather than lose it.
+ *   bbt         -> temperature { value, unit }, written directly to the dedicated
+ *                  field (no longer stuffed into the free-text note). Source
+ *                  formats don't tag the unit, so it's inferred by magnitude
+ *                  (>= 50 -> °F, else °C) since valid °F/°C ranges don't overlap.
  */
 export function ledgerEntryToLogEntry(entry: LedgerEntry): LogEntry {
+    const hasBbt = typeof entry.bbt === 'number' && !Number.isNaN(entry.bbt);
+
+    // Re-import dedup guard: BBT now lives in the dedicated `temperature` field.
+    // If the source note already carries a legacy `"BBT: {value}"` token (e.g.
+    // re-importing a file whose note text was written by the pre-T4 importer, or
+    // that the T9 migration has since moved into `temperature`), strip it so the
+    // value isn't duplicated across the note string and the temperature field.
     const notes: string[] = [];
-    if (entry.note) notes.push(entry.note);
-    if (typeof entry.bbt === 'number' && !Number.isNaN(entry.bbt)) {
-        notes.push(`BBT: ${entry.bbt}`);
+    if (entry.note) {
+        const cleaned = hasBbt ? (parseBbtFromNote(entry.note)?.rest ?? entry.note) : entry.note;
+        if (cleaned) notes.push(cleaned);
     }
 
     const log: LogEntry = {
@@ -536,6 +547,10 @@ export function ledgerEntryToLogEntry(entry: LedgerEntry): LogEntry {
 
     const intensity = typeof entry.flow === 'number' ? FLOW_TO_INTENSITY[entry.flow] : undefined;
     if (intensity) log.bleeding = { intensity };
+
+    if (hasBbt) {
+        log.temperature = { value: entry.bbt as number, unit: inferTemperatureUnit(entry.bbt as number) };
+    }
 
     return log;
 }

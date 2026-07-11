@@ -13,6 +13,10 @@ export type PhaseName = 'menstrual' | 'follicular' | 'ovulatory' | 'luteal';
 export interface ThemeTokens {
     paper: string;
     cardWhite: string;
+    /** Text/glyph color that sits on a saturated fill (phase/brand color or a
+     *  selected pill). Stays white in BOTH themes — unlike cardWhite, which
+     *  darkens to a card surface in dark mode. */
+    onAccent: string;
     charcoal: string;
     graphite: string;
     ink: string;
@@ -47,6 +51,7 @@ export interface ThemeTokens {
 export const lightTokens: ThemeTokens = {
     paper: '#FDFBF9',
     cardWhite: '#FFFFFF',
+    onAccent: '#FFFFFF',
     charcoal: '#2D2D2D',
     graphite: '#4A4A4A',
     ink: '#1B1C1B',

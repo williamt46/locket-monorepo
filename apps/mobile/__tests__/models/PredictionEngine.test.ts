@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculatePredictedPeriods, getLatestPeriodStart, getCurrentPhase } from '../../src/utils/PredictionEngine';
+import { calculatePredictedPeriods, forwardCycleCount, getLatestPeriodStart, getCurrentPhase } from '../../src/utils/PredictionEngine';
 
 describe('PredictionEngine -> calculatePredictedPeriods', () => {
     it('predicts standard boundaries correctly', () => {
@@ -61,6 +61,59 @@ describe('PredictionEngine -> calculatePredictedPeriods', () => {
         // Third predicted cycle (May 31 -> June 7)
         expect(predictions['2026-4-31']).toBe(true); // May 31
         expect(predictions['2026-5-1']).toBe(true);  // June 1
+    });
+});
+
+describe('PredictionEngine -> forwardCycleCount', () => {
+    const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+    it('covers a full forward year of 28-day cycles from a fresh anchor', () => {
+        // Anchor == today: 365 / 28 = 13.03 → 14 cycles so the last start
+        // overshoots the window edge and predictions blanket the whole year.
+        const today = new Date('2026-01-01T00:00:00Z');
+        expect(forwardCycleCount('2026-01-01', 28, 365, today)).toBe(14);
+    });
+
+    it('adds cycles when the anchor sits in the past', () => {
+        // Anchor 14 days ago: window to cover = 365 + 14 = 379 days → 14 cycles.
+        const today = new Date('2026-01-15T00:00:00Z');
+        expect(forwardCycleCount('2026-01-01', 28, 365, today)).toBe(14);
+    });
+
+    it('scales down for longer cycles', () => {
+        const today = new Date('2026-01-01T00:00:00Z');
+        // 365 / 35 = 10.4 → 11 cycles.
+        expect(forwardCycleCount('2026-01-01', 35, 365, today)).toBe(11);
+    });
+
+    it('degrades to a single cycle for junk input', () => {
+        const today = new Date('2026-01-01T00:00:00Z');
+        expect(forwardCycleCount('not-a-date', 28, 365, today)).toBe(1);
+        expect(forwardCycleCount('2026-01-01', 0, 365, today)).toBe(1);
+    });
+
+    it('a 28-day cycle yields ~13 predicted cycles within the forward year', () => {
+        // Blanket the forward year the way usePredictions does, then count the
+        // predicted cycle *starts* that land inside [today, today + 365 days].
+        const today = new Date('2026-01-01T00:00:00Z');
+        const count = forwardCycleCount('2026-01-01', 28, 365, today);
+        const predictions = calculatePredictedPeriods('2026-01-01', 28, 5, count);
+
+        // Reconstruct cycle starts from the flat day map: a period day whose
+        // previous calendar day is not a period day begins a new cycle.
+        const dayMs = new Set<number>();
+        for (const k of Object.keys(predictions)) {
+            const [y, m, d] = k.split('-').map(Number);
+            dayMs.add(Date.UTC(y, m, d));
+        }
+        const startCount = [...dayMs].filter((ms) => !dayMs.has(ms - MS_PER_DAY)).length;
+        expect(startCount).toBe(count); // one run per predicted cycle
+
+        const windowEnd = today.getTime() + 365 * MS_PER_DAY;
+        const startsInYear = [...dayMs].filter(
+            (ms) => !dayMs.has(ms - MS_PER_DAY) && ms > today.getTime() && ms <= windowEnd,
+        ).length;
+        expect(startsInYear).toBe(13);
     });
 });
 

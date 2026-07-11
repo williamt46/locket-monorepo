@@ -1,7 +1,7 @@
 import { LocketCryptoService, deriveSubKey } from '@locket/core-crypto';
 import type { EncryptedPackage } from '@locket/core-crypto';
 import { canonicalStringify } from '@locket/shared';
-import { BaselineCycleData } from '../models/BaselineCycleData';
+import { BaselineCycleData, normalizeBaseline } from '../models/BaselineCycleData';
 
 // HKDF context that separates the baseline sub-key from every other key derived
 // from the master key. Baked into the envelope so a future context change stays
@@ -30,5 +30,9 @@ export function wrapBaseline(masterKeyHex: string, data: BaselineCycleData): Bas
 /** Unwrap a baseline envelope. Throws (GCM auth) on tamper or a wrong master key. */
 export function unwrapBaseline(masterKeyHex: string, env: BaselineEnvelope): BaselineCycleData {
     const subKey = deriveSubKey(masterKeyHex, env.kdfContext || BASELINE_CONTEXT);
-    return JSON.parse(gcm.decryptString(env.ct, subKey)) as BaselineCycleData;
+    // Read-side default for the additive `estimatedFields` (T7/§4): pre-T7
+    // payloads lack the key, so normalize to `[]` on the way out.
+    return normalizeBaseline(
+        JSON.parse(gcm.decryptString(env.ct, subKey)) as BaselineCycleData,
+    );
 }

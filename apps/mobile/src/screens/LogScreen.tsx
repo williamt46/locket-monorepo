@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
@@ -20,10 +21,14 @@ import { Icon } from '../components/Icon';
 import { Card, Chip, AccordionPill, EncryptionFooter } from '../components/DesignSystem';
 import { DisclaimerModal } from '../components/DisclaimerModal';
 import { PeriodConfirmModal } from '../components/PeriodConfirmModal';
+import { SaveReminderModal } from '../components/SaveReminderModal';
+import { isLogDirty } from '../utils/logDirty';
+import { useTemperatureUnit } from '../hooks/useTemperatureUnit';
+import { TEMP_LIMITS, TEMP_STEP, clampTemperature, convertTemperature, roundTemp } from '../utils/temperature';
 import { ContentSheet } from '../components/ContentSheet';
 import { useEukiContent } from '../hooks/useEukiContent';
 import { useLedger } from '../hooks/useLedger';
-import type { BleedingIntensity, SymptomKey } from '../models/LogEntry';
+import type { BleedingIntensity, SymptomKey, TemperatureUnit } from '../models/LogEntry';
 import type { IconName } from '../components/Icon';
 import type { EukiItem } from '@locket/shared';
 
@@ -79,6 +84,26 @@ const BLEEDING_OPTIONS: Array<{ key: BleedingIntensity; label: string }> = [
   { key: 'heavy', label: 'Heavy' },
 ];
 
+/**
+ * Display-only summary of an accordion's selections, shown on its collapsed face:
+ * small white-filled 999px pills bordered + labelled in the accordion's accent color.
+ */
+const SelectionSummary: React.FC<{ items: string[]; color: string }> = ({ items, color }) => {
+  const { t } = useTheme();
+  return (
+    <View style={styles.summaryRow}>
+      {items.map((label) => (
+        <View
+          key={label}
+          style={[styles.summaryPill, { backgroundColor: t.cardWhite, borderColor: color }]}
+        >
+          <Text style={[styles.summaryPillText, { color }]}>{label}</Text>
+        </View>
+      ))}
+    </View>
+  );
+};
+
 export const LogScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
@@ -119,6 +144,139 @@ export const LogScreen: React.FC = () => {
 
   // Note
   const [note, setNote] = useState<string>(initialData?.note ?? '');
+
+  // Temperature (BBT). Seeds from initialData on mount and is ALWAYS written on
+  // save (temperature ?? null) so the per-day merge treats it as authoritative.
+  // Stored AS ENTERED ({value, unit}); the active `tempUnit` is a display pref.
+  const [tempUnit, setTempUnit] = useTemperatureUnit();
+  const [temperature, setTemperature] = useState<{ value: number; unit: TemperatureUnit } | null>(
+    initialData?.temperature ?? null
+  );
+  const [tempExpanded, setTempExpanded] = useState<boolean>(!!initialData?.temperature);
+  // Display value in the active unit (converts from the stored unit, lossless).
+  const displayTemp = temperature ? convertTemperature(temperature.value, temperature.unit, tempUnit) : null;
+  const [tempText, setTempText] = useState<string>(displayTemp != null ? String(displayTemp) : '');
+
+  // Commit a display-unit value into the as-entered store.
+  const commitTemp = (displayValue: number) => setTemperature({ value: roundTemp(displayValue), unit: tempUnit });
+
+  const handleAddTemperature = () => {
+    const seed = TEMP_LIMITS[tempUnit].seed;
+    setTempExpanded(true);
+    setTemperature({ value: seed, unit: tempUnit });
+    setTempText(String(seed));
+  };
+
+  const handleClearTemperature = () => {
+    setTempExpanded(false);
+    setTemperature(null);
+    setTempText('');
+  };
+
+  const handleTempStep = (delta: number) => {
+    const base = displayTemp != null ? displayTemp : TEMP_LIMITS[tempUnit].seed;
+    const next = clampTemperature(roundTemp(base + delta), tempUnit);
+    setTempText(String(next));
+    commitTemp(next);
+  };
+
+  const handleTempTextChange = (txt: string) => {
+    setTempText(txt);
+    const parsed = parseFloat(txt);
+    if (!Number.isNaN(parsed)) commitTemp(parsed);
+  };
+
+  const handleTempBlur = () => {
+    const parsed = parseFloat(tempText);
+    const clamped = clampTemperature(parsed, tempUnit);
+    setTempText(String(clamped));
+    commitTemp(clamped);
+  };
+
+  const handleTempUnitToggle = (unit: TemperatureUnit) => {
+    if (unit === tempUnit) return;
+    // Re-base the displayed value into the newly selected unit (convert-for-
+    // display). The stored value stays as originally entered until the next edit.
+    const converted = temperature ? convertTemperature(temperature.value, temperature.unit, unit) : null;
+    setTempUnit(unit);
+    if (converted != null) setTempText(String(converted));
+  };
+
+  // The persisted unit preference loads asynchronously (useTemperatureUnit
+  // starts at 'F' then resolves from SecureStore). When the active unit changes
+  // — via that async load or a manual toggle — re-base the text field from the
+  // stored value so the number shown always matches the selected unit. Keyed on
+  // the unit only: typing changes `temperature`, not the unit, so the early
+  // return leaves in-progress edits untouched (and a stale-unit blur can no
+  // longer re-clamp a Fahrenheit string against Celsius limits).
+  const prevTempUnitRef = useRef(tempUnit);
+  useEffect(() => {
+    if (prevTempUnitRef.current === tempUnit) return;
+    prevTempUnitRef.current = tempUnit;
+    const converted = temperature
+      ? convertTemperature(temperature.value, temperature.unit, tempUnit)
+      : null;
+    setTempText(converted != null ? String(converted) : '');
+  }, [tempUnit, temperature]);
+
+  // Dirty-check: compare the tracked fields against the initial snapshot. Both
+  // snapshots come from the same `snapshotFields()` shape (via isLogDirty), so
+  // adding a field later (e.g. temperature) is a one-list change in logDirty.ts.
+  const dirty = useMemo(
+    () =>
+      isLogDirty(
+        {
+          isStart: initialData?.isStart,
+          isEnd: initialData?.isEnd,
+          bleeding: initialData?.bleeding?.intensity ?? null,
+          clots: initialData?.bleeding?.clots ?? null,
+          symptoms: initialData?.symptoms ?? [],
+          note: initialData?.note ?? '',
+          temperature: initialData?.temperature ?? null,
+        },
+        { isStart, isEnd, bleeding, clots, symptoms: selectedSymptoms, note, temperature }
+      ),
+    [initialData, isStart, isEnd, bleeding, clots, selectedSymptoms, note, temperature]
+  );
+  // Read the latest dirty flag from a stable listener without re-subscribing.
+  const dirtyRef = useRef(dirty);
+  dirtyRef.current = dirty;
+  // Set true right before a sanctioned exit (Save / Discard / Clear) so the
+  // beforeRemove guard lets that navigation through.
+  const allowLeaveRef = useRef(false);
+  const [reminderVisible, setReminderVisible] = useState(false);
+  const pendingActionRef = useRef<any>(null);
+
+  // Guard the button/hardware-back exit paths (header ✕, Android hardware back)
+  // through beforeRemove. Prompt to save when dirty.
+  useEffect(() => {
+    const sub = navigation.addListener('beforeRemove', (e: any) => {
+      if (allowLeaveRef.current || !dirtyRef.current) return;
+      e.preventDefault();
+      pendingActionRef.current = e.data.action;
+      setReminderVisible(true);
+    });
+    return sub;
+  }, [navigation]);
+
+  // This screen sits in the JS `@react-navigation/stack`, whose iOS swipe-back is
+  // a gesture-driven pop. Intercepting that pop with beforeRemove's preventDefault
+  // leaves the card stranded mid-transition (gesture visually completed, nav
+  // cancelled → orphaned screen). We can't make the gesture safely interceptable,
+  // so while there are unsaved changes we disable the swipe entirely; the ✕ / hardware
+  // back still route through beforeRemove and show the reminder. Clean state re-enables it.
+  useEffect(() => {
+    navigation.setOptions({ gestureEnabled: !dirty });
+  }, [navigation, dirty]);
+
+  const leaveNow = () => {
+    allowLeaveRef.current = true;
+    setReminderVisible(false);
+    const action = pendingActionRef.current;
+    pendingActionRef.current = null;
+    if (action) navigation.dispatch(action);
+    else navigation.goBack();
+  };
 
   // Save state — use ref for instant lock (prevents double-tap before state re-render)
   const [saving, setSaving] = useState(false);
@@ -163,7 +321,7 @@ export const LogScreen: React.FC = () => {
 
   const handleSave = async () => {
     // Guard: missing params (deep link / state restoration)
-    if (!date || !keyHex) { navigation.goBack(); return; }
+    if (!date || !keyHex) { allowLeaveRef.current = true; navigation.goBack(); return; }
     // Double-tap guard via ref (state is async; ref is synchronous)
     if (isSavingRef.current) return;
     isSavingRef.current = true;
@@ -180,6 +338,7 @@ export const LogScreen: React.FC = () => {
         note: note.trim() || null,
         bleeding: bleeding ? { intensity: bleeding, ...(clots ? { clots } : {}) } : null,
         symptoms: Array.from(selectedSymptoms),
+        temperature: temperature ?? null,
       };
 
       if (isStart || isEnd) {
@@ -241,7 +400,14 @@ export const LogScreen: React.FC = () => {
       setSaving(false);
     }
     // Navigate only after finally so setSaving(false) runs on mounted component
-    if (saved) navigation.goBack();
+    if (saved) {
+      allowLeaveRef.current = true;
+      setReminderVisible(false);
+      const action = pendingActionRef.current;
+      pendingActionRef.current = null;
+      if (action) navigation.dispatch(action);
+      else navigation.goBack();
+    }
   };
 
   const handleClearData = () => {
@@ -259,6 +425,7 @@ export const LogScreen: React.FC = () => {
               if (deleteByTimestamp && !isNaN(ts)) {
                 await deleteByTimestamp(ts);
               }
+              allowLeaveRef.current = true;
               navigation.goBack();
             } catch {
               Alert.alert('Error', 'Could not clear data.');
@@ -278,8 +445,7 @@ export const LogScreen: React.FC = () => {
     paddingVertical: 14,
     paddingHorizontal: 18,
     borderRadius: 14,
-    backgroundColor: t.luteal,
-    opacity: active ? 1 : 0.92,
+    backgroundColor: active ? t.luteal : t.lutealTint,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
     flexDirection: 'row' as const,
@@ -311,23 +477,23 @@ export const LogScreen: React.FC = () => {
         <View style={styles.periodRow}>
           <TouchableOpacity
             style={periodBtn(isStart)}
-            onPress={() => { setIsStart((v) => !v); setIsEnd(false); }}
+            onPress={() => { Haptics.selectionAsync(); setIsStart((v) => !v); setIsEnd(false); }}
             accessibilityRole="button"
             accessibilityLabel={isStart ? 'Period start marked' : 'Mark period start'}
+            accessibilityState={{ selected: isStart }}
           >
-            <Text style={styles.periodBtnText}>Start</Text>
-            <Text style={styles.periodBtnDivider}>|</Text>
-            <Icon name="arrow-forward" size={16} color="#FFFFFF" />
+            {isStart && <Icon name="check" size={16} color={t.onAccent} />}
+            <Text style={[styles.periodBtnText, !isStart && { color: t.luteal }]}>Period Start</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={periodBtn(isEnd)}
-            onPress={() => { setIsEnd((v) => !v); setIsStart(false); }}
+            onPress={() => { Haptics.selectionAsync(); setIsEnd((v) => !v); setIsStart(false); }}
             accessibilityRole="button"
             accessibilityLabel={isEnd ? 'Period end marked' : 'Mark period end'}
+            accessibilityState={{ selected: isEnd }}
           >
-            <Icon name="arrow-back" size={16} color="#FFFFFF" />
-            <Text style={styles.periodBtnDivider}>|</Text>
-            <Text style={styles.periodBtnText}>End</Text>
+            {isEnd && <Icon name="check" size={16} color={t.onAccent} />}
+            <Text style={[styles.periodBtnText, !isEnd && { color: t.luteal }]}>Period End</Text>
           </TouchableOpacity>
         </View>
 
@@ -367,7 +533,7 @@ export const LogScreen: React.FC = () => {
           <View style={{ gap: 10 }}>
             {CATEGORIES.map((cat) => {
               const catColor = cat.phase === 'ovulatory' ? t.ovulatoryDeep : phaseColor(t, cat.phase);
-              const selectedCount = cat.chips.filter((c) => selectedSymptoms.has(c)).length;
+              const selectedKeys = cat.chips.filter((c) => selectedSymptoms.has(c));
               const isOpen = openCategory === cat.key;
               return (
                 <AccordionPill
@@ -377,8 +543,16 @@ export const LogScreen: React.FC = () => {
                   color={catColor}
                   tint={phaseTint(t, cat.phase)}
                   expanded={isOpen}
-                  count={selectedCount}
+                  count={selectedKeys.length}
                   onToggle={() => setOpenCategory((o) => (o === cat.key ? null : cat.key))}
+                  summary={
+                    selectedKeys.length > 0 ? (
+                      <SelectionSummary
+                        items={selectedKeys.map((k) => SYMPTOM_LABELS[k])}
+                        color={catColor}
+                      />
+                    ) : undefined
+                  }
                 >
                   <View style={[styles.chipRow, { paddingBottom: 6 }]}>
                     {cat.chips.map((key) => (
@@ -406,6 +580,96 @@ export const LogScreen: React.FC = () => {
                 </AccordionPill>
               );
             })}
+
+            {/* Temperature (BBT) — accordion card, locket-blue accent, after Triggers */}
+            <AccordionPill
+              icon="device-thermostat"
+              label="Temperature"
+              color={t.locketBlue}
+              tint={t.locketBlueTint}
+              expanded={openCategory === 'temperature'}
+              count={temperature ? 1 : 0}
+              onToggle={() => setOpenCategory((o) => (o === 'temperature' ? null : 'temperature'))}
+              summary={
+                temperature && displayTemp != null ? (
+                  <SelectionSummary items={[`${displayTemp}°${tempUnit}`]} color={t.locketBlue} />
+                ) : undefined
+              }
+            >
+              {!tempExpanded ? (
+                <TouchableOpacity
+                  onPress={handleAddTemperature}
+                  accessibilityRole="button"
+                  accessibilityLabel="Add temperature"
+                  style={styles.addTempBtn}
+                >
+                  <Text style={[styles.addTempText, { color: t.locketBlue }]}>+ Add temperature</Text>
+                </TouchableOpacity>
+              ) : (
+                <View>
+                  <View style={styles.tempRow}>
+                <TouchableOpacity
+                  onPress={() => handleTempStep(-TEMP_STEP)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Decrease temperature"
+                  style={[styles.tempStepBtn, { borderColor: t.divider, backgroundColor: t.cardWhite }]}
+                >
+                  <Icon name="remove" size={20} color={t.ink} />
+                </TouchableOpacity>
+                <TextInput
+                  style={[styles.tempInput, { backgroundColor: t.cardWhite, borderColor: t.divider, color: t.ink }]}
+                  keyboardType="decimal-pad"
+                  value={tempText}
+                  onChangeText={handleTempTextChange}
+                  onBlur={handleTempBlur}
+                  accessibilityLabel={`Temperature ${tempText} degrees ${tempUnit}`}
+                />
+                <TouchableOpacity
+                  onPress={() => handleTempStep(TEMP_STEP)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Increase temperature"
+                  style={[styles.tempStepBtn, { borderColor: t.divider, backgroundColor: t.cardWhite }]}
+                >
+                  <Icon name="add" size={20} color={t.ink} />
+                </TouchableOpacity>
+
+                <View style={styles.tempUnitRow}>
+                  {(['F', 'C'] as const).map((u) => {
+                    const selected = tempUnit === u;
+                    return (
+                      <TouchableOpacity
+                        key={u}
+                        onPress={() => handleTempUnitToggle(u)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Degrees ${u}`}
+                        accessibilityState={{ selected }}
+                        style={[
+                          styles.tempUnitPill,
+                          { borderColor: t.locketBlue },
+                          selected && { backgroundColor: t.locketBlue },
+                        ]}
+                      >
+                        <Text style={[styles.tempUnitText, { color: selected ? t.onAccent : t.locketBlue }]}>°{u}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                <TouchableOpacity
+                  onPress={handleClearTemperature}
+                  accessibilityRole="button"
+                  accessibilityLabel="Remove temperature"
+                  style={styles.tempClearBtn}
+                >
+                  <Icon name="close" size={20} color={t.whisper} />
+                </TouchableOpacity>
+              </View>
+                  <Text style={[styles.tempHelper, { color: t.whisper }]}>
+                    Between {TEMP_LIMITS[tempUnit].min}–{TEMP_LIMITS[tempUnit].max} °{tempUnit}
+                  </Text>
+                </View>
+              )}
+            </AccordionPill>
           </View>
         </Card>
 
@@ -468,6 +732,18 @@ export const LogScreen: React.FC = () => {
         onDismiss={() => setPeriodPrompt(null)}
       />
 
+      {/* SaveReminder — unsaved-changes guard for all exit paths (beforeRemove) */}
+      <SaveReminderModal
+        visible={reminderVisible}
+        dateLabel={displayDate}
+        onSave={handleSave}
+        onDiscard={leaveNow}
+        onKeepEditing={() => {
+          pendingActionRef.current = null;
+          setReminderVisible(false);
+        }}
+      />
+
       {/* ContentSheet for "Why?" long-press (iOS only, matches previous behavior) */}
       {Platform.OS === 'ios' && (
         <ContentSheet
@@ -522,9 +798,22 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#FFFFFF',
   },
-  periodBtnDivider: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 15,
+  summaryRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 8,
+    paddingHorizontal: 6,
+  },
+  summaryPill: {
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  summaryPillText: {
+    fontFamily: font(600),
+    fontSize: 12,
   },
   section: {
     marginBottom: 20,
@@ -545,6 +834,68 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
     marginBottom: 8,
+  },
+  addTempBtn: {
+    paddingVertical: 8,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  addTempText: {
+    fontFamily: font(600),
+    fontSize: 15,
+  },
+  tempRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  tempStepBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tempInput: {
+    width: 78,
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    textAlign: 'center',
+    fontFamily: font(600),
+    fontSize: 17,
+  },
+  tempUnitRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginLeft: 4,
+  },
+  tempUnitPill: {
+    minWidth: 44,
+    height: 44,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tempUnitText: {
+    fontFamily: font(700),
+    fontSize: 15,
+  },
+  tempClearBtn: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 'auto',
+  },
+  tempHelper: {
+    fontFamily: font(400),
+    fontSize: 13,
+    marginTop: 8,
   },
   confirmBtn: {
     width: 34,

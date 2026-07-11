@@ -1,13 +1,26 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, PanResponder, StyleSheet } from 'react-native';
+import {
+    View,
+    Text,
+    TouchableOpacity,
+    PanResponder,
+    StyleSheet,
+    AccessibilityInfo,
+    LayoutAnimation,
+    Platform,
+    UIManager,
+} from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 import { phaseColor, phaseLabel } from '../theme/colors';
 import { font } from '../theme/typography';
+import { computePhaseBoundaries, phaseForDay } from '../utils/phaseBoundaries';
+import type { CorePhase } from '../utils/phaseBoundaries';
+import { formatMonDay, gaugeDayLine, isOverdue, cycleStartDate } from '../utils/cycleStrip';
 import type { IconName } from './Icon';
 
-type Phase = 'menstrual' | 'follicular' | 'ovulatory' | 'luteal';
+type Phase = CorePhase;
 
 const PHASE_ICONS: Record<Phase, IconName> = {
     menstrual: 'water-drop',
@@ -24,17 +37,37 @@ interface OrbitGaugeProps {
     /** Actual current day-in-cycle (0-indexed, as PredictionEngine reports) */
     dayInCycle: number;
     size?: number;
+    /**
+     * Controlled preview day (0-indexed), or null = today. When provided the
+     * gauge is controlled and shares selection with the DayStrip; when omitted
+     * it falls back to internal preview state.
+     */
+    previewDay?: number | null;
+    /** Local-midnight date of cycle day 0. Derived from today when omitted. */
+    cycleStartDate?: Date;
+    /** Renders the paleLavender "Learning your cycle" state (§3). */
+    learning?: boolean;
     /** Fires as the user drags/taps around the ring; day is 0-indexed. Null = back to today. */
     onPreview?: (day: number | null, phase: Phase) => void;
+    /** Fired when a ring drag begins / ends so the parent can disable scroll
+     *  while scrubbing (belt-and-suspenders with the capture-phase responder). */
+    onInteractionStart?: () => void;
+    onInteractionEnd?: () => void;
 }
 
-/** Phase for a 0-indexed cycle day — mirrors PredictionEngine.getCurrentPhase boundaries. */
-export function phaseForDay(day: number, cycleLength: number, periodLength: number): Phase {
-    const d = ((day % cycleLength) + cycleLength) % cycleLength;
-    if (d < periodLength) return 'menstrual';
-    if (d < Math.floor(cycleLength * 0.45)) return 'follicular';
-    if (d < Math.floor(cycleLength * 0.55)) return 'ovulatory';
-    return 'luteal';
+/**
+ * Re-export the consolidated phase mapping so existing OrbitGauge importers keep
+ * working. Uses the single-source-of-truth util, which CLAMPS to luteal past
+ * cycle end (day 30 of a 28-day cycle is overdue-luteal, not a modulo-wrapped
+ * menstrual day).
+ */
+export { phaseForDay };
+
+if (
+    Platform.OS === 'android' &&
+    UIManager.setLayoutAnimationEnabledExperimental
+) {
+    UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
 const polar = (cx: number, cy: number, r: number, angleDeg: number) => {
@@ -53,40 +86,70 @@ const arcPath = (cx: number, cy: number, r: number, startDeg: number, endDeg: nu
  * Interactive Orbit Gauge — the cycle rendered as an orbit ring, segmented by
  * phase (proportional to the user's real cycle), with a draggable marker.
  * Drag or tap anywhere on the ring to preview any day of the cycle; tap the
- * center to snap back to today.
+ * center to snap back to today. VoiceOver users adjust the preview day by
+ * swiping up/down (single adjustable element).
  */
 export const OrbitGauge: React.FC<OrbitGaugeProps> = ({
     cycleLength,
     periodLength,
     dayInCycle,
     size = 244,
+    previewDay,
+    cycleStartDate: cycleStartProp,
+    learning = false,
     onPreview,
+    onInteractionStart,
+    onInteractionEnd,
 }) => {
     const { t } = useTheme();
-    const [previewDay, setPreviewDay] = useState<number | null>(null);
+    const isControlled = previewDay !== undefined;
+    const [internalPreview, setInternalPreview] = useState<number | null>(null);
+    const effectivePreview = isControlled ? previewDay ?? null : internalPreview;
+
+    // Reduce Motion — preview/marker transitions become instant when enabled.
+    const [reduceMotion, setReduceMotion] = useState(false);
+    useEffect(() => {
+        let mounted = true;
+        AccessibilityInfo.isReduceMotionEnabled().then((v) => {
+            if (mounted) setReduceMotion(v);
+        });
+        const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', (v) =>
+            setReduceMotion(v),
+        );
+        return () => {
+            mounted = false;
+            // @ts-ignore older RN returns void from addEventListener
+            sub?.remove?.();
+        };
+    }, []);
 
     // Keep the ring valid even with degenerate config
     const cycle = Math.max(cycleLength || 28, 2);
     const period = Math.min(Math.max(periodLength || 5, 1), cycle - 1);
 
-    const day = previewDay ?? Math.min(Math.max(dayInCycle, 0), cycle - 1);
+    const today = Math.max(dayInCycle, 0);
+    const day =
+        effectivePreview ?? Math.min(today, cycle - 1);
     const phase = phaseForDay(day, cycle, period);
-    const isPreviewing = previewDay !== null && previewDay !== dayInCycle;
+    const isPreviewing = effectivePreview !== null && effectivePreview !== today;
+
+    // Calendar date of the shown day (for the center date line).
+    const startDate = cycleStartProp ?? cycleStartDate(dayInCycle);
+    const shownDate = useMemo(() => {
+        const d = new Date(startDate);
+        d.setDate(startDate.getDate() + day);
+        return d;
+    }, [startDate, day]);
 
     const cx = size / 2;
     const cy = size / 2;
     const ringWidth = 16;
-    // Inset the ring so the day marker (radius 13 + 3px stroke) sits fully inside
-    // the size×size SVG. Without this clearance the marker is clipped at the four
-    // cardinal points where it reaches closest to the SVG edge.
     const ringR = size / 2 - ringWidth / 2 - 10;
 
     const dayToAngle = (d: number) => (d / cycle) * 360;
 
-    // Proportional phase arcs (small gap between segments for the orbit look)
     const segments = useMemo(() => {
-        const follicularEnd = Math.max(period, Math.floor(cycle * 0.45));
-        const ovulatoryEnd = Math.max(follicularEnd, Math.floor(cycle * 0.55));
+        const { follicularEnd, ovulatoryEnd } = computePhaseBoundaries(cycle, period);
         const bounds: Array<{ phase: Phase; from: number; to: number }> = [
             { phase: 'menstrual', from: 0, to: period },
             { phase: 'follicular', from: period, to: follicularEnd },
@@ -104,41 +167,132 @@ export const OrbitGauge: React.FC<OrbitGaugeProps> = ({
     }, [cycle, period]);
 
     const emitPreview = (d: number | null) => {
-        setPreviewDay(d);
-        onPreview?.(d, phaseForDay(d ?? dayInCycle, cycle, period));
+        if (!reduceMotion) {
+            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        }
+        if (!isControlled) setInternalPreview(d);
+        onPreview?.(d, phaseForDay(d ?? today, cycle, period));
     };
 
-    // Reset preview when the real day changes (e.g. screen refocus at midnight)
+    // Reset internal preview when the real day changes (e.g. refocus at midnight)
     useEffect(() => {
-        setPreviewDay(null);
-    }, [dayInCycle]);
+        if (!isControlled) setInternalPreview(null);
+    }, [dayInCycle, isControlled]);
 
     const handleTouch = (x: number, y: number) => {
+        if (learning) return;
         const dx = x - cx;
         const dy = y - cy;
-        // Ignore center touches (reserved for the reset tap target)
         if (Math.sqrt(dx * dx + dy * dy) < size * 0.22) return;
-        let angle = (Math.atan2(dy, dx) * 180) / Math.PI + 90; // 0 at top
+        let angle = (Math.atan2(dy, dx) * 180) / Math.PI + 90;
         if (angle < 0) angle += 360;
         const d = Math.round((angle / 360) * cycle) % cycle;
         emitPreview(d);
     };
 
+    // The PanResponder is created once (useRef), so its callbacks would capture
+    // the first render's `learning`/`cycle`/`onPreview`. Mirror the live handler
+    // and learning flag into refs it reads, so touch handling always reflects the
+    // current state — e.g. after the user leaves the learning state by logging a
+    // first period start, or changes cycle length in Settings.
+    const learningRef = useRef(learning);
+    learningRef.current = learning;
+    const handleTouchRef = useRef(handleTouch);
+    handleTouchRef.current = handleTouch;
+    const onInteractionStartRef = useRef(onInteractionStart);
+    onInteractionStartRef.current = onInteractionStart;
+    const onInteractionEndRef = useRef(onInteractionEnd);
+    onInteractionEndRef.current = onInteractionEnd;
+
     const panResponder = useRef(
         PanResponder.create({
-            onStartShouldSetPanResponder: () => true,
-            onMoveShouldSetPanResponder: () => true,
-            onPanResponderGrant: (evt) => handleTouch(evt.nativeEvent.locationX, evt.nativeEvent.locationY),
-            onPanResponderMove: (evt) => handleTouch(evt.nativeEvent.locationX, evt.nativeEvent.locationY),
+            // Start in the BUBBLE phase so a stationary tap still reaches the
+            // center "Back to today" button (child wins). Claim MOVE in the
+            // CAPTURE phase so a drag beats the enclosing ScrollView before it
+            // can start scrolling, and refuse to yield the gesture back mid-drag
+            // (TerminationRequest → false). This is what lets you scrub the ring
+            // without the screen scroll stealing the vertical drag.
+            onStartShouldSetPanResponder: () => !learningRef.current,
+            onMoveShouldSetPanResponderCapture: () => !learningRef.current,
+            onPanResponderTerminationRequest: () => false,
+            onPanResponderGrant: (evt) => {
+                onInteractionStartRef.current?.();
+                handleTouchRef.current(evt.nativeEvent.locationX, evt.nativeEvent.locationY);
+            },
+            onPanResponderMove: (evt) => handleTouchRef.current(evt.nativeEvent.locationX, evt.nativeEvent.locationY),
+            onPanResponderRelease: () => onInteractionEndRef.current?.(),
+            onPanResponderTerminate: () => onInteractionEndRef.current?.(),
         })
     ).current;
 
-    const markerAngle = dayToAngle(day + 0.5);
+    // Marker pins at cycle end when overdue (period late); otherwise at the day.
+    const markerDay = Math.min(day, cycle - 1);
+    const markerAngle = dayToAngle(markerDay + 0.5);
     const marker = polar(cx, cy, ringR, markerAngle);
     const pc = phaseColor(t, phase);
 
+    // Today's hollow ring marker, shown while previewing another day.
+    const todayMarkerDay = Math.min(today, cycle - 1);
+    const todayMarker = polar(cx, cy, ringR, dayToAngle(todayMarkerDay + 0.5));
+    const showTodayMarker = isPreviewing;
+
+    // ─── Learning state ─────────────────────────────────────────────────────
+    if (learning) {
+        const learnR = ringR;
+        return (
+            <View
+                style={{ width: size, height: size }}
+                accessible
+                accessibilityLabel="Learning your cycle. Log a period start to begin predictions."
+            >
+                <Svg width={size} height={size}>
+                    <Circle
+                        cx={cx}
+                        cy={cy}
+                        r={learnR}
+                        stroke={t.paleLavender}
+                        strokeWidth={ringWidth}
+                        fill="none"
+                    />
+                    <Circle cx={cx} cy={cy} r={learnR - ringWidth / 2 - 8} fill={t.paper} />
+                </Svg>
+                <View style={styles.center} pointerEvents="none">
+                    <Text style={[styles.learningLabel, { color: t.fog }]}>
+                        Learning your cycle
+                    </Text>
+                </View>
+            </View>
+        );
+    }
+
+    const overdue = isOverdue(dayInCycle, cycle) && !isPreviewing;
+    const a11yLabel = `Cycle day ${day + 1} of ${cycle}, ${phaseLabel(phase)} phase, ${formatMonDay(shownDate)}`;
+
     return (
-        <View style={{ width: size, height: size }} {...panResponder.panHandlers}>
+        <View
+            style={{ width: size, height: size }}
+            {...panResponder.panHandlers}
+            accessible
+            accessibilityRole="adjustable"
+            accessibilityLabel={a11yLabel}
+            accessibilityActions={
+                isPreviewing
+                    ? [{ name: 'increment' }, { name: 'decrement' }, { name: 'activate', label: 'Back to today' }]
+                    : [{ name: 'increment' }, { name: 'decrement' }]
+            }
+            onAccessibilityAction={(e) => {
+                if (e.nativeEvent.actionName === 'increment') {
+                    emitPreview(Math.min(day + 1, cycle - 1));
+                } else if (e.nativeEvent.actionName === 'decrement') {
+                    emitPreview(Math.max(day - 1, 0));
+                } else if (e.nativeEvent.actionName === 'activate') {
+                    // Restores the "Back to today" affordance lost when the center
+                    // reset button was hidden from the a11y tree (VoiceOver
+                    // double-tap on the adjustable snaps the preview back to today).
+                    emitPreview(null);
+                }
+            }}
+        >
             <Svg width={size} height={size}>
                 {segments.map((s) => (
                     <Path
@@ -148,7 +302,7 @@ export const OrbitGauge: React.FC<OrbitGaugeProps> = ({
                         strokeWidth={ringWidth}
                         strokeLinecap="round"
                         fill="none"
-                        opacity={previewDay !== null && s.phase !== phase ? 0.45 : 1}
+                        opacity={effectivePreview !== null && s.phase !== phase ? 0.45 : 1}
                     />
                 ))}
                 {/* Inner face */}
@@ -162,6 +316,17 @@ export const OrbitGauge: React.FC<OrbitGaugeProps> = ({
                     strokeOpacity={0.3}
                     strokeDasharray="3 5"
                 />
+                {/* Today's hollow ring marker (while previewing another day) */}
+                {showTodayMarker && (
+                    <Circle
+                        cx={todayMarker.x}
+                        cy={todayMarker.y}
+                        r={11}
+                        fill="none"
+                        stroke={t.fog}
+                        strokeWidth={2}
+                    />
+                )}
                 {/* Day marker */}
                 <Circle cx={marker.x} cy={marker.y} r={13} fill={t.cardWhite} stroke={pc} strokeWidth={3} />
             </Svg>
@@ -187,11 +352,19 @@ export const OrbitGauge: React.FC<OrbitGaugeProps> = ({
                 style={styles.center}
                 onPress={() => emitPreview(null)}
                 disabled={!isPreviewing}
-                accessibilityRole="button"
-                accessibilityLabel={isPreviewing ? 'Back to today' : `Cycle day ${day + 1}, ${phaseLabel(phase)} phase`}
+                importantForAccessibility="no-hide-descendants"
+                accessibilityElementsHidden
             >
-                <Text style={[styles.dayLabel, { color: t.ink }]}>Cycle day {day + 1}</Text>
+                {/* Small caps tag → phase hero → prominent date. */}
+                <Text
+                    style={[styles.dayLabel, { color: t.fog }]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                >
+                    {overdue ? gaugeDayLine(dayInCycle, cycle) : `Cycle day ${day + 1}`}
+                </Text>
                 <Text style={[styles.phaseLabel, { color: t.ink }]}>{phaseLabel(phase)} Phase</Text>
+                <Text style={[styles.dateLabel, { color: t.ink }]}>{formatMonDay(shownDate)}</Text>
                 {isPreviewing && (
                     <Text style={[styles.resetLabel, { color: t.locketBlue }]}>Back to today</Text>
                 )}
@@ -209,19 +382,30 @@ const styles = StyleSheet.create({
     },
     dayLabel: {
         fontFamily: font(700),
-        fontSize: 14,
-        opacity: 0.78,
-        marginBottom: 4,
+        fontSize: 12,
+        letterSpacing: 0.8,
+        textTransform: 'uppercase',
+        marginBottom: 6,
     },
     phaseLabel: {
         fontFamily: font(800),
         fontSize: 22,
         letterSpacing: -0.2,
         textAlign: 'center',
+        marginBottom: 8,
+    },
+    dateLabel: {
+        fontFamily: font(600),
+        fontSize: 15,
     },
     resetLabel: {
         fontFamily: font(600),
         fontSize: 12,
         marginTop: 6,
+    },
+    learningLabel: {
+        fontFamily: font(700),
+        fontSize: 16,
+        textAlign: 'center',
     },
 });
