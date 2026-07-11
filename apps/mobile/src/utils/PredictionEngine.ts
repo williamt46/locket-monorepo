@@ -130,10 +130,16 @@ export function getCurrentPhase(
     return { phase: 'unknown', dayInCycle: 0 };
   }
 
+  // Count from the user's LOCAL calendar date, not the UTC one. `startUTC` is a
+  // date-only value (UTC midnight of the stored Y-M-D); reducing `today` to its
+  // LOCAL Y-M-D at UTC-midnight makes the subtraction an exact calendar-day
+  // count that matches cycleStrip's local-midnight math. Using getUTCDate() here
+  // would over-count by a day for evening users west of UTC, shifting every
+  // DayStrip cell / gauge day number by one.
   const todayUTC = Date.UTC(
-    today.getUTCFullYear(),
-    today.getUTCMonth(),
-    today.getUTCDate()
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate()
   );
 
   const dayInCycle = Math.floor((todayUTC - startUTC) / (1000 * 60 * 60 * 24));

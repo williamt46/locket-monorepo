@@ -35,6 +35,24 @@ export function isLearningState(
 }
 
 /**
+ * Cap on how far past cycle end the gauge/strip will track a missing period.
+ * Beyond this the anchor is simply stale (the user hasn't logged in months), so
+ * the overdue UI stops growing rather than rendering hundreds of "days late"
+ * cells / an alarming "DAY 301 · 273 days late" readout.
+ */
+export const MAX_OVERDUE_DAYS = 21;
+
+/**
+ * Clamp a raw 0-indexed `dayInCycle` (which `getCurrentPhase` leaves unbounded
+ * once the period is overdue) to `[0, round(cycleLength) + MAX_OVERDUE_DAYS]`,
+ * so the strip and gauge stay bounded for arbitrarily stale anchors.
+ */
+export function clampDayInCycle(dayInCycle: number, cycleLength: number): number {
+    const len = Math.max(1, Math.round(cycleLength));
+    return Math.max(0, Math.min(dayInCycle, len + MAX_OVERDUE_DAYS));
+}
+
+/**
  * Whether the current 0-indexed `dayInCycle` is past the end of a
  * `cycleLength`-day cycle (period is late). Matches `getCurrentPhase`, which
  * reports `unknown` once `dayInCycle > cycleLength`.

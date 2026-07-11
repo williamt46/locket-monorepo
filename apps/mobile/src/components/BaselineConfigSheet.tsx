@@ -6,6 +6,7 @@ import { Icon } from './Icon';
 import { getUserConfig, saveUserConfig, nukeBaseline } from '../services/StorageService';
 import {
     BaselineCycleData,
+    EstimatedField,
     clampValue,
     PERIOD_MIN, PERIOD_MAX,
     CYCLE_MIN, CYCLE_MAX,
@@ -52,20 +53,30 @@ export const BaselineConfigSheet: React.FC<BaselineConfigSheetProps> = ({ visibl
     }, [visible]);
 
     const handleSave = async () => {
-        if (!ISO_RE.test(lastPeriodDate) || isNaN(Date.parse(lastPeriodDate))) {
-            Alert.alert('Invalid date', 'Last period date must be YYYY-MM-DD.');
+        // A blank date is valid — it's the "I'm not sure" path (lastPeriodDate is
+        // optional as of T7). Only a non-empty, malformed date is rejected.
+        const trimmedDate = lastPeriodDate.trim();
+        if (trimmedDate && (!ISO_RE.test(trimmedDate) || isNaN(Date.parse(trimmedDate)))) {
+            Alert.alert('Invalid date', 'Last period date must be YYYY-MM-DD, or left blank if unknown.');
             return;
         }
         setSaving(true);
         try {
+            // Preserve the estimated flags for fields the user didn't touch here.
+            // A real date confirms the anchor (drop its flag → predictions activate);
+            // a blank date keeps lastPeriodDate estimated so predictions stay dormant
+            // and Insights keeps its "learning" treatment. Never blanket-clear the
+            // list, which would silently confirm typical period/cycle values.
+            const prevEstimated = loaded?.estimatedFields ?? [];
+            const estimatedFields: EstimatedField[] = trimmedDate
+                ? prevEstimated.filter((f) => f !== 'lastPeriodDate')
+                : Array.from(new Set<EstimatedField>([...prevEstimated, 'lastPeriodDate']));
             const next: BaselineCycleData = {
                 ...(loaded ?? { hasSeededInitialData: true }),
-                lastPeriodDate,
+                lastPeriodDate: trimmedDate || undefined,
                 periodLength: clampValue(Math.round(periodLength), PERIOD_MIN, PERIOD_MAX),
                 cycleLength: clampValue(Math.round(cycleLength), CYCLE_MIN, CYCLE_MAX),
-                // The editor sets all three fields explicitly, so nothing remains
-                // "estimated" after a manual save (T7/§4).
-                estimatedFields: [],
+                estimatedFields,
             };
             await saveUserConfig(next);
             onSaved();

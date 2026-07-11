@@ -184,12 +184,22 @@ export const OrbitGauge: React.FC<OrbitGaugeProps> = ({
         emitPreview(d);
     };
 
+    // The PanResponder is created once (useRef), so its callbacks would capture
+    // the first render's `learning`/`cycle`/`onPreview`. Mirror the live handler
+    // and learning flag into refs it reads, so touch handling always reflects the
+    // current state — e.g. after the user leaves the learning state by logging a
+    // first period start, or changes cycle length in Settings.
+    const learningRef = useRef(learning);
+    learningRef.current = learning;
+    const handleTouchRef = useRef(handleTouch);
+    handleTouchRef.current = handleTouch;
+
     const panResponder = useRef(
         PanResponder.create({
-            onStartShouldSetPanResponder: () => !learning,
-            onMoveShouldSetPanResponder: () => !learning,
-            onPanResponderGrant: (evt) => handleTouch(evt.nativeEvent.locationX, evt.nativeEvent.locationY),
-            onPanResponderMove: (evt) => handleTouch(evt.nativeEvent.locationX, evt.nativeEvent.locationY),
+            onStartShouldSetPanResponder: () => !learningRef.current,
+            onMoveShouldSetPanResponder: () => !learningRef.current,
+            onPanResponderGrant: (evt) => handleTouchRef.current(evt.nativeEvent.locationX, evt.nativeEvent.locationY),
+            onPanResponderMove: (evt) => handleTouchRef.current(evt.nativeEvent.locationX, evt.nativeEvent.locationY),
         })
     ).current;
 

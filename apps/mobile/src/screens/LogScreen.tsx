@@ -202,6 +202,23 @@ export const LogScreen: React.FC = () => {
     if (converted != null) setTempText(String(converted));
   };
 
+  // The persisted unit preference loads asynchronously (useTemperatureUnit
+  // starts at 'F' then resolves from SecureStore). When the active unit changes
+  // — via that async load or a manual toggle — re-base the text field from the
+  // stored value so the number shown always matches the selected unit. Keyed on
+  // the unit only: typing changes `temperature`, not the unit, so the early
+  // return leaves in-progress edits untouched (and a stale-unit blur can no
+  // longer re-clamp a Fahrenheit string against Celsius limits).
+  const prevTempUnitRef = useRef(tempUnit);
+  useEffect(() => {
+    if (prevTempUnitRef.current === tempUnit) return;
+    prevTempUnitRef.current = tempUnit;
+    const converted = temperature
+      ? convertTemperature(temperature.value, temperature.unit, tempUnit)
+      : null;
+    setTempText(converted != null ? String(converted) : '');
+  }, [tempUnit, temperature]);
+
   // Dirty-check: compare the tracked fields against the initial snapshot. Both
   // snapshots come from the same `snapshotFields()` shape (via isLogDirty), so
   // adding a field later (e.g. temperature) is a one-list change in logDirty.ts.

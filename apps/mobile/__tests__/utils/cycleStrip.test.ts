@@ -7,6 +7,8 @@ import {
     gaugeDayLine,
     cycleStartDate,
     buildCycleDayCells,
+    clampDayInCycle,
+    MAX_OVERDUE_DAYS,
 } from '../../src/utils/cycleStrip';
 
 describe('isLearningState', () => {
@@ -48,6 +50,25 @@ describe('isLearningState', () => {
                 false,
             ),
         ).toBe(false);
+    });
+});
+
+describe('clampDayInCycle', () => {
+    it('passes through in-cycle and mildly-overdue days unchanged', () => {
+        expect(clampDayInCycle(0, 28)).toBe(0);
+        expect(clampDayInCycle(14, 28)).toBe(14);
+        expect(clampDayInCycle(28, 28)).toBe(28);
+        expect(clampDayInCycle(28 + MAX_OVERDUE_DAYS, 28)).toBe(28 + MAX_OVERDUE_DAYS);
+    });
+
+    it('caps a months-stale anchor at cycleLength + MAX_OVERDUE_DAYS', () => {
+        // 10-month-stale anchor → dayInCycle ≈ 300 must not build a 300-cell strip.
+        expect(clampDayInCycle(300, 28)).toBe(28 + MAX_OVERDUE_DAYS);
+    });
+
+    it('floors negatives at 0 and rounds a fractional cycle length', () => {
+        expect(clampDayInCycle(-5, 28)).toBe(0);
+        expect(clampDayInCycle(999, 27.6)).toBe(28 + MAX_OVERDUE_DAYS);
     });
 });
 

@@ -14,7 +14,7 @@ import { phaseColor, phaseLabel } from '../theme/colors';
 import { font } from '../theme/typography';
 import { buildCycleHistory, earliestLoggedDate } from '../utils/cycleHistory';
 import { phaseForDay } from '../utils/phaseBoundaries';
-import { isLearningState, cycleStartDate, formatMonDay } from '../utils/cycleStrip';
+import { isLearningState, cycleStartDate, formatMonDay, clampDayInCycle } from '../utils/cycleStrip';
 import { buildLogNavParams } from '../utils/buildLogNavParams';
 import type { CyclePhase } from '../utils/PredictionEngine';
 import { useDecryptedLedger } from '../hooks/useDecryptedLedger';
@@ -45,7 +45,11 @@ export const CycleInsightsScreen: React.FC = () => {
 
     const cycleLength = baseline?.cycleLength ?? 28;
     const periodLength = baseline?.periodLength ?? 5;
-    const today = Math.max(dayInCycle ?? 0, 0);
+    // Clamp the (unbounded once overdue) day-in-cycle so a months-stale anchor
+    // can't build a ~300-cell strip / "273 days late" gauge. The same clamped
+    // value feeds cycleStartDate, the gauge, and the strip, so today's cell
+    // still lands on the real calendar date.
+    const today = clampDayInCycle(dayInCycle ?? 0, cycleLength);
 
     // Reduce Motion — strip auto-centering / gauge transitions become instant.
     const [reduceMotion, setReduceMotion] = useState(false);
