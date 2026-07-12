@@ -29,11 +29,12 @@ import { ContentSheet } from '../components/ContentSheet';
 import { useEukiContent } from '../hooks/useEukiContent';
 import { useLedger } from '../hooks/useLedger';
 import type { BleedingIntensity, SymptomKey, TemperatureUnit } from '../models/LogEntry';
+import { migrateLegacySymptomKeys } from '../models/LogEntry';
 import type { IconName } from '../components/Icon';
 import type { EukiItem } from '@locket/shared';
 
 const SYMPTOM_LABELS: Record<SymptomKey, string> = {
-  cramps: 'Cramps', bloating: 'Bloating', nausea_fatigue: 'Nausea / Fatigue',
+  cramps: 'Cramps', bloating: 'Bloating', nausea: 'Nausea', fatigue: 'Fatigue',
   headache: 'Headache', back_pain: 'Back Pain', acne: 'Acne', breast_tenderness: 'Breast Tenderness',
   mood_low: 'Low', mood_anxious: 'Anxious', mood_irritable: 'Irritable',
   mood_happy: 'Happy', mood_energized: 'Energized', mood_calm: 'Calm',
@@ -57,7 +58,7 @@ type Category = {
 const CATEGORIES: Category[] = [
   {
     key: 'symptoms', label: 'Symptoms', icon: 'healing', phase: 'luteal',
-    chips: ['cramps', 'bloating', 'nausea_fatigue', 'headache', 'back_pain', 'acne', 'breast_tenderness'],
+    chips: ['cramps', 'bloating', 'nausea', 'fatigue', 'headache', 'back_pain', 'acne', 'breast_tenderness'],
   },
   {
     key: 'mood', label: 'Mood', icon: 'sentiment-satisfied', phase: 'ovulatory',
@@ -129,7 +130,7 @@ export const LogScreen: React.FC = () => {
 
   // Symptoms state — one set across all accordion categories
   const [selectedSymptoms, setSelectedSymptoms] = useState<Set<SymptomKey>>(
-    new Set(initialData?.symptoms ?? [])
+    new Set(migrateLegacySymptomKeys(initialData?.symptoms ?? []))
   );
   const [openCategory, setOpenCategory] = useState<string | null>(null);
 

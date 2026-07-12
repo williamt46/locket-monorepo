@@ -9,7 +9,7 @@ import type { LogEntry, SymptomKey, BleedingIntensity } from '../../src/index.js
 describe('LogEntry backup/restore roundtrip', () => {
   const ALL_SYMPTOMS: SymptomKey[] = [
     // Physical
-    'cramps', 'bloating', 'nausea_fatigue', 'headache', 'back_pain', 'acne', 'breast_tenderness',
+    'cramps', 'bloating', 'nausea', 'fatigue', 'headache', 'back_pain', 'acne', 'breast_tenderness',
     // Mood
     'mood_low', 'mood_anxious', 'mood_irritable', 'mood_happy', 'mood_energized', 'mood_calm',
     // Sex
@@ -20,7 +20,7 @@ describe('LogEntry backup/restore roundtrip', () => {
 
   const ALL_BLEEDING_INTENSITIES: BleedingIntensity[] = ['spotting', 'light', 'medium', 'heavy'];
 
-  it('all 22 SymptomKey values survive JSON roundtrip', () => {
+  it('all 23 SymptomKey values survive JSON roundtrip', () => {
     const entry: LogEntry = {
       event: 'manual_entry',
       date: '2026-04-14',

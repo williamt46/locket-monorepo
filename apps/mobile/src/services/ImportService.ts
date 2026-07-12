@@ -9,6 +9,7 @@ import {
 import { LogEntry, BleedingIntensity } from '../models/LogEntry';
 import { inferTemperatureUnit } from '../utils/temperature';
 import { parseBbtFromNote } from '../utils/bbtNoteMigration';
+import { extractSymptomsFromNote } from '../utils/symptomTextMapping';
 
 // --- Type Guards and Detectors ---
 
@@ -519,6 +520,10 @@ function toLocalIsoDate(ts: number): string {
  *                  field (no longer stuffed into the free-text note). Source
  *                  formats don't tag the unit, so it's inferred by magnitude
  *                  (>= 50 -> °F, else °C) since valid °F/°C ranges don't overlap.
+ *   note text   -> recognized symptom phrases (e.g. "Backache", "Fatigue") are
+ *                  lifted into structured `symptoms` pills; unrecognized text
+ *                  stays in the note. Source formats carry symptoms as free text,
+ *                  so without this they would never light up their matching pill.
  */
 export function ledgerEntryToLogEntry(entry: LedgerEntry): LogEntry {
     const hasBbt = typeof entry.bbt === 'number' && !Number.isNaN(entry.bbt);
@@ -528,11 +533,14 @@ export function ledgerEntryToLogEntry(entry: LedgerEntry): LogEntry {
     // re-importing a file whose note text was written by the pre-T4 importer, or
     // that the T9 migration has since moved into `temperature`), strip it so the
     // value isn't duplicated across the note string and the temperature field.
-    const notes: string[] = [];
+    let noteText = '';
     if (entry.note) {
-        const cleaned = hasBbt ? (parseBbtFromNote(entry.note)?.rest ?? entry.note) : entry.note;
-        if (cleaned) notes.push(cleaned);
+        noteText = hasBbt ? (parseBbtFromNote(entry.note)?.rest ?? entry.note) : entry.note;
     }
+
+    // Lift recognized symptom phrases out of the note into structured pills; keep
+    // whatever text didn't map (e.g. "Body Aches", "Spotting / Bleeding") as note.
+    const { symptoms, rest } = extractSymptomsFromNote(noteText);
 
     const log: LogEntry = {
         event: entry.isStart ? 'period_start' : entry.isEnd ? 'period_end' : 'manual_entry',
@@ -543,7 +551,8 @@ export function ledgerEntryToLogEntry(entry: LedgerEntry): LogEntry {
 
     if (entry.isStart) log.isStart = true;
     if (entry.isEnd) log.isEnd = true;
-    if (notes.length > 0) log.note = notes.join(', ');
+    if (rest) log.note = rest;
+    if (symptoms.length > 0) log.symptoms = symptoms;
 
     const intensity = typeof entry.flow === 'number' ? FLOW_TO_INTENSITY[entry.flow] : undefined;
     if (intensity) log.bleeding = { intensity };

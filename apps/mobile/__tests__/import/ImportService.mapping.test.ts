@@ -49,13 +49,39 @@ describe('ImportService - ledgerEntryToLogEntry (import -> app domain)', () => {
         expect(log.temperature).toEqual({ value: 98.6, unit: 'F' });
     });
 
-    it('keeps an existing note untouched and does NOT append the bbt to it', () => {
-        const entry: LedgerEntry = { ts: TS, isPeriod: true, flow: 2, note: 'Cramps', bbt: 36.8, source: 'clue' };
+    it('keeps a free-text note untouched and does NOT append the bbt to it', () => {
+        // 'Long day at work' maps to no symptom pill, so it stays as-is in the note.
+        const entry: LedgerEntry = { ts: TS, isPeriod: true, flow: 2, note: 'Long day at work', bbt: 36.8, source: 'clue' };
         const log = ledgerEntryToLogEntry(entry);
-        expect(log.note).toBe('Cramps');
+        expect(log.note).toBe('Long day at work');
         expect(log.note).not.toContain('BBT');
+        expect(log.symptoms).toBeUndefined();
         expect(log.temperature).toEqual({ value: 36.8, unit: 'C' });
         expect(log.bleeding?.intensity).toBe('medium');
+    });
+
+    it('lifts recognized symptom phrases from the note into structured pills', () => {
+        // Repro for the CSV import bug: symptoms arrived as free text and never
+        // populated their matching pills. "Backache" etc. map cleanly; "Body Aches"
+        // and "Spotting / Bleeding" have no pill, so they stay in the note.
+        const entry: LedgerEntry = {
+            ts: TS,
+            isPeriod: false,
+            flow: 1,
+            note: 'Backache, Spotting / Bleeding, Fatigue, Breast Sensitivity, Tender Breasts, Body Aches',
+            source: 'csv',
+        };
+        const log = ledgerEntryToLogEntry(entry);
+        // De-duplicated (Breast Sensitivity + Tender Breasts → one pill), first-seen order.
+        expect(log.symptoms).toEqual(['back_pain', 'fatigue', 'breast_tenderness']);
+        expect(log.note).toBe('Spotting / Bleeding, Body Aches');
+    });
+
+    it('drops the note entirely when every token maps to a pill', () => {
+        const entry: LedgerEntry = { ts: TS, isPeriod: false, note: 'Backache', source: 'csv' };
+        const log = ledgerEntryToLogEntry(entry);
+        expect(log.symptoms).toEqual(['back_pain']);
+        expect(log.note).toBeUndefined();
     });
 
     it('leaves note undefined when there is neither a note nor a bbt', () => {
