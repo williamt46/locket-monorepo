@@ -112,13 +112,16 @@ export async function runBbtNoteMigration(keyHex?: string): Promise<number> {
   if (ranThisSession || !keyHex) return 0;
   ranThisSession = true;
 
-  // Lazy-load native/service deps so unit tests can exercise the pure functions
-  // above without pulling in SecureStore / the ledger singleton.
-  const SecureStore = await import('expo-secure-store');
-  const { getLedger } = await import('../services/StorageService');
-  const { LocketCryptoService } = await import('@locket/core-crypto');
-
   try {
+    // Lazy-load native/service deps so unit tests can exercise the pure
+    // functions above without pulling in SecureStore / the ledger singleton.
+    // Kept inside the try so a module-load failure (e.g. Metro's transient
+    // `LoadBundleFromServerRequestError` in dev) is handled here instead of
+    // rejecting to the caller — honoring the "never throws" contract above.
+    const SecureStore = await import('expo-secure-store');
+    const { getLedger } = await import('../services/StorageService');
+    const { LocketCryptoService } = await import('@locket/core-crypto');
+
     const already = await SecureStore.getItemAsync(MIGRATION_FLAG_KEY);
     if (already) return 0;
 
