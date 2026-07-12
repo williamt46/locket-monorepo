@@ -26,6 +26,18 @@ vi.mock('../../src/services/StorageService', () => ({
     rawNukeData: vi.fn()
 }));
 
+// 3. Mock SecureKeyService: EncryptedExportService now imports it statically, so
+// its native react-native/expo-secure-store deps would otherwise enter the module
+// graph at collection time and fail Vitest's parser on RN's `import typeof` syntax.
+vi.mock('../../src/services/SecureKeyService', () => ({
+    SecureKeyService: {
+        installKey: vi.fn(),
+        getOrGenerateKey: vi.fn(),
+        nukeKey: vi.fn(),
+        peekKey: vi.fn().mockResolvedValue(null),
+    },
+}));
+
 const DUMMY_MASTER_KEY = crypto.randomBytes(32).toString('hex');
 const WRONG_MASTER_KEY = crypto.randomBytes(32).toString('hex');
 

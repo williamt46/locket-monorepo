@@ -12,6 +12,12 @@ import { keyFingerprint } from '../utils/keyFingerprint';
 import {
     initStorage, loadEvents, getUserConfig, saveUserConfig, rawNukeData, rawSaveEvents,
 } from './StorageService';
+// Static import (not a lazy `await import`): a code-split bundle fetch fails on a
+// physical device when Metro can't serve the split chunk over LAN, throwing
+// `LoadBundleFromServerRequestError: Could not load bundle` mid-restore. Unlike
+// the BBT migration, a restore must not silently degrade, so keep this in the
+// main bundle rather than swallowing the error.
+import { SecureKeyService } from './SecureKeyService';
 
 const CURRENT_VERSION = 2;
 const gcm = new LocketCryptoService();
@@ -191,7 +197,6 @@ export const EncryptedExportService = {
             throw new Error('Invalid backup payload structure');
         }
 
-        const { SecureKeyService } = await import('./SecureKeyService');
         // Witness the rebind: peek (never create) the resident key before it is
         // overwritten, so QA logs prove the restore worked against a DIFFERENT
         // resident key (the cross-device condition) rather than passing by luck.
