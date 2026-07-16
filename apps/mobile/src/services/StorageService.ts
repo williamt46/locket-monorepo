@@ -85,6 +85,16 @@ export const saveUserConfig = async (config: BaselineCycleData): Promise<void> =
     const envelope = wrapBaseline(masterKeyHex, config);
     await SecureStore.setItemAsync(BASELINE_KEY, JSON.stringify(envelope));
     baselineCache = config;
+    // Debug confirmation that a Settings baseline edit was AES-GCM-wrapped and
+    // written to locket_baseline_v2 (device-local only; never anchored/shared).
+    // Privacy: log presence/shape, NOT the values — baseline is GDPR Art. 9 health
+    // data, so the raw date and cycle numbers must never reach the console.
+    console.log(
+        `[StorageService] baseline saved to ${BASELINE_KEY} (wrapped) — ` +
+        `hasAnchorDate=${config.lastPeriodDate != null}, ` +
+        `estimatedFields=[${(config.estimatedFields ?? []).join(',')}], ` +
+        `hasSeededInitialData=${config.hasSeededInitialData === true}`,
+    );
 };
 
 export const getUserConfig = async (): Promise<BaselineCycleData | null> => {

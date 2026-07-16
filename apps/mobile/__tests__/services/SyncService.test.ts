@@ -37,12 +37,12 @@ describe('SyncService', () => {
         vi.clearAllMocks();
     });
 
-    describe('uploadBaselineCiphertext', () => {
+    describe('uploadCiphertext', () => {
         it('should encrypt data and upload PRE payload to Serverless Gateway', async () => {
             const data = { bp: '120/80' };
             const ownerPublicKeyB64 = 'mockPublicKeyB64';
 
-            const result = await SyncService.uploadBaselineCiphertext(data, ownerPublicKeyB64);
+            const result = await SyncService.uploadCiphertext(data, ownerPublicKeyB64);
 
             expect(result.success).toBe(true);
             expect(global.fetch).toHaveBeenCalledWith('http://localhost:3000/api/data/upload', {
