@@ -16,11 +16,13 @@ export interface GrantResult {
 
 export const SyncService = {
     /**
-     * Encrypt baseline clinical data via PRE and upload to the Serverless Gateway.
+     * Encrypt per-event clinical data via PRE and upload to the Serverless Gateway.
+     * NOTE: baseline cycle data is never shared/delegated (change-control Rule 2) —
+     * only per-event LogEntry ciphertext is eligible for this path.
      */
-    async uploadBaselineCiphertext(data: unknown, ownerPublicKeyB64: string): Promise<UploadResult> {
+    async uploadCiphertext(data: unknown, ownerPublicKeyB64: string): Promise<UploadResult> {
         try {
-            console.log('[SyncService] Encrypting baseline data for PRE upload...');
+            console.log('[SyncService] Encrypting data for PRE upload...');
             const encryptedPayload = await cryptoService.encryptLocalData(data, ownerPublicKeyB64);
 
             const payload = {

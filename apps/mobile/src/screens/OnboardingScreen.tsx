@@ -11,7 +11,14 @@ import type { BaselineCycleData } from '../models/BaselineCycleData';
 export const OnboardingScreen = ({ navigation }: any) => {
     const handleComplete = useCallback(
         async (config: BaselineCycleData) => {
-            console.log(`[Onboarding] Sealing ledger with final config:`, JSON.stringify(config));
+            // Privacy: baseline is GDPR Art. 9 health data — log presence/shape, never
+            // the raw lastPeriodDate or cycle numbers. saveUserConfig emits the
+            // post-write confirmation with the same value-free shape.
+            console.log(
+                `[Onboarding] Sealing ledger — ` +
+                `hasAnchorDate=${config.lastPeriodDate != null}, ` +
+                `estimatedFields=[${(config.estimatedFields ?? []).join(',')}]`,
+            );
             await saveUserConfig(config);
             console.log(`[Onboarding] Config saved to SecureStore.`);
             navigation.replace('Auth');
