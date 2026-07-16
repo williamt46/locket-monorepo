@@ -29,6 +29,19 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
+// ─── Request Logging ─────────────────────────────────────────────────────────
+// Lightweight per-request logger (method, path, status, response time). Runs before
+// the rate limiter so throttled (429) requests are logged too. Added so gateway
+// traffic is visible during dev/QA — previously the mobile app's own success log was
+// the only server-side signal that an anchor request had arrived. No external dep.
+app.use('/api', (req, res, next) => {
+    const start = Date.now();
+    res.on('finish', () => {
+        console.log(`[Gateway] ${req.method} ${req.originalUrl} → ${res.statusCode} (${Date.now() - start}ms)`);
+    });
+    next();
+});
+
 // ─── Security Middleware ─────────────────────────────────────────────────────
 // Rate limiter to prevent DoS attacks on the API gateway
 const limiter = rateLimit({
