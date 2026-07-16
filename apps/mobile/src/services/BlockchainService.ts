@@ -1,7 +1,8 @@
 // BlockchainService.ts
 // Handles anchoring and verification of data hashes via the Locket Gateway (Hyperledger Fabric)
 
-const GATEWAY_URL = 'http://localhost:3000/api';
+import { GATEWAY_URL } from '../config/gateway';
+
 const DEFAULT_USER_DID = 'did:locket:testUser1';
 
 export interface AnchorResult {

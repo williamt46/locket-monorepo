@@ -1,6 +1,5 @@
 import { CryptoService } from '@locket/crypto-engine';
-
-const GATEWAY_URL = 'http://localhost:3000/api';
+import { GATEWAY_URL } from '../config/gateway';
 
 const cryptoService = new CryptoService();
 

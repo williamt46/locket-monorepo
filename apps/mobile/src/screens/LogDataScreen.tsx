@@ -4,11 +4,11 @@ import { LocketCryptoService } from '@locket/core-crypto';
 import { SecureKeyService } from '../services/SecureKeyService';
 import { useLedger } from '../hooks/useLedger';
 import { colors } from '../theme/colors';
+import { GATEWAY_URL } from '../config/gateway';
 
 const crypto = new LocketCryptoService();
 
 // Hardcoded for MVP
-const GATEWAY_URL = 'http://localhost:3000/api';
 const USER_DID = 'did:locket:testUser1';
 
 export default function LogDataScreen() {
