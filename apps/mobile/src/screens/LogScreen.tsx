@@ -31,7 +31,7 @@ import { useLedger } from '../hooks/useLedger';
 import type { BleedingIntensity, SymptomKey, TemperatureUnit } from '../models/LogEntry';
 import { migrateLegacySymptomKeys } from '../models/LogEntry';
 import type { IconName } from '../components/Icon';
-import type { EukiItem } from '@locket/shared';
+import type { HealthItem } from '@locket/shared';
 
 const SYMPTOM_LABELS: Record<SymptomKey, string> = {
   cramps: 'Cramps', bloating: 'Bloating', nausea: 'Nausea', fatigue: 'Fatigue',
@@ -136,7 +136,7 @@ export const LogScreen: React.FC = () => {
 
   // Euki education content for chip long-press ("Why?")
   const { getSymptomContent } = useEukiContent(currentPhase ?? 'unknown', 0);
-  const [contentItem, setContentItem] = useState<EukiItem | null>(null);
+  const [contentItem, setContentItem] = useState<HealthItem | null>(null);
   const [contentSheetVisible, setContentSheetVisible] = useState(false);
 
   // Period start/end state

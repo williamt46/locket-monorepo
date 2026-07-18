@@ -1,21 +1,21 @@
-export interface EukiLink {
+export interface HealthLink {
   label: string;
   url: string;
 }
 
-export interface EukiItem {
+export interface HealthItem {
   id: string;
   title: string;
   body: string;
-  links?: EukiLink[];
+  links?: HealthLink[];
 }
 
-export interface EukiSection {
+export interface HealthSection {
   id: string;
   title: string;
-  items: EukiItem[];
+  items: HealthItem[];
 }
 
-export interface EukiContent {
-  sections: EukiSection[];
+export interface HealthContent {
+  sections: HealthSection[];
 }

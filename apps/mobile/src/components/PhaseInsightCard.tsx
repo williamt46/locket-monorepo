@@ -7,7 +7,7 @@ import { font } from '../theme/typography';
 import { useEukiContent } from '../hooks/useEukiContent';
 import { ContentSheet } from './ContentSheet';
 import type { CyclePhase } from '../utils/PredictionEngine';
-import type { EukiItem } from '@locket/shared';
+import type { HealthItem } from '@locket/shared';
 
 const PHASE_ICON_NAMES: Record<CyclePhase, React.ComponentProps<typeof MaterialIcons>['name']> = {
   menstrual:  'water-drop',
@@ -36,7 +36,7 @@ export const PhaseInsightCard: React.FC<PhaseInsightCardProps> = ({ phase, dayIn
   const { phaseSnippet } = useEukiContent(effectivePhase, dayInCycle);
 
   const [sheetVisible, setSheetVisible] = useState(false);
-  const [sheetItem, setSheetItem] = useState<EukiItem | null>(null);
+  const [sheetItem, setSheetItem] = useState<HealthItem | null>(null);
 
   const accentColor    = phaseColor(t, effectivePhase);
   const phaseTintColor = phaseTint(t, effectivePhase);

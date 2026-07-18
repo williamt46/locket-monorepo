@@ -10,7 +10,7 @@ import {
   Alert,
   Platform,
 } from 'react-native';
-import type { EukiItem } from '@locket/shared';
+import type { HealthItem } from '@locket/shared';
 import { useTheme } from '../theme/ThemeContext';
 import { font } from '../theme/typography';
 
@@ -18,7 +18,7 @@ import { font } from '../theme/typography';
 
 interface ContentSheetProps {
   visible: boolean;
-  item: EukiItem | null;
+  item: HealthItem | null;
   onClose: () => void;
 }
 
@@ -107,7 +107,7 @@ export const ContentSheet: React.FC<ContentSheetProps> = ({ visible, item, onClo
           {/* Attribution footer */}
           <View style={[styles.footer, { borderTopColor: t.divider }]}>
             <Text style={[styles.footerText, { color: t.whisper }]}>
-              Educational content from Euki (open-source, GPL-3.0) · Delivered offline · No tracking
+              Educational content · Delivered offline · No tracking
             </Text>
           </View>
         </View>

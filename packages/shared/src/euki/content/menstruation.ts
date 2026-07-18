@@ -1,10 +1,9 @@
-// Euki reproductive health content — bundled from Euki-iOS open-source project
-// Source: https://github.com/Euki-Inc/Euki-iOS (GPL-3.0)
-// Content adapted for offline use in Locket. See NOTICE at repo root.
+// Locket educational health content — original copy authored for Locket.
+// Draft pending clinical review before release (see TODOS.md).
 
-import type { EukiContent } from '../types.js';
+import type { HealthContent } from '../types.js';
 
-export const menstruationContent: EukiContent = {
+export const menstruationContent: HealthContent = {
   sections: [
     {
       id: 'menstrual_phase',
@@ -13,24 +12,24 @@ export const menstruationContent: EukiContent = {
         {
           id: 'menstrual_what_happens',
           title: 'What happens during your period?',
-          body: 'Your uterus sheds its lining when a fertilized egg has not implanted. Hormone levels of estrogen and progesterone drop, signaling the uterine lining to break down. This process typically lasts 3–7 days.',
-          links: [{ label: 'Learn more on Euki', url: 'https://eukiapp.com' }],
+          body: 'Your period marks the start of a new cycle as the uterine lining is released. Energy often runs lower in these first days, and many people notice cramps, tiredness, or a need for more rest. Periods commonly last around 3–7 days.',
+          links: [],
         },
         {
           id: 'menstrual_cramps',
           title: 'Why do cramps happen?',
-          body: 'Cramps (dysmenorrhea) are caused by prostaglandins — hormone-like chemicals that cause the uterus to contract to expel its lining. Higher prostaglandin levels mean stronger cramps. Heat, gentle movement, and NSAIDs can help reduce pain.',
+          body: 'Cramping is linked to the uterus contracting as it releases its lining, and how strong it feels varies a lot from person to person and from cycle to cycle. Many people find warmth, gentle movement, and rest comforting.',
           links: [],
         },
         {
           id: 'menstrual_bloating',
           title: 'Why does bloating happen before and during your period?',
-          body: 'Hormonal changes — particularly a drop in progesterone — can cause water retention and bloating in the days before and during your period. Reducing salt intake and staying hydrated can help manage symptoms.',
+          body: 'Bloating and water retention often come with the hormonal shifts in the days before and during a period. The body can feel heavier or more sensitive during this time, and some people find lighter meals and staying hydrated leave them more comfortable.',
         },
         {
           id: 'menstrual_nausea',
           title: 'Period nausea and fatigue',
-          body: 'Prostaglandins can affect the digestive system, causing nausea. Combined with blood loss and hormonal shifts, fatigue is also common. Iron-rich foods and gentle movement can support energy levels.',
+          body: 'Queasiness and tiredness are commonly reported in the first days of a period, alongside the hormonal shifts and lower energy of this phase. Many people find rest and gentle movement settling.',
         },
       ],
     },
@@ -41,12 +40,12 @@ export const menstruationContent: EukiContent = {
         {
           id: 'follicular_what_happens',
           title: 'What is the follicular phase?',
-          body: 'Starting on the first day of your period and lasting until ovulation, the follicular phase is when follicle-stimulating hormone (FSH) prompts follicles in your ovaries to grow. Rising estrogen thickens the uterine lining and you may feel more energetic.',
+          body: 'The follicular phase runs from the first day of your period up to ovulation. As it progresses, energy and mood often lift, and many people notice feeling more social, focused, and ready to start new things.',
         },
         {
           id: 'follicular_mood',
           title: 'Mood and energy in the follicular phase',
-          body: 'Rising estrogen is associated with improved mood, increased energy, and sharper focus. Many people find this phase a good time for social activities, exercise, and tackling new projects.',
+          body: 'The rising energy of the follicular phase is associated with a brighter mood, sharper focus, and more motivation. People often find this a good time for social plans, exercise, and new projects.',
         },
       ],
     },
@@ -57,12 +56,12 @@ export const menstruationContent: EukiContent = {
         {
           id: 'ovulatory_what_happens',
           title: 'What happens during ovulation?',
-          body: 'A surge in luteinizing hormone (LH) triggers the release of a mature egg from the dominant follicle. The egg travels down the fallopian tube toward the uterus. This window — typically 24–36 hours — is when pregnancy is most likely.',
+          body: 'Ovulation is the release of an egg around the middle of the cycle. Many people notice a peak in energy, confidence, and libido in this window, and it is the phase when the chance of pregnancy is highest.',
         },
         {
           id: 'ovulatory_signs',
           title: 'Signs of ovulation',
-          body: 'Common signs include a change in cervical mucus (clearer and more slippery, like egg whites), a slight rise in basal body temperature, mild pelvic discomfort (mittelschmerz), and increased libido.',
+          body: 'Around ovulation, some people notice clearer and more slippery cervical fluid, a small rise in basal body temperature, mild one-sided twinges, or a higher libido. Plenty of people notice none of these — that is normal too.',
         },
       ],
     },
@@ -73,22 +72,22 @@ export const menstruationContent: EukiContent = {
         {
           id: 'luteal_what_happens',
           title: 'What is the luteal phase?',
-          body: 'After ovulation, the ruptured follicle becomes the corpus luteum, which produces progesterone to prepare the uterine lining for a potential fertilized egg. If pregnancy does not occur, the corpus luteum breaks down, progesterone drops, and your period begins.',
+          body: 'The luteal phase is the stretch between ovulation and the next period. Energy often eases back, and many people notice shifts in mood, appetite, or sleep as the phase goes on. If pregnancy does not occur, a new period begins.',
         },
         {
           id: 'luteal_pms',
           title: 'Why do PMS symptoms happen?',
-          body: 'Premenstrual syndrome (PMS) symptoms — including mood changes, breast tenderness, bloating, and irritability — are caused by the hormonal fluctuations in the luteal phase, particularly the decline in estrogen and progesterone before your period.',
+          body: 'Premenstrual (PMS) experiences — mood changes, breast tenderness, bloating, irritability — accompany the hormonal shifts of the late luteal phase for many people, and they vary widely between people and between cycles.',
         },
         {
           id: 'luteal_mood',
           title: 'Mood in the luteal phase',
-          body: 'Progesterone has a calming but sometimes sedating effect. Some people feel more anxious, irritable, or low in mood as progesterone drops toward the end of the phase. Gentle exercise, sleep, and reducing caffeine can help.',
+          body: 'For some, the luteal phase feels calmer; for others it brings more anxiety, irritability, or low mood, especially in the days before a period. Many people find gentle movement, rest, and steady sleep help them feel more balanced.',
         },
         {
           id: 'luteal_acne',
           title: 'Premenstrual acne',
-          body: 'Rising progesterone stimulates sebum (oil) production in the skin, which can clog pores and trigger breakouts in the days before your period. Hormonal fluctuations, not just skincare habits, are the primary driver.',
+          body: 'Breakouts in the days before a period often track the hormonal shifts of the luteal phase, which can increase skin oil. For many people this follows the cycle itself rather than skincare habits alone.',
         },
       ],
     },
@@ -99,22 +98,22 @@ export const menstruationContent: EukiContent = {
         {
           id: 'symptom_back_pain',
           title: 'Back pain during your period',
-          body: 'The same prostaglandins that cause uterine cramps can also cause referred pain in the lower back. The uterus sits close to lumbar nerves, so contractions can create a dull ache or spasms. Heat therapy and gentle stretching are commonly helpful.',
+          body: 'A dull ache or spasms in the lower back are a common companion to period cramps — the same muscle activity behind cramping can be felt in the back as well. Many people find warmth and gentle stretching comforting.',
         },
         {
           id: 'symptom_headache',
-          title: 'Menstrual headaches',
-          body: 'Estrogen withdrawal before your period is a common headache trigger. These "menstrual migraines" typically occur in the 2 days before to 3 days into your period. Staying hydrated and maintaining sleep patterns can reduce frequency.',
+          title: 'Headaches around your period',
+          body: 'For many people, headaches cluster around the start of a period, tracking the hormonal dip of the late luteal phase. Steady hydration and regular sleep are often associated with fewer of them.',
         },
         {
           id: 'symptom_mood_anxious',
           title: 'Anxiety around your period',
-          body: 'Fluctuations in estrogen and progesterone affect neurotransmitters like serotonin and GABA, which regulate anxiety. It is normal to experience heightened anxiety in the late luteal phase. Tracking symptoms over cycles helps identify patterns.',
+          body: 'Feeling more anxious in the days before a period is common and is associated with the hormonal shifts of the late luteal phase. Tracking how anxiety moves across your cycles can make the pattern feel more familiar and less alarming.',
         },
         {
           id: 'symptom_mood_irritable',
           title: 'Irritability and your cycle',
-          body: 'Irritability in the premenstrual phase is linked to falling progesterone and estrogen levels affecting serotonin pathways. Naming the pattern — "this might be hormonal" — can reduce its impact on daily life.',
+          body: 'Irritability before a period is widely reported and tends to follow the hormonal shifts of the late luteal phase. Many people find that recognizing the pattern — "this may be cyclical" — softens its impact on daily life.',
         },
       ],
     },
