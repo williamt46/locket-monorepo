@@ -50,3 +50,7 @@ Generated: 2026-04-02 | Plan: Euki Education Layer
 - [ ] **E7 generic encrypted-handoff infra** — Generalize blob+fragment-key share into reusable infrastructure (partner sharing, exports). Deferred: platform bet before one observed clinician; revisit post-observation. (P3, M effort → CC ~2h)
 - [ ] **Blob-service runbook** — One page: "link didn't work in the exam room" triage (expired? store restarted? clock skew?). Write alongside the blob service. (P3, S)
 - [ ] **SHLink full compliance (Approach C)** — shlink: URI, manifest, JWE, PIN for async links; convergence target once the standard earns it and the clinician side is observed. Depends on: H1 format decision in OQ1. (P3, L → CC ~3-5d)
+
+## Deferred — Umbral PRE post-MVP (2026-07-19)
+
+- [ ] **Resume Umbral PRE / consent sharing post-MVP** — Feature deferred, not deleted: `packages/crypto-engine`, gateway PRE routes, and both portal apps remain in the workspace. Decision record: `docs/umbral-pre-mvp-deferral-2026-07-19.md`. **Do NOT resurrect `SyncService.uploadBaselineCiphertext` as-is** — it PRE-encrypted and uploaded baseline data, violating architecture Invariant #7 (baseline must never be shareable), independent of licensing. Mobile PRE code is recoverable from git history; the iOS WASM/Hermes blocker (see locket-mobile-pre-campaign) still gates any mobile bring-up.
