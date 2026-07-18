@@ -6,7 +6,7 @@ Generated: 2026-04-02 | Plan: Euki Education Layer
 
 ## Deferred from CEO Review
 
-- [ ] **GPL legal opinion** — Before closing source, get legal opinion on whether bundled `menstruation.ts` compiled into app binary triggers GPL v3.0 "part of the program" coverage. Low urgency for open-source Locket; high urgency if monetizing/closing source.
+- [x] **GPL legal opinion** — Closed 2026-07-19: mooted by commit 634c72c, which replaced all 17 Euki-derived items in `menstruation.ts` with original copy (no GPL-derived text remains in the bundle); Euki header, links, ContentSheet attribution, and root NOTICE removed. Copy pending clinical review before release.
 - [ ] **Push notifications (APNs/FCM)** — Too large for this PR; separate initiative.
 - [ ] **Cycle data visualization in provider portal** — P7 scope.
 - [ ] **Import migration from Flo/Clue** — Separate initiative.
@@ -43,3 +43,10 @@ Generated: 2026-04-02 | Plan: Euki Education Layer
 
 - [ ] **P2: Theme Onboarding/Consent/Import/LedgerInitError screens for dark mode** — These screens still use light-only static colors and were not converted to `useTheme()`/`t.*` tokens in the design-system-adoption pass. Deferred from `/design-review` 2026-07-07.
 - [ ] **P3: Remove dead components `DataEntryModal.tsx` and `LogDataScreen.tsx`** — Not referenced by `AppNavigator`. Confirm unreferenced before removal. Deferred from `/design-review` 2026-07-07.
+
+## Deferred from /autoplan review — MVP License Separation + Clinician Sharing Wedge (2026-07-18)
+
+- [ ] **E6 delight pack for sharing** — Date-range presets ("last 3 cycles"), viewer print stylesheet, QR expiry countdown polish, share-sheet PDF export. Each ~30min CC. Deferred: outside ship-gating core; land after the observation visit shapes the viewer. (P3)
+- [ ] **E7 generic encrypted-handoff infra** — Generalize blob+fragment-key share into reusable infrastructure (partner sharing, exports). Deferred: platform bet before one observed clinician; revisit post-observation. (P3, M effort → CC ~2h)
+- [ ] **Blob-service runbook** — One page: "link didn't work in the exam room" triage (expired? store restarted? clock skew?). Write alongside the blob service. (P3, S)
+- [ ] **SHLink full compliance (Approach C)** — shlink: URI, manifest, JWE, PIN for async links; convergence target once the standard earns it and the clinician side is observed. Depends on: H1 format decision in OQ1. (P3, L → CC ~3-5d)
