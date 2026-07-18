@@ -6,7 +6,13 @@ import { v4 as uuidv4 } from 'uuid';
  */
 const LOINC_CYCLE_LENGTH = { system: 'http://loinc.org', code: '42798-9', display: 'Cycle Length' } as const;
 const LOINC_MENSTRUAL_FLOW = { system: 'http://loinc.org', code: '92656-8', display: 'Menstrual Flow' } as const;
-const LOINC_PERIOD_LENGTH = { system: 'http://loinc.org', code: '8339-4', display: 'Birth date' } as const;
+// 3144-3 = "Last menstrual period duration". The previous value (8339-4,
+// "Birth weight measured", displayed as "Birth date") was wrong on both code
+// and display — pinned by the code-constants test so it cannot regress.
+const LOINC_PERIOD_LENGTH = { system: 'http://loinc.org', code: '3144-3', display: 'Last menstrual period duration' } as const;
+// 8310-5 is the general body-temperature code; LOINC has no BBT-specific
+// code, and 8310-5 is the standard choice for basal body temperature.
+const LOINC_BODY_TEMP = { system: 'http://loinc.org', code: '8310-5', display: 'Body temperature' } as const;
 const SNOMED_DYSMENORRHEA = { system: 'http://snomed.info/sct', code: '268953000', display: 'Dysmenorrhea' } as const;
 
 /**
@@ -31,6 +37,8 @@ export interface LocketPayload {
     ledger?: Record<string, {
         flow?: string;
         symptoms?: string[];
+        /** Basal body temperature in °C, when logged for the day. */
+        temperature?: number;
     }>;
 }
 
@@ -96,7 +104,17 @@ export class FhirService {
                     );
                 }
 
-                // Symptoms → SNOMED (known) or text-only (unknown)
+                // Basal body temperature → LOINC 8310-5
+                if (log.temperature !== undefined) {
+                    entries.push(
+                        this.createQuantityObs(patientReference, isoDate, LOINC_BODY_TEMP, log.temperature, 'Cel'),
+                    );
+                }
+
+                // Symptoms → SNOMED (known) or text-only CodeableConcept
+                // (unknown). Unmapped symptoms must NOT fabricate a coding —
+                // a coding without a `system` is non-conformant and validating
+                // EHR importers reject it; FHIR's escape hatch is `code.text`.
                 if (log.symptoms) {
                     for (const symptom of log.symptoms) {
                         const snomedCode = SYMPTOM_SNOMED_MAP[symptom.toLowerCase()];
@@ -106,7 +124,7 @@ export class FhirService {
                             );
                         } else {
                             entries.push(
-                                this.createStringObs(patientReference, isoDate, { code: symptom.toLowerCase(), display: symptom }, symptom),
+                                this.createTextCodedStringObs(patientReference, isoDate, symptom, symptom),
                             );
                         }
                     }
@@ -157,6 +175,30 @@ export class FhirService {
             id,
             status: 'final',
             code: { coding: [coding] },
+            subject: { reference: patientRef },
+            effectiveDateTime: date,
+            valueString: value,
+        };
+        return { fullUrl: `urn:uuid:${id}`, resource: obs };
+    }
+
+    /**
+     * Observation whose code is a text-only CodeableConcept (no coding array).
+     * Used for symptoms without a SNOMED mapping — conformant, unlike a
+     * fabricated coding with no `system`.
+     */
+    private static createTextCodedStringObs(
+        patientRef: string,
+        date: string,
+        codeText: string,
+        value: string,
+    ): BundleEntry {
+        const id = uuidv4();
+        const obs: Observation = {
+            resourceType: 'Observation',
+            id,
+            status: 'final',
+            code: { text: codeText },
             subject: { reference: patientRef },
             effectiveDateTime: date,
             valueString: value,

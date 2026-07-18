@@ -91,8 +91,10 @@ describe('FhirService — Edge Cases', () => {
         const observations = bundle.entry!.slice(1).map(e => e.resource as Observation);
         for (const obs of observations) {
             expect(obs.valueString).toBeDefined();
-            // Unknown symptoms should NOT have a code system
-            expect(obs.code.coding![0].system).toBeUndefined();
+            // Unknown symptoms are text-only CodeableConcepts: no coding
+            // array at all (a coding without `system` is non-conformant).
+            expect(obs.code.coding).toBeUndefined();
+            expect(obs.code.text).toBeDefined();
         }
     });
 
@@ -110,13 +112,14 @@ describe('FhirService — Edge Cases', () => {
         const observations = bundle.entry!.slice(1).map(e => e.resource as Observation);
 
         // cramps → SNOMED boolean
-        const crampsObs = observations.find(o => o.code.coding![0].code === '268953000');
+        const crampsObs = observations.find(o => o.code.coding?.[0].code === '268953000');
         expect(crampsObs).toBeDefined();
         expect(crampsObs!.valueBoolean).toBe(true);
 
-        // nausea → text string
-        const nauseaObs = observations.find(o => o.code.coding![0].code === 'nausea');
+        // nausea → text-only concept with string value
+        const nauseaObs = observations.find(o => o.code.text === 'nausea');
         expect(nauseaObs).toBeDefined();
+        expect(nauseaObs!.code.coding).toBeUndefined();
         expect(nauseaObs!.valueString).toBe('nausea');
     });
 
