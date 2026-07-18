@@ -41,3 +41,147 @@ jobs:
 
       - name: Test
         run: npx turbo run test
+
+  # ── Copyleft license gate ──────────────────────────────────────────────
+  # Guards the MVP release surface (apps/mobile, apps/web) against GPL/AGPL
+  # code reaching distributed artifacts. Three layers; the bundle-artifact
+  # scan (separate job below) is the authoritative one.
+  #
+  # Deliberately NOT run against:
+  #   - apps/serverless-gateway: server-only/private use of GPL-3.0 code is
+  #     compliant (never distributed); no AGPL exists anywhere in
+  #     umbral-pre's chain (it has zero transitive deps).
+  #   - apps/partner-portal, apps/provider-portal: intentionally still carry
+  #     the deferred PRE feature until it is un-deferred post-MVP; outside
+  #     MVP release scope. See docs/umbral-pre-mvp-deferral-2026-07-19.md.
+  license-gate:
+    name: Copyleft license gate (MVP client workspaces)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Self-test first: prove license-checker + the exact-match SPDX list
+      # actually fail on a known-bad tree before trusting a green result.
+      # (--failOn does EXACT string matching: "GPL-3.0" would silently not
+      # match "GPL-3.0-only". Never edit FAIL_ON without re-proving here.)
+      - name: 'Self-test: gate must fail on a GPL fixture'
+        run: |
+          set -euo pipefail
+          FAIL_ON="GPL-1.0;GPL-1.0-only;GPL-1.0-or-later;GPL-2.0;GPL-2.0-only;GPL-2.0-or-later;GPL-3.0;GPL-3.0-only;GPL-3.0-or-later;AGPL-1.0;AGPL-1.0-only;AGPL-1.0-or-later;AGPL-3.0;AGPL-3.0-only;AGPL-3.0-or-later"
+          FIX=$(mktemp -d)
+          mkdir -p "$FIX/node_modules/fake-copyleft"
+          echo '{"name":"fixture","version":"1.0.0","dependencies":{"fake-copyleft":"1.0.0"}}' > "$FIX/package.json"
+          echo '{"name":"fake-copyleft","version":"1.0.0","license":"GPL-3.0-only"}' > "$FIX/node_modules/fake-copyleft/package.json"
+          if npx license-checker --production --failOn "$FAIL_ON" --start "$FIX" >/dev/null 2>&1; then
+            echo "::error::license-checker self-test FAILED — the gate cannot detect a known GPL package; do not trust any green result"
+            exit 1
+          fi
+          echo "self-test ok: gate fails on known-bad fixture"
+
+      # Layer 2: declared-dependency-tree scan. KNOWN LIMITATION, proven
+      # empirically 2026-07-19: this CANNOT see undeclared workspace-hoisted
+      # imports (license-checker exited 0 on the pre-fix tree that shipped
+      # GPL code). That class is caught by the bundle-artifact-scan job and
+      # the source-import scan below. This layer still catches any *declared*
+      # GPL/AGPL dep anywhere in the two workspaces' resolved trees.
+      - name: Fail on GPL/AGPL in declared dependency trees (mobile, web)
+        run: |
+          set -euo pipefail
+          FAIL_ON="GPL-1.0;GPL-1.0-only;GPL-1.0-or-later;GPL-2.0;GPL-2.0-only;GPL-2.0-or-later;GPL-3.0;GPL-3.0-only;GPL-3.0-or-later;AGPL-1.0;AGPL-1.0-only;AGPL-1.0-or-later;AGPL-3.0;AGPL-3.0-only;AGPL-3.0-or-later"
+          npx license-checker --production --failOn "$FAIL_ON" --start apps/mobile
+          npx license-checker --production --failOn "$FAIL_ON" --start apps/web
+
+      # Layer 3: source-import scan. Catches the exact historical failure —
+      # an undeclared `import ... from '@locket/crypto-engine'` reaching the
+      # bundle via npm workspace hoisting, invisible to metadata tools.
+      - name: Reject copyleft-carrying imports in MVP client source
+        run: |
+          set -euo pipefail
+          if grep -rn --include='*.ts' --include='*.tsx' \
+               -e '@locket/crypto-engine' -e '@locket/portal-core' -e '@nucypher/' \
+               apps/mobile/src apps/mobile/__tests__ apps/web/src 2>/dev/null; then
+            echo "::error::MVP client source imports a copyleft-carrying package (crypto-engine/portal-core/umbral). See docs/umbral-pre-mvp-deferral-2026-07-19.md"
+            exit 1
+          fi
+          echo "source scan clean"
+
+  # ── Bundle-artifact scan (authoritative) ───────────────────────────────
+  # Exports the real mobile bundle and inspects what actually ships. This is
+  # the only layer that catches copyleft code reaching the artifact through
+  # paths metadata can't see. The bundle is Hermes BYTECODE — use `strings`,
+  # not plain grep. Fail-closed: a failed export or missing bundle is a
+  # failure, never a green (a broken export produced a false green during
+  # gate development on 2026-07-19).
+  bundle-artifact-scan:
+    name: Bundle artifact copyleft scan (authoritative)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build workspace packages (Metro resolves compiled dist/)
+        run: npx turbo run build
+
+      # Patterns are CODE-level fingerprints (umbral_pre / umbral-pre /
+      # nucypher) — deliberately not the bare word "umbral", which appears in
+      # marketing prose on the web landing page ("Umbral PRE" headings) and
+      # would false-positive. Validated 2026-07-19: 2 hits on the known-bad
+      # pre-fix bundle, 0 on the fixed bundle, 0 on web prose.
+      - name: 'Self-test: fingerprint pattern must match known markers'
+        run: |
+          set -euo pipefail
+          printf 'umbral_pre_wasm_bg\n@nucypher/umbral-pre\n' > /tmp/fixture.txt
+          HITS=$(grep -c -i -e 'umbral_pre' -e 'umbral-pre' -e 'nucypher' /tmp/fixture.txt)
+          [ "$HITS" -eq 2 ] || { echo "::error::fingerprint pattern self-test failed"; exit 1; }
+          echo "self-test ok: pattern matches known markers"
+
+      - name: Export mobile bundle (iOS)
+        working-directory: apps/mobile
+        run: npx expo export --platform ios --output-dir /tmp/mvp-export
+
+      - name: Scan mobile bundle for copyleft fingerprints
+        run: |
+          set -euo pipefail
+          BUNDLES=$(find /tmp/mvp-export -type f \( -name '*.hbc' -o -name '*.js' \))
+          [ -n "$BUNDLES" ] || { echo "::error::export produced no bundle — failing closed"; exit 1; }
+          FOUND=0
+          for B in $BUNDLES; do
+            if strings "$B" | grep -q -i -e 'umbral_pre' -e 'umbral-pre' -e 'nucypher'; then
+              echo "::error::copyleft fingerprint found in shipped bundle: $B"
+              FOUND=1
+            fi
+          done
+          [ "$FOUND" -eq 0 ] || exit 1
+          echo "bundle clean: no copyleft fingerprints in $(echo "$BUNDLES" | wc -l) bundle file(s)"
+
+      - name: Build web app
+        run: npm run build --workspace apps/web
+
+      - name: Scan web dist for copyleft fingerprints
+        run: |
+          set -euo pipefail
+          [ -d apps/web/dist ] || { echo "::error::web build produced no dist — failing closed"; exit 1; }
+          if grep -r -q -i -e 'umbral_pre' -e 'umbral-pre' -e 'nucypher' apps/web/dist; then
+            echo "::error::copyleft fingerprint found in apps/web/dist"
+            exit 1
+          fi
+          echo "web dist clean"
