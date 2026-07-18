@@ -29,5 +29,6 @@
     "react-native-screens": "4.16.0",
     "react-native-svg": "15.12.1",
     "qs": "^6.11.0"
-  }
+  },
+  "license": "UNLICENSED"
 }

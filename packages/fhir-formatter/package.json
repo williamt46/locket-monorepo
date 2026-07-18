@@ -14,5 +14,7 @@
     "devDependencies": {
         "@types/fhir": "^0.0.41",
         "vitest": "*"
-    }
+    },
+    "license": "UNLICENSED",
+    "private": true
 }
