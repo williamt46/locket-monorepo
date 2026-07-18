@@ -29,7 +29,7 @@ export const menstruationContent: HealthContent = {
         {
           id: 'menstrual_nausea',
           title: 'Period nausea and fatigue',
-          body: 'Queasiness and tiredness are commonly reported in the first days of a period, alongside the hormonal shifts and lower energy of this phase. Many people find rest and gentle movement settling.',
+          body: 'Queasiness and tiredness are commonly reported in the first days of a period, alongside the hormonal shifts and lower energy of this phase. Many people find rest and gentle movement help them feel more settled.',
         },
       ],
     },
@@ -56,12 +56,12 @@ export const menstruationContent: HealthContent = {
         {
           id: 'ovulatory_what_happens',
           title: 'What happens during ovulation?',
-          body: 'Ovulation is the release of an egg around the middle of the cycle. Many people notice a peak in energy, confidence, and libido in this window, and it is the phase when the chance of pregnancy is highest.',
+          body: 'Ovulation is the window when an egg is released. Many people notice a peak in energy, confidence, and libido around this time. It is also the phase when the chance of pregnancy is highest.',
         },
         {
           id: 'ovulatory_signs',
           title: 'Signs of ovulation',
-          body: 'Around ovulation, some people notice clearer and more slippery cervical fluid, a small rise in basal body temperature, mild one-sided twinges, or a higher libido. Plenty of people notice none of these — that is normal too.',
+          body: 'Around ovulation, some people notice clearer and more slippery cervical fluid, a small rise in basal body temperature, mild pelvic discomfort, or a higher libido.',
         },
       ],
     },
@@ -77,17 +77,17 @@ export const menstruationContent: HealthContent = {
         {
           id: 'luteal_pms',
           title: 'Why do PMS symptoms happen?',
-          body: 'Premenstrual (PMS) experiences — mood changes, breast tenderness, bloating, irritability — accompany the hormonal shifts of the late luteal phase for many people, and they vary widely between people and between cycles.',
+          body: 'Premenstrual (PMS) symptoms, which include mood changes, breast tenderness, bloating, and irritability, accompany the hormonal shifts of the late luteal phase before a new period begins.',
         },
         {
           id: 'luteal_mood',
           title: 'Mood in the luteal phase',
-          body: 'For some, the luteal phase feels calmer; for others it brings more anxiety, irritability, or low mood, especially in the days before a period. Many people find gentle movement, rest, and steady sleep help them feel more balanced.',
+          body: 'The luteal phase is associated with a calming feeling for some people and with more anxiety, irritability, or low mood for others, especially in the days before a period.',
         },
         {
           id: 'luteal_acne',
           title: 'Premenstrual acne',
-          body: 'Breakouts in the days before a period often track the hormonal shifts of the luteal phase, which can increase skin oil. For many people this follows the cycle itself rather than skincare habits alone.',
+          body: 'Breakouts in the days before a period often track the hormonal shifts during the luteal phase, which can increase oil production in the skin.',
         },
       ],
     },
