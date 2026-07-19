@@ -140,3 +140,35 @@ describe('FhirService — Edge Cases', () => {
         }
     });
 });
+
+// Regression: date-key schism — mobile-internal day-map keys are unpadded
+// with a 0-INDEXED month ("2026-2-3" = March 3), so the formatter must
+// reject non-ISO keys rather than pad-and-guess: a mis-guessed month is a
+// clinically wrong date in a provider-facing record.
+// Found by /code-review on 2026-07-19 (branch fix/mvp-gpl-license-exposure).
+describe('FhirService — ledger date-key contract', () => {
+    it('throws on an unpadded ledger key instead of guessing the month', () => {
+        const payload = { ledger: { '2026-2-3': { flow: 'light' } } };
+        expect(() => FhirService.generateClinicalBundle('did:locket:schism', payload))
+            .toThrow(/not a valid ISO YYYY-MM-DD/);
+    });
+
+    it('throws on a 0-indexed-month key that could never be ISO', () => {
+        const payload = { ledger: { '2026-0-15': { flow: 'light' } } };
+        expect(() => FhirService.generateClinicalBundle('did:locket:schism0', payload))
+            .toThrow(/not a valid ISO YYYY-MM-DD/);
+    });
+
+    it('throws on an ISO-shaped key that is not a real calendar date', () => {
+        const payload = { ledger: { '2026-02-30': { flow: 'light' } } };
+        expect(() => FhirService.generateClinicalBundle('did:locket:notreal', payload))
+            .toThrow(/not a valid ISO YYYY-MM-DD/);
+    });
+
+    it('accepts a valid ISO key and stamps it into effectiveDateTime', () => {
+        const payload = { ledger: { '2026-12-31': { flow: 'light' } } };
+        const bundle = FhirService.generateClinicalBundle('did:locket:isokey', payload);
+        const obs = bundle.entry![1].resource as Observation;
+        expect(obs.effectiveDateTime).toBe('2026-12-31T00:00:00Z');
+    });
+});

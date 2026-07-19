@@ -171,3 +171,44 @@ describe('FhirService — LOINC and SNOMED Observations', () => {
         expect(periodObs!.valueQuantity!.value).toBe(7);
     });
 });
+
+// Regression: the mobile producer (LogEntry.temperature) stores
+// `{ value, unit: 'F' | 'C' } | null` as entered — never a bare °C number —
+// so the formatter must normalize at the boundary or a Fahrenheit reading
+// would ship labeled °C (97.8 °C is clinically impossible) and `null`
+// (explicit clear) would become valueQuantity: null.
+// Found by /code-review on 2026-07-19 (branch fix/mvp-gpl-license-exposure).
+describe('FhirService — temperature normalization to °C', () => {
+    const tempObsOf = (temperature: unknown) => {
+        const bundle = FhirService.generateClinicalBundle('did:locket:bbt', {
+            ledger: { '2026-02-23': { temperature: temperature as never } },
+        });
+        return findObsByCode(getObservations(bundle), '8310-5');
+    };
+
+    it('converts the mobile LogEntry shape { value, unit: F } to °C', () => {
+        const obs = tempObsOf({ value: 97.8, unit: 'F' });
+        expect(obs).toBeDefined();
+        expect(obs!.valueQuantity!.value).toBe(36.56);
+        expect(obs!.valueQuantity!.unit).toBe('Cel');
+    });
+
+    it('passes { value, unit: C } through unchanged', () => {
+        const obs = tempObsOf({ value: 36.5, unit: 'C' });
+        expect(obs!.valueQuantity!.value).toBe(36.5);
+    });
+
+    it('emits no temperature Observation for null (explicit clear)', () => {
+        expect(tempObsOf(null)).toBeUndefined();
+    });
+
+    it('emits no temperature Observation for a non-finite value', () => {
+        expect(tempObsOf({ value: Number.NaN, unit: 'C' })).toBeUndefined();
+    });
+
+    it('infers °F by magnitude for bare numbers (ranges do not overlap)', () => {
+        const obs = tempObsOf(98.6);
+        expect(obs!.valueQuantity!.value).toBe(37);
+        expect(obs!.valueQuantity!.unit).toBe('Cel');
+    });
+});
