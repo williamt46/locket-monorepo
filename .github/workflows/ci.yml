@@ -70,47 +70,77 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Self-test first: prove license-checker + the exact-match SPDX list
-      # actually fail on a known-bad tree before trusting a green result.
-      # (--failOn does EXACT string matching: "GPL-3.0" would silently not
-      # match "GPL-3.0-only". Never edit FAIL_ON without re-proving here.)
-      - name: 'Self-test: gate must fail on a GPL fixture'
+      # Layer 2: resolved-dependency-tree scan. `npm ls --parseable`
+      # enumerates PHYSICAL package paths including workspace-hoisted ones
+      # (871 for apps/mobile vs the 28 a license-checker --start scan saw —
+      # proven 2026-07-19; the old scan was blind to expo/react/react-native
+      # entirely). The shared checker also understands SPDX OR/AND
+      # expressions, which exact-id matching missed (live example:
+      # node-forge "(BSD-3-Clause OR GPL-2.0)" — permissive choice applies).
+      # Self-test and enforcement run the SAME script in the SAME step, so
+      # the proven behavior and the enforced behavior cannot drift apart.
+      - name: Fail on GPL/AGPL in resolved dependency trees (mobile, web)
         run: |
           set -euo pipefail
-          FAIL_ON="GPL-1.0;GPL-1.0-only;GPL-1.0-or-later;GPL-2.0;GPL-2.0-only;GPL-2.0-or-later;GPL-3.0;GPL-3.0-only;GPL-3.0-or-later;AGPL-1.0;AGPL-1.0-only;AGPL-1.0-or-later;AGPL-3.0;AGPL-3.0-only;AGPL-3.0-or-later"
-          FIX=$(mktemp -d)
-          mkdir -p "$FIX/node_modules/fake-copyleft"
-          echo '{"name":"fixture","version":"1.0.0","dependencies":{"fake-copyleft":"1.0.0"}}' > "$FIX/package.json"
-          echo '{"name":"fake-copyleft","version":"1.0.0","license":"GPL-3.0-only"}' > "$FIX/node_modules/fake-copyleft/package.json"
-          if npx license-checker --production --failOn "$FAIL_ON" --start "$FIX" >/dev/null 2>&1; then
-            echo "::error::license-checker self-test FAILED — the gate cannot detect a known GPL package; do not trust any green result"
+          CHECK=.github/scripts/check-copyleft.js
+          # Self-test: checker must fail a known GPL fixture...
+          FIX=$(mktemp -d); mkdir -p "$FIX/fake-copyleft"
+          echo '{"name":"fake-copyleft","version":"1.0.0","license":"GPL-3.0-only"}' > "$FIX/fake-copyleft/package.json"
+          if echo "$FIX/fake-copyleft" | node "$CHECK" >/dev/null 2>&1; then
+            echo "::error::copyleft-check self-test FAILED — checker passed a known GPL package; do not trust any green result"
             exit 1
           fi
-          echo "self-test ok: gate fails on known-bad fixture"
-
-      # Layer 2: declared-dependency-tree scan. KNOWN LIMITATION, proven
-      # empirically 2026-07-19: this CANNOT see undeclared workspace-hoisted
-      # imports (license-checker exited 0 on the pre-fix tree that shipped
-      # GPL code). That class is caught by the bundle-artifact-scan job and
-      # the source-import scan below. This layer still catches any *declared*
-      # GPL/AGPL dep anywhere in the two workspaces' resolved trees.
-      - name: Fail on GPL/AGPL in declared dependency trees (mobile, web)
-        run: |
-          set -euo pipefail
-          FAIL_ON="GPL-1.0;GPL-1.0-only;GPL-1.0-or-later;GPL-2.0;GPL-2.0-only;GPL-2.0-or-later;GPL-3.0;GPL-3.0-only;GPL-3.0-or-later;AGPL-1.0;AGPL-1.0-only;AGPL-1.0-or-later;AGPL-3.0;AGPL-3.0-only;AGPL-3.0-or-later"
-          npx license-checker --production --failOn "$FAIL_ON" --start apps/mobile
-          npx license-checker --production --failOn "$FAIL_ON" --start apps/web
+          # ...and must pass a known MIT fixture (guards against a checker that always fails).
+          FIX_OK=$(mktemp -d); mkdir -p "$FIX_OK/mit-pkg"
+          echo '{"name":"mit-pkg","version":"1.0.0","license":"MIT"}' > "$FIX_OK/mit-pkg/package.json"
+          echo "$FIX_OK/mit-pkg" | node "$CHECK" >/dev/null || {
+            echo "::error::copyleft-check self-test FAILED — checker rejected a known-good MIT package"; exit 1; }
+          echo "self-test ok: checker red on GPL fixture, green on MIT fixture"
+          # npm ls exits nonzero on ELSPROBLEMS (e.g. semver-invalid nested
+          # conflict copies in the lockfile tree — present today for three
+          # react-native-* packages) while still printing the complete path
+          # list, so its exit code is advisory: warn on it, fail closed only
+          # if the output is empty, and let the checker deliver the verdict.
+          for WS in apps/mobile apps/web; do
+            LIST=$(npm ls --omit=dev --workspace "$WS" --all --parseable) \
+              || echo "::warning::npm ls exited nonzero for $WS (version conflicts in the tree?); checking its full output anyway"
+            [ -n "$LIST" ] || { echo "::error::npm ls produced no package list for $WS — failing closed"; exit 1; }
+            echo "$LIST" | node "$CHECK" \
+              || { echo "::error::copyleft license in $WS resolved dependency tree — see log above"; exit 1; }
+          done
 
       # Layer 3: source-import scan. Catches the exact historical failure —
       # an undeclared `import ... from '@locket/crypto-engine'` reaching the
       # bundle via npm workspace hoisting, invisible to metadata tools.
+      # Scans the whole workspace dirs (App.js/index.js live at the mobile
+      # root, outside src/) across ts/tsx/js/jsx. grep exit codes are handled
+      # explicitly: 0=match→fail, 1=clean→pass, ≥2=error→fail closed. The
+      # previous version grepped the nonexistent apps/web/src, and grep's
+      # exit-2-on-any-file-error masked even real matches, so its fail
+      # branch was unreachable — the step could never go red.
       - name: Reject copyleft-carrying imports in MVP client source
         run: |
           set -euo pipefail
-          if grep -rn --include='*.ts' --include='*.tsx' \
-               -e '@locket/crypto-engine' -e '@locket/portal-core' -e '@nucypher/' \
-               apps/mobile/src apps/mobile/__tests__ apps/web/src 2>/dev/null; then
+          scan() {
+            grep -rn \
+              --include='*.ts' --include='*.tsx' --include='*.js' --include='*.jsx' \
+              --exclude-dir=node_modules --exclude-dir=dist \
+              -e '@locket/crypto-engine' -e '@locket/portal-core' -e '@nucypher/' \
+              "$@"
+          }
+          # Self-test: a planted import must be detected by the same scan.
+          FIX=$(mktemp -d)
+          echo "import { CryptoService } from '@locket/crypto-engine';" > "$FIX/planted.ts"
+          scan "$FIX" >/dev/null || { echo "::error::source-scan self-test FAILED — planted import not detected"; exit 1; }
+          set +e
+          scan apps/mobile apps/web
+          STATUS=$?
+          set -e
+          if [ "$STATUS" -eq 0 ]; then
             echo "::error::MVP client source imports a copyleft-carrying package (crypto-engine/portal-core/umbral). See docs/umbral-pre-mvp-deferral-2026-07-19.md"
+            exit 1
+          elif [ "$STATUS" -ge 2 ]; then
+            echo "::error::source scan errored (grep exit $STATUS) — failing closed"
             exit 1
           fi
           echo "source scan clean"
