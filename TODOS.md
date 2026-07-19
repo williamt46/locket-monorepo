@@ -51,6 +51,11 @@ Generated: 2026-04-02 | Plan: Euki Education Layer
 - [ ] **Blob-service runbook** — One page: "link didn't work in the exam room" triage (expired? store restarted? clock skew?). Write alongside the blob service. (P3, S)
 - [ ] **SHLink full compliance (Approach C)** — shlink: URI, manifest, JWE, PIN for async links; convergence target once the standard earns it and the clinician side is observed. Depends on: H1 format decision in OQ1. (P3, L → CC ~3-5d)
 
+## Deferred from /qa (fix/mvp-gpl-license-exposure — 2026-07-19)
+
+- [ ] **Landing page still markets Umbral PRE as a current feature** — `apps/web/index.html` presents deferred-PRE capabilities in 5+ places: meta description ("proxy re-encryption"), the "UMBRAL PRE / Cryptographic Sharing" pillar card, "The Portal View" feature card, the "UMBRAL PRE" spec item, and a blog card. PRE is deferred post-MVP (see `docs/umbral-pre-mvp-deferral-2026-07-19.md`) and `apps/web` IS in MVP release scope, so the marketing site promises a capability the MVP doesn't ship. Copy direction is a product decision (reframe to the QR one-shot share story, soften to roadmap framing, or remove) — needs a human call before App Store/launch. Severity: medium (content accuracy). Found by /qa 2026-07-19.
+- [ ] **Landing page footer/CTA placeholder links** — "Security Paper", "About", "Press", "Contact", "View all posts", "Inscribe Your First Page" all point to `#`. Fine for pre-launch, dead ends at launch. Severity: low. Found by /qa 2026-07-19.
+
 ## Deferred — Umbral PRE post-MVP (2026-07-19)
 
 - [ ] **Resume Umbral PRE / consent sharing post-MVP** — Feature deferred, not deleted: `packages/crypto-engine`, gateway PRE routes, and both portal apps remain in the workspace. Decision record: `docs/umbral-pre-mvp-deferral-2026-07-19.md`. **Do NOT resurrect `SyncService.uploadBaselineCiphertext` as-is** — it PRE-encrypted and uploaded baseline data, violating architecture Invariant #7 (baseline must never be shareable), independent of licensing. Mobile PRE code is recoverable from git history; the iOS WASM/Hermes blocker (see locket-mobile-pre-campaign) still gates any mobile bring-up.
