@@ -50,5 +50,6 @@
     "@react-native-community/cli": "^20.1.0",
     "@types/react": "~19.1.10",
     "typescript": "~5.9.2"
-  }
+  },
+  "license": "UNLICENSED"
 }

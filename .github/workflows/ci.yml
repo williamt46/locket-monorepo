@@ -41,3 +41,213 @@ jobs:
 
       - name: Test
         run: npx turbo run test
+
+  # ── Copyleft license gate ──────────────────────────────────────────────
+  # Guards the MVP release surface (apps/mobile, apps/web) against GPL/AGPL
+  # code reaching distributed artifacts. Three layers; the bundle-artifact
+  # scan (separate job below) is the authoritative one.
+  #
+  # Deliberately NOT run against:
+  #   - apps/serverless-gateway: server-only/private use of GPL-3.0 code is
+  #     compliant (never distributed); no AGPL exists anywhere in
+  #     umbral-pre's chain (it has zero transitive deps).
+  #   - apps/partner-portal, apps/provider-portal: intentionally still carry
+  #     the deferred PRE feature until it is un-deferred post-MVP; outside
+  #     MVP release scope. See docs/umbral-pre-mvp-deferral-2026-07-19.md.
+  license-gate:
+    name: Copyleft license gate (MVP client workspaces)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The enforcement step's inline fixtures prove the checker is red on a
+      # GPL package and green on an MIT one. They do NOT reach the SPDX
+      # OR/AND/WITH semantics, the fail-closed guard, or the legacy license
+      # shapes — the branches most likely to regress silently, because a
+      # checker broken only in those paths still exits 0 on MIT and keeps
+      # this whole job green. The unit suite locks them in, so it runs first.
+      - name: Unit-test the copyleft checker
+        run: npm run test:gate
+
+      # Layer 2: resolved-dependency-tree scan. `npm ls --parseable`
+      # enumerates PHYSICAL package paths including workspace-hoisted ones
+      # (871 for apps/mobile vs the 28 a license-checker --start scan saw —
+      # proven 2026-07-19; the old scan was blind to expo/react/react-native
+      # entirely). The shared checker also understands SPDX OR/AND
+      # expressions, which exact-id matching missed (live example:
+      # node-forge "(BSD-3-Clause OR GPL-2.0)" — permissive choice applies).
+      # Self-test and enforcement run the SAME script in the SAME step, so
+      # the proven behavior and the enforced behavior cannot drift apart.
+      - name: Fail on GPL/AGPL in resolved dependency trees (mobile, web)
+        run: |
+          set -euo pipefail
+          CHECK=.github/scripts/check-copyleft.js
+          # Self-test: checker must fail a known GPL fixture...
+          FIX=$(mktemp -d); mkdir -p "$FIX/fake-copyleft"
+          echo '{"name":"fake-copyleft","version":"1.0.0","license":"GPL-3.0-only"}' > "$FIX/fake-copyleft/package.json"
+          if echo "$FIX/fake-copyleft" | node "$CHECK" >/dev/null 2>&1; then
+            echo "::error::copyleft-check self-test FAILED — checker passed a known GPL package; do not trust any green result"
+            exit 1
+          fi
+          # ...and must pass a known MIT fixture (guards against a checker that always fails).
+          FIX_OK=$(mktemp -d); mkdir -p "$FIX_OK/mit-pkg"
+          echo '{"name":"mit-pkg","version":"1.0.0","license":"MIT"}' > "$FIX_OK/mit-pkg/package.json"
+          echo "$FIX_OK/mit-pkg" | node "$CHECK" >/dev/null || {
+            echo "::error::copyleft-check self-test FAILED — checker rejected a known-good MIT package"; exit 1; }
+          echo "self-test ok: checker red on GPL fixture, green on MIT fixture"
+          # npm ls exits nonzero on ELSPROBLEMS (e.g. semver-invalid nested
+          # conflict copies in the lockfile tree — present today for three
+          # react-native-* packages) while still printing the complete path
+          # list, so its exit code is advisory: warn on it, fail closed only
+          # if the output is empty, and let the checker deliver the verdict.
+          for WS in apps/mobile apps/web; do
+            LIST=$(npm ls --omit=dev --workspace "$WS" --all --parseable) \
+              || echo "::warning::npm ls exited nonzero for $WS (version conflicts in the tree?); checking its full output anyway"
+            [ -n "$LIST" ] || { echo "::error::npm ls produced no package list for $WS — failing closed"; exit 1; }
+            echo "$LIST" | node "$CHECK" \
+              || { echo "::error::copyleft license in $WS resolved dependency tree — see log above"; exit 1; }
+          done
+
+      # Layer 3: source-import scan. Catches the exact historical failure —
+      # an undeclared `import ... from '@locket/crypto-engine'` reaching the
+      # bundle via npm workspace hoisting, invisible to metadata tools.
+      # Scans the whole workspace dirs (App.js/index.js live at the mobile
+      # root, outside src/) across ts/tsx/js/jsx. grep exit codes are handled
+      # explicitly: 0=match→fail, 1=clean→pass, ≥2=error→fail closed. The
+      # previous version grepped the nonexistent apps/web/src, and grep's
+      # exit-2-on-any-file-error masked even real matches, so its fail
+      # branch was unreachable — the step could never go red.
+      - name: Reject copyleft-carrying imports in MVP client source
+        run: |
+          set -euo pipefail
+          scan() {
+            grep -rn \
+              --include='*.ts' --include='*.tsx' --include='*.js' --include='*.jsx' \
+              --exclude-dir=node_modules --exclude-dir=dist \
+              -e '@locket/crypto-engine' -e '@locket/portal-core' -e '@nucypher/' \
+              "$@"
+          }
+          # Self-test: a planted import must be detected by the same scan.
+          FIX=$(mktemp -d)
+          echo "import { CryptoService } from '@locket/crypto-engine';" > "$FIX/planted.ts"
+          scan "$FIX" >/dev/null || { echo "::error::source-scan self-test FAILED — planted import not detected"; exit 1; }
+          # ...and the fail-closed branch below must be REACHABLE. An
+          # unreadable file forces grep to error: verified exit 2 on both
+          # GNU grep (what CI runs) and BSD grep. A nonexistent path is
+          # deliberately NOT used to force this — BSD grep returns 1 ("no
+          # match", indistinguishable from clean) for a missing path when
+          # --include is set, so it would silently prove nothing.
+          LOCKED=$(mktemp -d)
+          echo "placeholder" > "$LOCKED/locked.ts"
+          chmod 000 "$LOCKED/locked.ts"
+          if [ ! -r "$LOCKED/locked.ts" ]; then
+            set +e
+            scan "$LOCKED" >/dev/null 2>&1
+            ERR_STATUS=$?
+            set -e
+            [ "$ERR_STATUS" -ge 2 ] || { echo "::error::source-scan self-test FAILED — an unreadable file returned $ERR_STATUS, expected >=2; the fail-closed branch below is unreachable"; exit 1; }
+            echo "self-test ok: planted import detected; unreadable file exits $ERR_STATUS"
+          else
+            echo "::notice::fail-closed self-test skipped — this user can read chmod-000 files (running as root?)"
+          fi
+          chmod 644 "$LOCKED/locked.ts"
+          # The scan targets must exist. Without this, a renamed or moved
+          # workspace turns the gate into a no-op on any grep that reports a
+          # missing path as "no match" rather than an error — the same class
+          # of silent-green failure this whole job exists to prevent.
+          for D in apps/mobile apps/web; do
+            [ -d "$D" ] || { echo "::error::scan target $D does not exist — failing closed"; exit 1; }
+          done
+          set +e
+          scan apps/mobile apps/web
+          STATUS=$?
+          set -e
+          if [ "$STATUS" -eq 0 ]; then
+            echo "::error::MVP client source imports a copyleft-carrying package (crypto-engine/portal-core/umbral). See docs/umbral-pre-mvp-deferral-2026-07-19.md"
+            exit 1
+          elif [ "$STATUS" -ge 2 ]; then
+            echo "::error::source scan errored (grep exit $STATUS) — failing closed"
+            exit 1
+          fi
+          echo "source scan clean"
+
+  # ── Bundle-artifact scan (authoritative) ───────────────────────────────
+  # Exports the real mobile bundle and inspects what actually ships. This is
+  # the only layer that catches copyleft code reaching the artifact through
+  # paths metadata can't see. The bundle is Hermes BYTECODE — use `strings`,
+  # not plain grep. Fail-closed: a failed export or missing bundle is a
+  # failure, never a green (a broken export produced a false green during
+  # gate development on 2026-07-19).
+  bundle-artifact-scan:
+    name: Bundle artifact copyleft scan (authoritative)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build workspace packages (Metro resolves compiled dist/)
+        run: npx turbo run build
+
+      # Patterns are CODE-level fingerprints (umbral_pre / umbral-pre /
+      # nucypher) — deliberately not the bare word "umbral", which appears in
+      # marketing prose on the web landing page ("Umbral PRE" headings) and
+      # would false-positive. Validated 2026-07-19: 2 hits on the known-bad
+      # pre-fix bundle, 0 on the fixed bundle, 0 on web prose.
+      - name: 'Self-test: fingerprint pattern must match known markers'
+        run: |
+          set -euo pipefail
+          printf 'umbral_pre_wasm_bg\n@nucypher/umbral-pre\n' > /tmp/fixture.txt
+          HITS=$(grep -c -i -e 'umbral_pre' -e 'umbral-pre' -e 'nucypher' /tmp/fixture.txt)
+          [ "$HITS" -eq 2 ] || { echo "::error::fingerprint pattern self-test failed"; exit 1; }
+          echo "self-test ok: pattern matches known markers"
+
+      - name: Export mobile bundle (iOS)
+        working-directory: apps/mobile
+        run: npx expo export --platform ios --output-dir /tmp/mvp-export
+
+      - name: Scan mobile bundle for copyleft fingerprints
+        run: |
+          set -euo pipefail
+          BUNDLES=$(find /tmp/mvp-export -type f \( -name '*.hbc' -o -name '*.js' \))
+          [ -n "$BUNDLES" ] || { echo "::error::export produced no bundle — failing closed"; exit 1; }
+          FOUND=0
+          for B in $BUNDLES; do
+            if strings "$B" | grep -q -i -e 'umbral_pre' -e 'umbral-pre' -e 'nucypher'; then
+              echo "::error::copyleft fingerprint found in shipped bundle: $B"
+              FOUND=1
+            fi
+          done
+          [ "$FOUND" -eq 0 ] || exit 1
+          echo "bundle clean: no copyleft fingerprints in $(echo "$BUNDLES" | wc -l) bundle file(s)"
+
+      - name: Build web app
+        run: npm run build --workspace apps/web
+
+      - name: Scan web dist for copyleft fingerprints
+        run: |
+          set -euo pipefail
+          [ -d apps/web/dist ] || { echo "::error::web build produced no dist — failing closed"; exit 1; }
+          if grep -r -q -i -e 'umbral_pre' -e 'umbral-pre' -e 'nucypher' apps/web/dist; then
+            echo "::error::copyleft fingerprint found in apps/web/dist"
+            exit 1
+          fi
+          echo "web dist clean"

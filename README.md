@@ -35,7 +35,7 @@ network/
 
 The primary product surface. Built with Expo, React Native, React Navigation, Vitest, Expo SQLite, Expo SecureStore, and React Native Quick Crypto.
 
-**Screens:** `LogScreen`, `AddSymptomsScreen`, `CycleInsightsScreen`, `LedgerScreen`, `ImportScreen`, `SettingsScreen`, `OnboardingScreen`, `AuthScreen`, `ConsentScreen`, `LogDataScreen`, `LedgerInitErrorScreen`.
+**Screens:** `LogScreen`, `AddSymptomsScreen`, `CycleInsightsScreen`, `LedgerScreen`, `ImportScreen`, `SettingsScreen`, `OnboardingScreen`, `AuthScreen`, `LogDataScreen`, `LedgerInitErrorScreen`.
 
 Key capabilities:
 - Local onboarding and encrypted local persistence
@@ -44,7 +44,6 @@ Key capabilities:
 - Symptom logging across physical, mood, sex, and trigger categories
 - Cycle prediction utilities, current phase detection, and cycle insight screens
 - Educational content mapped into phase and symptom views
-- Consent and sync screens for sharing workflows
 - Import support for Clue, Flo, and CSV exports, including field mapping into Locket log entries
 - Cloud backup envelopes using platform-agnostic AES-GCM encryption, with an optional password-protected v2 envelope (Argon2id-derived key) that lets a backup be restored on a new device by rebinding the local master key
 - Baseline cycle data (`BaselineCycleData`, formerly `UserConfig`) is HKDF-wrapped at rest and migrated automatically from the legacy plaintext entry on first launch after upgrade
@@ -76,11 +75,11 @@ Express service connecting clients to Hyperledger Fabric consent state and the P
 
 ### Provider Portal — `apps/provider-portal/`
 
-Vite/React app for provider-facing workflows. Uses `@locket/portal-core` for gateway and decryption helpers, and `@locket/fhir-formatter` for FHIR-formatted health data output.
+Vite/React app for provider-facing workflows. Uses `@locket/portal-core` for gateway and decryption helpers, and `@locket/fhir-formatter` for FHIR-formatted health data output. Carries the deferred Umbral PRE feature (GPL-3.0) and is outside the current MVP release scope — see `docs/umbral-pre-mvp-deferral-2026-07-19.md`.
 
 ### Partner Portal — `apps/partner-portal/`
 
-Vite/React app for partner-facing access workflows. Uses `@locket/portal-core` for shared portal logic.
+Vite/React app for partner-facing access workflows. Uses `@locket/portal-core` for shared portal logic. Carries the deferred Umbral PRE feature (GPL-3.0) and is outside the current MVP release scope — see `docs/umbral-pre-mvp-deferral-2026-07-19.md`.
 
 ## Shared Packages
 
@@ -216,6 +215,8 @@ GitHub Actions is configured in `.github/workflows/ci.yml` and runs on every pus
 
 The workflow calls Turbo directly (not `npm run test`) to avoid npm workspace fan-out into packages without test scripts. A new push to the same ref cancels any in-progress run for that branch.
 
+Two license-compliance jobs run alongside `build-and-test`: `license-gate` (SPDX metadata scan + source-import scan for the MVP client workspaces) and `bundle-artifact-scan` (exports the mobile bundle and greps the built artifact for copyleft fingerprints — the authoritative check, since it sees what actually ships).
+
 Linting uses the root `eslint.config.mjs` (ESLint 9 flat config); `apps/web` ships its own config, which takes precedence for that app.
 
 ## Blockchain Network
@@ -277,7 +278,7 @@ Locket is designed around local-first storage and explicit sharing:
 
 - Health data is persisted locally before being shared
 - Consent state is anchored in Hyperledger Fabric
-- PRE support allows gateway-mediated re-encryption without exposing plaintext to the gateway
+- Proxy re-encryption (PRE) exists in `apps/serverless-gateway` and the portal apps, allowing gateway-mediated re-encryption without exposing plaintext to the gateway — the feature is deferred from the MVP mobile/web release surface (see `docs/umbral-pre-mvp-deferral-2026-07-19.md`); the mobile app no longer imports any PRE code
 - Backup envelopes use platform-agnostic AES-GCM encryption; the password-protected v2 envelope derives its key with Argon2id and bounds KDF parameters read back from a restore file to guard against corrupted or malicious backups
 - The encrypted SQLite ledger is the only supported production store — if it fails to initialize the app fails closed with `LedgerInitError` instead of silently downgrading to plaintext storage; the plaintext fallback is reachable only via the explicit `LOCKET_ALLOW_PLAINTEXT_LEDGER=1` dev/test opt-in, never auto-enabled
 - Factory reset deletes local records and keys without resurrecting stale encrypted data
@@ -286,6 +287,10 @@ Locket is designed around local-first storage and explicit sharing:
 ### Dependency Auditing
 
 Dependencies are continuously scanned using Sonatype OSS Index via MCP. Resolution strategy: upgrade to the latest secure versions recommended by Sonatype intelligence.
+
+### License Compliance
+
+CI enforces a copyleft gate on the MVP release surface (`apps/mobile`, `apps/web`). Three layers, because each catches a class the others miss: (1) the **bundle-artifact scan** exports the mobile app and runs `strings` over the Hermes bytecode looking for GPL fingerprints — this is the authoritative check and the only one that would have caught the original exposure, where `@locket/crypto-engine` (→ `@nucypher/umbral-pre`, GPL-3.0-only) reached the bundle via an **undeclared, workspace-hoisted import** invisible to metadata tools; (2) a resolved-dependency-tree scan (`npm ls --parseable` piped to `.github/scripts/check-copyleft.js`) checks every physically resolved package — workspace-hoisted ones included — for GPL/AGPL, with SPDX `OR`/`AND` expression semantics (a dual license with a permissive alternative passes with a notice), self-tested in CI against known-bad and known-good fixtures; (3) a source-import scan rejects `@locket/crypto-engine`, `@locket/portal-core`, and `@nucypher/*` imports in MVP client source (ts/tsx/js/jsx across the whole workspace dirs, grep exit codes handled fail-closed, self-tested against a planted import). `apps/serverless-gateway` is deliberately excluded (server-only/private GPL use is compliant and never distributed); `apps/partner-portal`/`apps/provider-portal` are excluded because they intentionally carry the deferred PRE feature and are outside MVP release scope. See `docs/umbral-gpl-exposure-report-2026-07-09.md` and `docs/umbral-pre-mvp-deferral-2026-07-19.md`.
 
 ### Security Patches
 

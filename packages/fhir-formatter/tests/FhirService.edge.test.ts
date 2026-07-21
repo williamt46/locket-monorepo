@@ -91,8 +91,10 @@ describe('FhirService — Edge Cases', () => {
         const observations = bundle.entry!.slice(1).map(e => e.resource as Observation);
         for (const obs of observations) {
             expect(obs.valueString).toBeDefined();
-            // Unknown symptoms should NOT have a code system
-            expect(obs.code.coding![0].system).toBeUndefined();
+            // Unknown symptoms are text-only CodeableConcepts: no coding
+            // array at all (a coding without `system` is non-conformant).
+            expect(obs.code.coding).toBeUndefined();
+            expect(obs.code.text).toBeDefined();
         }
     });
 
@@ -110,13 +112,14 @@ describe('FhirService — Edge Cases', () => {
         const observations = bundle.entry!.slice(1).map(e => e.resource as Observation);
 
         // cramps → SNOMED boolean
-        const crampsObs = observations.find(o => o.code.coding![0].code === '268953000');
+        const crampsObs = observations.find(o => o.code.coding?.[0].code === '268953000');
         expect(crampsObs).toBeDefined();
         expect(crampsObs!.valueBoolean).toBe(true);
 
-        // nausea → text string
-        const nauseaObs = observations.find(o => o.code.coding![0].code === 'nausea');
+        // nausea → text-only concept with string value
+        const nauseaObs = observations.find(o => o.code.text === 'nausea');
         expect(nauseaObs).toBeDefined();
+        expect(nauseaObs!.code.coding).toBeUndefined();
         expect(nauseaObs!.valueString).toBe('nausea');
     });
 
@@ -135,5 +138,37 @@ describe('FhirService — Edge Cases', () => {
             expect(obs.code.coding![0].code).toBe('268953000');
             expect(obs.valueBoolean).toBe(true);
         }
+    });
+});
+
+// Regression: date-key schism — mobile-internal day-map keys are unpadded
+// with a 0-INDEXED month ("2026-2-3" = March 3), so the formatter must
+// reject non-ISO keys rather than pad-and-guess: a mis-guessed month is a
+// clinically wrong date in a provider-facing record.
+// Found by /code-review on 2026-07-19 (branch fix/mvp-gpl-license-exposure).
+describe('FhirService — ledger date-key contract', () => {
+    it('throws on an unpadded ledger key instead of guessing the month', () => {
+        const payload = { ledger: { '2026-2-3': { flow: 'light' } } };
+        expect(() => FhirService.generateClinicalBundle('did:locket:schism', payload))
+            .toThrow(/not a valid ISO YYYY-MM-DD/);
+    });
+
+    it('throws on a 0-indexed-month key that could never be ISO', () => {
+        const payload = { ledger: { '2026-0-15': { flow: 'light' } } };
+        expect(() => FhirService.generateClinicalBundle('did:locket:schism0', payload))
+            .toThrow(/not a valid ISO YYYY-MM-DD/);
+    });
+
+    it('throws on an ISO-shaped key that is not a real calendar date', () => {
+        const payload = { ledger: { '2026-02-30': { flow: 'light' } } };
+        expect(() => FhirService.generateClinicalBundle('did:locket:notreal', payload))
+            .toThrow(/not a valid ISO YYYY-MM-DD/);
+    });
+
+    it('accepts a valid ISO key and stamps it into effectiveDateTime', () => {
+        const payload = { ledger: { '2026-12-31': { flow: 'light' } } };
+        const bundle = FhirService.generateClinicalBundle('did:locket:isokey', payload);
+        const obs = bundle.entry![1].resource as Observation;
+        expect(obs.effectiveDateTime).toBe('2026-12-31T00:00:00Z');
     });
 });
