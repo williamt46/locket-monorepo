@@ -70,6 +70,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # The enforcement step's inline fixtures prove the checker is red on a
+      # GPL package and green on an MIT one. They do NOT reach the SPDX
+      # OR/AND/WITH semantics, the fail-closed guard, or the legacy license
+      # shapes — the branches most likely to regress silently, because a
+      # checker broken only in those paths still exits 0 on MIT and keeps
+      # this whole job green. The unit suite locks them in, so it runs first.
+      - name: Unit-test the copyleft checker
+        run: npm run test:gate
+
       # Layer 2: resolved-dependency-tree scan. `npm ls --parseable`
       # enumerates PHYSICAL package paths including workspace-hoisted ones
       # (871 for apps/mobile vs the 28 a license-checker --start scan saw —
@@ -132,6 +141,33 @@ jobs:
           FIX=$(mktemp -d)
           echo "import { CryptoService } from '@locket/crypto-engine';" > "$FIX/planted.ts"
           scan "$FIX" >/dev/null || { echo "::error::source-scan self-test FAILED — planted import not detected"; exit 1; }
+          # ...and the fail-closed branch below must be REACHABLE. An
+          # unreadable file forces grep to error: verified exit 2 on both
+          # GNU grep (what CI runs) and BSD grep. A nonexistent path is
+          # deliberately NOT used to force this — BSD grep returns 1 ("no
+          # match", indistinguishable from clean) for a missing path when
+          # --include is set, so it would silently prove nothing.
+          LOCKED=$(mktemp -d)
+          echo "placeholder" > "$LOCKED/locked.ts"
+          chmod 000 "$LOCKED/locked.ts"
+          if [ ! -r "$LOCKED/locked.ts" ]; then
+            set +e
+            scan "$LOCKED" >/dev/null 2>&1
+            ERR_STATUS=$?
+            set -e
+            [ "$ERR_STATUS" -ge 2 ] || { echo "::error::source-scan self-test FAILED — an unreadable file returned $ERR_STATUS, expected >=2; the fail-closed branch below is unreachable"; exit 1; }
+            echo "self-test ok: planted import detected; unreadable file exits $ERR_STATUS"
+          else
+            echo "::notice::fail-closed self-test skipped — this user can read chmod-000 files (running as root?)"
+          fi
+          chmod 644 "$LOCKED/locked.ts"
+          # The scan targets must exist. Without this, a renamed or moved
+          # workspace turns the gate into a no-op on any grep that reports a
+          # missing path as "no match" rather than an error — the same class
+          # of silent-green failure this whole job exists to prevent.
+          for D in apps/mobile apps/web; do
+            [ -d "$D" ] || { echo "::error::scan target $D does not exist — failing closed"; exit 1; }
+          done
           set +e
           scan apps/mobile apps/web
           STATUS=$?
