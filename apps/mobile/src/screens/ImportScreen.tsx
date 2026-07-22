@@ -108,12 +108,12 @@ export const ImportScreen = () => {
 
                         <View style={styles.supportedFormatsCard}>
                             <Text style={styles.supportedLabel}>Supported Formats:</Text>
-                            <Text style={styles.supportedItem}>• Clue (.json inside .zip)</Text>
-                            <Text style={styles.supportedItem}>• Flo (.json inside .zip)</Text>
+                            <Text style={styles.supportedItem}>• Clue — measurements.json</Text>
+                            <Text style={styles.supportedItem}>• Flo — the .json file (not res.txt)</Text>
                             <Text style={styles.supportedItem}>• Spreadsheet (.csv)</Text>
 
                             <Text style={styles.noteText}>
-                                Note: You must unzip Clue/Flo archives first and provide the raw .json file to this importer.
+                                Note: Unzip the Clue/Flo archive first. A Clue export holds a dozen files — pick measurements.json, the only one with your cycle data.
                             </Text>
                         </View>
 

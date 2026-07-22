@@ -1,0 +1,115 @@
+{
+  "_comment": "HAND-AUTHORED SYNTHETIC FIXTURE. Mirrors the shape of a real Flo export across all four operationalData containers. Every id, user_id, date and value is fabricated. Contains no real user data.",
+  "operationalData": {
+    "cycles": [
+      {
+        "id": "11111111-0000-4000-8000-000000000001",
+        "user_id": "11111111-0000-4000-8000-0000000000ff",
+        "source_id": null,
+        "source": null,
+        "source_client": 1,
+        "source_client_version": "9.9.9",
+        "created_at": "2030-03-04 08:00:00.000001",
+        "updated_at": "2030-03-06 08:00:00.000001",
+        "additional_fields": "{}",
+        "pregnant": false,
+        "pregnant_due_date": null,
+        "pregnancy_end_reason": 0,
+        "period_start_date": "2030-03-04 00:00:00.0",
+        "period_end_date": "2030-03-06 00:00:00.0",
+        "period_intensity": "{\"2\": 1}",
+        "symptom_cramps": 1
+      }
+    ],
+    "repeatable_child_point_events": [
+      {
+        "id": "22222222-0000-4000-8000-000000000001",
+        "user_id": "11111111-0000-4000-8000-0000000000ff",
+        "category": "Medication",
+        "subcategory": "Pills",
+        "properties": "{\"missed_pill\": false}",
+        "date": "2030-03-05 12:41:19.0",
+        "deleted": false
+      },
+      {
+        "id": "22222222-0000-4000-8000-000000000002",
+        "user_id": "11111111-0000-4000-8000-0000000000ff",
+        "category": "Medication",
+        "subcategory": "Pills",
+        "properties": "{\"missed_pill\": true}",
+        "date": "2030-03-20 12:41:19.0",
+        "deleted": false
+      },
+      {
+        "id": "22222222-0000-4000-8000-000000000003",
+        "user_id": "11111111-0000-4000-8000-0000000000ff",
+        "category": "Medication",
+        "subcategory": "Pills",
+        "properties": "{\"missed_pill\": false}",
+        "date": "2030-03-21 12:41:19.0",
+        "deleted": false
+      },
+      {
+        "id": "22222222-0000-4000-8000-000000000004",
+        "user_id": "11111111-0000-4000-8000-0000000000ff",
+        "category": "Medication",
+        "subcategory": "Pills",
+        "properties": "{\"missed_pill\": false}",
+        "date": "2030-03-23 12:41:19.0",
+        "deleted": true
+      }
+    ],
+    "point_events_manual_v2": [
+      {
+        "id": "33333333-0000-4000-8000-000000000001",
+        "category": "Temperature",
+        "subcategory": "Basal",
+        "properties": { "value": 36.7 },
+        "date": "2030-03-20 00:00:00.0",
+        "local_date": "2030-03-20 00:00:00.0"
+      },
+      {
+        "id": "33333333-0000-4000-8000-000000000002",
+        "category": "Symptom",
+        "subcategory": "TenderBreasts",
+        "properties": {},
+        "date": "2030-03-20 00:00:00.0",
+        "local_date": "2030-03-20 00:00:00.0"
+      },
+      {
+        "id": "33333333-0000-4000-8000-000000000003",
+        "category": "Mood",
+        "subcategory": "LowEnergy",
+        "properties": {},
+        "date": "2030-03-21 00:00:00.0",
+        "local_date": "2030-03-21 00:00:00.0"
+      },
+      {
+        "id": "33333333-0000-4000-8000-000000000004",
+        "category": "Weight",
+        "subcategory": "N/A",
+        "properties": { "value": 60 },
+        "date": "2030-03-21 00:00:00.0",
+        "local_date": "2030-03-21 00:00:00.0"
+      },
+      {
+        "id": "33333333-0000-4000-8000-000000000005",
+        "category": "Water",
+        "subcategory": "N/A",
+        "properties": { "volume": 2.1 },
+        "date": "2030-03-21 00:00:00.0",
+        "local_date": "2030-03-21 00:00:00.0"
+      }
+    ],
+    "notes": [
+      {
+        "id": "44444444-0000-4000-8000-000000000001",
+        "user_id": "11111111-0000-4000-8000-0000000000ff",
+        "category": "Note",
+        "subcategory": null,
+        "text": "felt steady today",
+        "date": "2030-03-22 00:00:00.0"
+      }
+    ]
+  }
+}

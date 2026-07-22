@@ -18,6 +18,7 @@ const SYMPTOM_TEXT_MAP: Record<string, SymptomKey> = {
   cramps: 'cramps',
   cramping: 'cramps',
   cramp: 'cramps',
+  'period cramps': 'cramps',   // Clue `pain` option period_cramps
   // Bloating
   bloating: 'bloating',
   bloated: 'bloating',
@@ -29,6 +30,8 @@ const SYMPTOM_TEXT_MAP: Record<string, SymptomKey> = {
   fatigue: 'fatigue',
   tiredness: 'fatigue',
   exhaustion: 'fatigue',
+  exhausted: 'fatigue',        // Clue `energy` option exhausted
+  'low energy': 'fatigue',     // Flo Mood/LowEnergy
   // Headache
   headache: 'headache',
   headaches: 'headache',
@@ -37,6 +40,7 @@ const SYMPTOM_TEXT_MAP: Record<string, SymptomKey> = {
   'back ache': 'back_pain',
   'back pain': 'back_pain',
   'lower back pain': 'back_pain',
+  'lower back': 'back_pain',   // Clue `pain` option lower_back
   // Acne
   acne: 'acne',
   breakout: 'acne',

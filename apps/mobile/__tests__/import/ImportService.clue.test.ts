@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { detectSource, parseClueExport } from '../../src/services/ImportService';
+import { detectSource, parseClueExport, parseClueMeasurements, ledgerEntryToLogEntry } from '../../src/services/ImportService';
 import clueSample from './fixtures/clue-sample.json';
-import { ClueExport } from '../../src/models/ImportTypes';
+import clueMeasurements from './fixtures/clue-measurements-sample.json';
+import { ClueExport, ClueMeasurement } from '../../src/models/ImportTypes';
 
 describe('ImportService - Clue', () => {
     it('detectSource returns "clue" for Clue-shaped JSON', () => {
@@ -116,5 +117,177 @@ describe('ImportService - Clue', () => {
         // Between Jan 4 and Jan 20 there's a gap
         const jan10 = result.entries.find(e => e.ts === new Date(2024, 0, 10).getTime());
         expect(jan10).toBeUndefined();
+    });
+});
+
+/**
+ * Regression suite for the real 2026 Clue export (`measurements.json`).
+ *
+ * That file is a top-level ARRAY of {type, date, value} records, not the legacy
+ * `{data: [...]}` envelope. detectSource used to return 'unknown' for it, so the
+ * real export could not be imported at all — useLedger threw
+ * "Unrecognized JSON export schema (not Clue or Flo)".
+ */
+describe('ImportService - Clue (2026 measurements.json)', () => {
+    const parse = () => parseClueMeasurements(clueMeasurements as unknown as ClueMeasurement[]);
+
+    it('detectSource recognizes a top-level measurements array as clue', () => {
+        expect(detectSource(clueMeasurements)).toBe('clue');
+    });
+
+    it('does not mistake an arbitrary array for a Clue export', () => {
+        expect(detectSource([1, 2, 3])).toBe('unknown');
+        expect(detectSource([])).toBe('unknown');
+        expect(detectSource([{ foo: 'bar' }])).toBe('unknown');
+    });
+
+    it('parseClueExport dispatches an array to the measurements parser', () => {
+        const viaEntryPoint = parseClueExport(clueMeasurements as any);
+        expect(viaEntryPoint.source).toBe('clue');
+        expect(viaEntryPoint.entries.length).toBe(parse().entries.length);
+    });
+
+    it('groups records by date into one entry per day', () => {
+        const result = parse();
+        // Distinct valid dates: 09-02, 09-03, 09-04, 09-14, 09-15 = 5
+        expect(result.entries.length).toBe(5);
+        expect(result.stats.totalDays).toBe(5);
+    });
+
+    it('maps period options light/medium/heavy to flow 1/2/3', () => {
+        const result = parse();
+        const day = (dd: number) => result.entries.find(e => e.ts === new Date(2030, 8, dd).getTime());
+
+        expect(day(2)?.flow).toBe(3);   // heavy
+        expect(day(3)?.flow).toBe(2);   // medium
+        expect(day(4)?.flow).toBe(1);   // light
+        expect(day(2)?.isPeriod).toBe(true);
+        expect(result.stats.periodDays).toBe(3);
+    });
+
+    it('maps spotting to flow 0 and counts it', () => {
+        const result = parse();
+        const sep14 = result.entries.find(e => e.ts === new Date(2030, 8, 14).getTime());
+
+        expect(sep14?.flow).toBe(0);
+        expect(sep14?.isPeriod).toBe(false);
+        expect(result.stats.spottingDays).toBe(1);
+    });
+
+    it('imports bbt.value.celsius but respects value.excluded', () => {
+        const result = parse();
+        const sep3 = result.entries.find(e => e.ts === new Date(2030, 8, 3).getTime());
+        const sep4 = result.entries.find(e => e.ts === new Date(2030, 8, 4).getTime());
+
+        expect(sep3?.bbt).toBe(36.62);
+        // 39.91 was flagged excluded in Clue — importing it would corrupt BBT
+        expect(sep4?.bbt).toBeUndefined();
+        expect(result.warnings.some(w => w.includes('excluded'))).toBe(true);
+    });
+
+    it('handles array-shaped value (pain/energy/spotting) as well as object-shaped', () => {
+        const result = parse();
+        const sep2 = result.entries.find(e => e.ts === new Date(2030, 8, 2).getTime());
+
+        // pain carries THREE options in an array; all must survive
+        expect(sep2?.note).toContain('Period Cramps');
+        expect(sep2?.note).toContain('Breast Tenderness');
+        expect(sep2?.note).toContain('Lower Back');
+        // energy is also array-shaped
+        expect(sep2?.note).toContain('Exhausted');
+    });
+
+    it('maps birth_control_pill into note text using Clue\'s own vocabulary', () => {
+        const result = parse();
+        const sep15 = result.entries.find(e => e.ts === new Date(2030, 8, 15).getTime());
+        expect(sep15?.note).toContain('Birth Control Pill: Taken');
+    });
+
+    it('does NOT adopt the Flo parser\'s note phrasing', () => {
+        // Symmetric to the Flo suite's guard: note text stays in the source app's
+        // own vocabulary. Two exports are not necessarily the same person, so the
+        // sources must not converge on a shared free-text write pattern. They
+        // converge on structured fields only (flow, bbt, symptom pills).
+        for (const entry of parse().entries) {
+            expect(entry.note || '').not.toContain('Medication: Pills');
+        }
+    });
+
+    it('skips unparseable dates with a warning instead of emitting NaN entries', () => {
+        const result = parse();
+        expect(result.entries.every(e => Number.isFinite(e.ts))).toBe(true);
+        expect(result.warnings.some(w => w.includes('unparseable date'))).toBe(true);
+        expect(result.stats.skippedDays).toBe(1);
+    });
+
+    it('applies period boundary flags across grouped days', () => {
+        const result = parse();
+        const day = (dd: number) => result.entries.find(e => e.ts === new Date(2030, 8, dd).getTime());
+
+        expect(day(2)?.isStart).toBe(true);
+        expect(day(3)?.isStart).toBeUndefined();
+        expect(day(4)?.isEnd).toBe(true);
+    });
+
+    it('recognized symptom phrases reach the app-domain LogEntry as pills', () => {
+        const result = parse();
+        const sep2 = result.entries.find(e => e.ts === new Date(2030, 8, 2).getTime())!;
+        const log = ledgerEntryToLogEntry(sep2);
+
+        expect(log.bleeding?.intensity).toBe('heavy');
+        expect(log.symptoms).toContain('breast_tenderness');
+    });
+});
+
+/**
+ * Findings from the 2026-07-23 review.
+ */
+describe('ImportService - Clue (review hardening)', () => {
+    it('preserves a record whose value shape is not understood', () => {
+        // The whole point of this parser is that tracked data is never silently
+        // ignored — an unrecognized `value` shape is exactly where that regresses.
+        const unknownShape = [
+            { type: 'period', date: '2030-09-02', value: { option: 'medium' } },
+            { type: 'hydration', date: '2030-09-02', value: { litres: 2 } },
+            { type: 'mystery', date: '2030-09-03', value: 'some-scalar' },
+        ];
+        const result = parseClueMeasurements(unknownShape as unknown as ClueMeasurement[]);
+
+        const sep2 = result.entries.find(e => e.ts === new Date(2030, 8, 2).getTime());
+        const sep3 = result.entries.find(e => e.ts === new Date(2030, 8, 3).getTime());
+        expect(sep2?.note).toContain('Hydration');
+        expect(sep3?.note).toContain('Mystery: some-scalar');
+    });
+
+    it('warns instead of silently skipping records with no date', () => {
+        const undated = [
+            { type: 'period', date: '2030-09-02', value: { option: 'medium' } },
+            { type: 'period', value: { option: 'light' } },
+        ];
+        const result = parseClueMeasurements(undated as unknown as ClueMeasurement[]);
+
+        expect(result.stats.skippedDays).toBe(1);
+        expect(result.warnings.some(w => w.includes('no usable date'))).toBe(true);
+    });
+
+    it('drops a day whose only record was an excluded BBT', () => {
+        const excludedOnly = [
+            { type: 'bbt', date: '2030-09-09', value: { celsius: 39.9, excluded: true } },
+        ];
+        const result = parseClueMeasurements(excludedOnly as unknown as ClueMeasurement[]);
+
+        expect(result.entries.length).toBe(0);
+        expect(result.warnings.some(w => w.includes('excluded'))).toBe(true);
+    });
+
+    it('maps the Clue symptom options that previously fell through to free text', () => {
+        const symptoms = [
+            { type: 'pain', date: '2030-09-02', value: [{ option: 'period_cramps' }, { option: 'lower_back' }] },
+            { type: 'energy', date: '2030-09-02', value: [{ option: 'exhausted' }] },
+        ];
+        const result = parseClueMeasurements(symptoms as unknown as ClueMeasurement[]);
+        const log = ledgerEntryToLogEntry(result.entries[0]);
+
+        expect(log.symptoms).toEqual(expect.arrayContaining(['cramps', 'back_pain', 'fatigue']));
     });
 });

@@ -215,7 +215,7 @@ export const useLedger = (keyHex?: string) => {
         setIsBusy(true);
         try {
             // Lazy load ImportService to avoid circular/heavy deps on boot if not importing
-            const { detectFormat, detectSource, parseClueExport, parseFloExport, parseCsvExport, ledgerEntryToLogEntry } = require('../services/ImportService');
+            const { detectFormat, detectSource, parseClueExport, parseFloExport, parseCsvExport, ledgerEntryToLogEntry, assertImportHasEntries } = require('../services/ImportService');
 
             const format = detectFormat(rawString);
             let result;
@@ -231,16 +231,31 @@ export const useLedger = (keyHex?: string) => {
                 } else if (source === 'flo') {
                     result = parseFloExport(jsonObj);
                 } else {
-                    throw new Error('Unrecognized JSON export schema (not Clue or Flo)');
+                    // Name the right file: an export folder holds a dozen JSONs and
+                    // only one of them is importable, so "unrecognized" alone leaves
+                    // the user guessing which to pick.
+                    throw new Error(
+                        'Unrecognized JSON export schema (not Clue or Flo). ' +
+                        'From a Clue export folder choose measurements.json; ' +
+                        'from a Flo export choose the .json file (not res.txt).'
+                    );
                 }
             } else {
-                throw new Error('Unrecognized file format. Must be Clue/Flo JSON or spreadsheet CSV.');
+                throw new Error(
+                    'Unrecognized file format. Must be Clue/Flo JSON or spreadsheet CSV. ' +
+                    'Flo\'s res.txt and notes.txt are not importable — use the .json file.'
+                );
             }
 
+            // Fail closed: a recognized file that yields no entries is an error,
+            // not a success. Reporting success on zero entries meant a file that
+            // parsed but mapped to nothing (e.g. the Flo NaN-date bug) showed the
+            // user "Import Complete — Records Inscribed: 0" with no signal that
+            // anything was wrong. Guard lives in ImportService so it is testable.
             if (!result || result.entries.length === 0) {
-                console.warn('[useLedger] Import parsed successfully but no valid entries were found.');
-                return { success: true, count: 0, warnings: result?.warnings || [] };
+                console.warn('[useLedger] Import recognized the format but produced 0 entries.');
             }
+            assertImportHasEntries(result);
 
             // Convert import-domain LedgerEntry (numeric flow/bbt) into app-domain
             // LogEntry (bleeding.intensity + note) so imported days render correctly
