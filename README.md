@@ -35,7 +35,7 @@ network/
 
 The primary product surface. Built with Expo, React Native, React Navigation, Vitest, Expo SQLite, Expo SecureStore, and React Native Quick Crypto.
 
-**Screens:** `LogScreen`, `AddSymptomsScreen`, `CycleInsightsScreen`, `LedgerScreen`, `ImportScreen`, `SettingsScreen`, `OnboardingScreen`, `AuthScreen`, `LogDataScreen`, `LedgerInitErrorScreen`.
+**Screens:** `LogScreen`, `AddSymptomsScreen`, `CycleInsightsScreen`, `LedgerScreen`, `ImportScreen`, `HealthKitPrimingScreen`, `HealthKitPreviewScreen`, `SettingsScreen`, `OnboardingScreen`, `AuthScreen`, `LogDataScreen`, `LedgerInitErrorScreen`.
 
 Key capabilities:
 - Local onboarding and encrypted local persistence
@@ -45,6 +45,7 @@ Key capabilities:
 - Cycle prediction utilities, current phase detection, and cycle insight screens
 - Educational content mapped into phase and symptom views
 - Import support for Clue, Flo, and CSV exports, including field mapping into Locket log entries
+- Apple Health (HealthKit) cycle-tracking import on iOS — read-only, with a priming screen that explains what will be read, a preview screen that shows every row before anything is written, per-row collision resolution against existing entries, and undo after commit
 - Cloud backup envelopes using platform-agnostic AES-GCM encryption, with an optional password-protected v2 envelope (Argon2id-derived key) that lets a backup be restored on a new device by rebinding the local master key
 - Baseline cycle data (`BaselineCycleData`, formerly `UserConfig`) is HKDF-wrapped at rest and migrated automatically from the legacy plaintext entry on first launch after upgrade
 - Factory reset that wipes local data and keys without resurrecting stale encrypted records
@@ -144,6 +145,18 @@ After the native app is installed, use Expo start with a cleared cache for routi
 ```bash
 npx expo start -c
 ```
+
+> **Native rebuild required.** `apps/mobile/app.json` now registers the
+> `@kingstinct/react-native-healthkit` config plugin (read-only HealthKit access,
+> `NSHealthShareUsageDescription` only). A JS-only reload will not pick up the new
+> entitlement — regenerate and reinstall the native project after pulling this change:
+>
+> ```bash
+> cd apps/mobile
+> npx expo prebuild
+> (cd ios && pod install)
+> npx expo run:ios
+> ```
 
 ### iOS Device
 
@@ -281,6 +294,7 @@ Locket is designed around local-first storage and explicit sharing:
 - Proxy re-encryption (PRE) exists in `apps/serverless-gateway` and the portal apps, allowing gateway-mediated re-encryption without exposing plaintext to the gateway — the feature is deferred from the MVP mobile/web release surface (see `docs/umbral-pre-mvp-deferral-2026-07-19.md`); the mobile app no longer imports any PRE code
 - Backup envelopes use platform-agnostic AES-GCM encryption; the password-protected v2 envelope derives its key with Argon2id and bounds KDF parameters read back from a restore file to guard against corrupted or malicious backups
 - The encrypted SQLite ledger is the only supported production store — if it fails to initialize the app fails closed with `LedgerInitError` instead of silently downgrading to plaintext storage; the plaintext fallback is reachable only via the explicit `LOCKET_ALLOW_PLAINTEXT_LEDGER=1` dev/test opt-in, never auto-enabled
+- Apple Health access is read-only. The app requests `NSHealthShareUsageDescription` only; no write/update permission and no background delivery are requested, and imported samples land in the same encrypted local ledger as everything else
 - Factory reset deletes local records and keys without resurrecting stale encrypted data
 - `.gitignore` protects local agent tooling, generated output, and sensitive runtime material from accidental commits
 
