@@ -340,4 +340,30 @@ describe('FileSystemLedger write-failure atomicity', () => {
         spy.mockRestore();
         expect(state.files.get(MAIN)).toBe(good);
     });
+
+    it('aborts with "unreadable" when the temp file has no size at all (write silently dropped)', async () => {
+        const ledger = new FileSystemLedger();
+        await ledger.init();
+        await ledger.saveEvents([rec('a', 100)]);
+        const good = state.files.get(MAIN);
+
+        // File.size returns null when the file is absent/unreadable — the write
+        // never landed. That is the `writtenBytes === null` arm of the guard, and
+        // it must abort just as loudly as a short write rather than replacing
+        // events.json with nothing.
+        const originalSet = state.files.set.bind(state.files);
+        const spy = vi.spyOn(state.files, 'set').mockImplementation((k: any, v: any) => {
+            if (k === TMP) return state.files; // swallow the temp write entirely
+            return originalSet(k, v);
+        });
+
+        await expect(ledger.saveEvents([rec('b', 200)])).rejects.toThrow(
+            /Incomplete ledger write: temp file is unreadable/,
+        );
+        spy.mockRestore();
+
+        // Previous ledger intact on disk AND the rejected batch is not live in memory.
+        expect(state.files.get(MAIN)).toBe(good);
+        expect((await ledger.loadEvents()).map((e) => e.id)).toEqual(['a']);
+    });
 });
