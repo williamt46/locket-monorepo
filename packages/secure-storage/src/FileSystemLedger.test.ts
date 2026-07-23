@@ -45,6 +45,17 @@ vi.mock('expo-file-system', () => {
         uri: string;
         constructor(...parts: any[]) { this.uri = joinUri(parts); }
         get exists() { return state.files.has(this.uri); }
+        /**
+         * Byte size, mirroring expo-file-system's `File.size` (null when the file
+         * is absent/unreadable). saveToDisk's write-completeness guard reads this
+         * instead of doing a full readback + JSON.parse on every save.
+         */
+        get size(): number | null {
+            const content = state.files.get(this.uri);
+            if (content === undefined) return null;
+            // Fixtures are ASCII, so UTF-16 length == UTF-8 byte length here.
+            return content.length;
+        }
         async text() {
             if (!state.files.has(this.uri)) throw new Error(`ENOENT ${this.uri}`);
             return state.files.get(this.uri)!;
@@ -80,7 +91,7 @@ describe('FileSystemLedger crash-safety (T1)', () => {
         state.garbleWrites = false;
     });
 
-    it('aborts the save when the temp readback does not parse, leaving the previous good ledger on disk', async () => {
+    it('aborts the save when the temp file is short, leaving the previous good ledger on disk', async () => {
         const ledger = new FileSystemLedger();
         await ledger.init();
         await ledger.saveEvents([rec('a', 100)]);
@@ -89,7 +100,7 @@ describe('FileSystemLedger crash-safety (T1)', () => {
         // Next write is short/garbled -> the verify step must throw BEFORE the
         // atomic replace, so events.json still holds the last good ledger.
         state.garbleWrites = true;
-        await expect(ledger.saveEvents([rec('b', 200)])).rejects.toBeInstanceOf(SyntaxError);
+        await expect(ledger.saveEvents([rec('b', 200)])).rejects.toThrow(/Incomplete ledger write/);
         expect(state.files.get(MAIN)).toBe(good);
 
         // And the surviving temp is not mistaken for a better copy on next boot.

@@ -140,11 +140,28 @@ export class FileSystemLedger implements LedgerStorage {
         }
         this.tmpFile.write(serialized);
 
-        // 2. Verify the temp file reads back and parses before we let it replace
-        // the real ledger. If the write was short/garbled, abort WITHOUT touching
-        // events.json — the previous good ledger stays on disk.
-        const readback = await this.tmpFile.text();
-        JSON.parse(readback); // throws if corrupt -> propagate, main untouched
+        // 2. Verify the temp file landed COMPLETELY before letting it replace the
+        // real ledger. If the write was short, abort WITHOUT touching events.json —
+        // the previous good ledger stays on disk.
+        //
+        // We compare byte size rather than reading the file back and JSON.parsing
+        // it. The readback cost 2x file I/O plus a full parse on EVERY save — paid
+        // on each ordinary single-entry save, not just on imports — which is a real
+        // freeze on a multi-MB ledger. A torn/short write is the failure this guard
+        // exists for, and size catches exactly that at O(1).
+        //
+        // Safe direction: UTF-8 byte length is always >= JS string length, so a
+        // COMPLETE write can never trip this check (no false aborts). In practice
+        // the ledger JSON is pure ASCII anyway — base64 payloads, alphanumeric ids,
+        // numeric timestamps — so the two are equal.
+        const writtenBytes = this.tmpFile.size;
+        if (writtenBytes === null || writtenBytes < serialized.length) {
+            throw new Error(
+                `[FileSystemLedger] Incomplete ledger write: temp file is ` +
+                `${writtenBytes === null ? 'unreadable' : `${writtenBytes} bytes`}, expected at least ` +
+                `${serialized.length}. Refusing to replace events.json; the previous ledger is intact.`,
+            );
+        }
 
         // 3. Atomically replace events.json with the verified temp file. The tmp
         // survives the whole window, so an interrupted replace is recoverable on
