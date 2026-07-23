@@ -53,8 +53,10 @@ vi.mock('expo-file-system', () => {
         get size(): number | null {
             const content = state.files.get(this.uri);
             if (content === undefined) return null;
-            // Fixtures are ASCII, so UTF-16 length == UTF-8 byte length here.
-            return content.length;
+            // Real UTF-8 byte count, like the native File.size. Must NOT be
+            // content.length — that is UTF-16 code units, and the whole point of
+            // the byte-exact guard is that the two diverge for non-ASCII text.
+            return Buffer.byteLength(content, 'utf8');
         }
         async text() {
             if (!state.files.has(this.uri)) throw new Error(`ENOENT ${this.uri}`);
@@ -264,5 +266,78 @@ describe('FileSystemLedger.nuke temp-file cleanup', () => {
         await next.init();
         expect(await next.loadEvents()).toEqual([]);
         expect(next.corrupted).toBe(false);
+    });
+});
+
+describe('FileSystemLedger write-failure atomicity', () => {
+    beforeEach(() => {
+        state.files.clear();
+        state.dirs.clear();
+        state.garbleWrites = false;
+    });
+
+    it('does not leave a failed batch live in memory when the write aborts', async () => {
+        const ledger = new FileSystemLedger();
+        await ledger.init();
+        await ledger.saveEvents([rec('a', 100)]);
+
+        // The next write lands short, so saveToDisk throws before the replace.
+        state.garbleWrites = true;
+        await expect(ledger.saveEvents([rec('b', 200), rec('c', 300)])).rejects.toThrow(
+            /Incomplete ledger write/,
+        );
+
+        // loadEvents serves this.events as the source of truth, so the rejected
+        // batch must not be visible — otherwise the UI shows entries the caller
+        // was told were never written, and the next save would flush them.
+        state.garbleWrites = false;
+        expect((await ledger.loadEvents()).map((e) => e.id)).toEqual(['a']);
+    });
+
+    it('does not drop records from memory when a delete fails to persist', async () => {
+        const ledger = new FileSystemLedger();
+        await ledger.init();
+        await ledger.saveEvents([rec('a', 100), rec('b', 200)]);
+
+        state.garbleWrites = true;
+        await expect(ledger.deleteByIds(['a'])).rejects.toThrow(/Incomplete ledger write/);
+
+        // The caller reports "nothing was removed", so the records must still be
+        // in the running ledger rather than silently gone until next launch.
+        state.garbleWrites = false;
+        expect((await ledger.loadEvents()).map((e) => e.id).sort()).toEqual(['a', 'b']);
+    });
+
+    it('detects a truncated write of non-ASCII content (byte-exact, not UTF-16 length)', async () => {
+        const ledger = new FileSystemLedger();
+        await ledger.init();
+
+        // Note text with multibyte characters: UTF-8 bytes exceed String.length,
+        // so a length-based guard would accept a write truncated inside the slack.
+        const multibyte: StorageRecord = {
+            id: 'm',
+            ts: 100,
+            payload: { iv: 'x', encryptedData: 'réésumé — 記録 🩸', authTag: 't' },
+            status: 'local',
+            signature: 'h-m',
+        };
+        await ledger.saveEvents([multibyte]);
+        const good = state.files.get(MAIN);
+
+        // Drop exactly one trailing byte-equivalent character from the write.
+        const originalWrite = state.files.set.bind(state.files);
+        state.garbleWrites = false;
+        let intercepted = false;
+        const spy = vi.spyOn(state.files, 'set').mockImplementation((k: any, v: any) => {
+            if (!intercepted && k === TMP) {
+                intercepted = true;
+                return originalWrite(k, String(v).slice(0, -1));
+            }
+            return originalWrite(k, v);
+        });
+
+        await expect(ledger.saveEvents([rec('n', 200)])).rejects.toThrow(/Incomplete ledger write/);
+        spy.mockRestore();
+        expect(state.files.get(MAIN)).toBe(good);
     });
 });

@@ -199,14 +199,25 @@ export const useLedger = (keyHex?: string) => {
     }, [isInitialized, refresh]);
 
     const purgeByIds = useCallback(async (ids: string[]): Promise<{ removedCount: number }> => {
-        if (!isInitialized || !ledger) return { removedCount: 0 };
+        // An empty id list is the only case where "removed nothing" is a real
+        // success. Every other early exit means we CANNOT purge, and returning 0
+        // there would let the undo UI render its done state ("0 removed") while
+        // the records are still in the ledger and the affordance is gone.
         if (!ids || ids.length === 0) return { removedCount: 0 };
+        if (!isInitialized || !ledger) {
+            throw new Error('Ledger not ready; cannot purge records.');
+        }
         if (typeof ledger.deleteByIds !== 'function') {
-            console.warn('[useLedger] Active ledger does not support deleteByIds; cannot purge.');
-            return { removedCount: 0 };
+            throw new Error('Active ledger does not support deleteByIds; cannot purge records.');
         }
         setIsBusy(true);
         try {
+            // Cancel any in-flight sync FIRST. batchInscribe fires an un-awaited
+            // performSync, which captures the records and writes them back after
+            // the network round-trip. Without bumping the epoch, that write-back
+            // resurrects everything this purge removes — the same hazard nuke and
+            // superNuke guard against, reached here via import Undo.
+            BackgroundSyncService.invalidate();
             // deleteByIds returns the number of records actually removed (missing
             // ids simply don't count). This feeds the §14 UndoResult.removedCount.
             const removedCount = await ledger.deleteByIds(ids);
@@ -319,7 +330,17 @@ export const useLedger = (keyHex?: string) => {
             }
         }
         if (failed > 0) {
-            console.warn(`[useLedger] ${failed} existing record(s) undecryptable for preview index`);
+            // Fail closed. A day whose record could not be decrypted drops out of
+            // the collision index, so the preview would claim "no overlap with
+            // your existing entries" and inscribe a duplicate for every such day.
+            // "The ledger has no entry there" and "we could not read the entry
+            // there" must never look the same to the user.
+            console.error(`[useLedger] ${failed} existing record(s) undecryptable for preview index`);
+            throw new Error(
+                `Could not read ${failed} existing ledger record(s), so overlap with your ` +
+                `existing entries cannot be determined. Importing now could duplicate days. ` +
+                `Resolve the unreadable entries from the Ledger screen first.`,
+            );
         }
         return out;
     }, [keyHex]);

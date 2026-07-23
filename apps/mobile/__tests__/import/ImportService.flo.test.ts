@@ -344,3 +344,34 @@ describe('ImportService - Flo (review hardening)', () => {
         for (const e of result.entries) expect(e.note || '').not.toMatch(/NaN/);
     });
 });
+
+describe('ImportService - Flo DST regression', () => {
+    // Fixed-ms day stepping drifts to 23:00 of the previous calendar day across a
+    // fall-back transition, which duplicates one ISO date and drops the last day.
+    // Vitest is configured with TZ=America/New_York for this file's assertions to
+    // be meaningful; skip cleanly elsewhere rather than assert something false.
+    const inNewYork = Intl.DateTimeFormat().resolvedOptions().timeZone === 'America/New_York';
+
+    it.runIf(inNewYork)('emits one entry per calendar day across a DST fall-back', () => {
+        const result = parseFloExport({
+            operationalData: {
+                cycles: [
+                    {
+                        // DST ends 2026-11-01 in America/New_York.
+                        period_start_date: '2026-10-31 00:00:00.0',
+                        period_end_date: '2026-11-04 00:00:00.0',
+                    },
+                ],
+            },
+        } as unknown as FloExport);
+
+        const dates = result.entries.map((e) => ledgerEntryToLogEntry(e).date);
+        expect(new Set(dates).size).toBe(dates.length); // no duplicated day
+        expect(dates).toContain('2026-11-04');          // final day not dropped
+        // Every entry sits at local midnight, so point-event merging keys line up.
+        for (const e of result.entries) {
+            const d = new Date(e.ts);
+            expect(d.getHours()).toBe(0);
+        }
+    });
+});

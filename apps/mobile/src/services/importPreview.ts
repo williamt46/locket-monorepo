@@ -22,14 +22,21 @@ export function dateKeyOf(entry: LogEntry): string {
 }
 
 /**
- * Index decrypted existing entries by day. Last-writer-wins is irrelevant to
- * collision DETECTION (we only need "is there an entry that day"); the stored
- * value is shown to the user, so the most recent one for a day is kept.
+ * Index decrypted existing entries by day. Ordering is irrelevant to collision
+ * DETECTION (we only need "is there an entry that day"), but the stored value is
+ * what §14 shows the user as `collision.existing`, so the most recent entry for
+ * a day must win.
+ *
+ * Callers pass records in `loadEvents` order, which is NEWEST-FIRST on both
+ * backends (FileSystemLedger sorts `b.ts - a.ts`; SQLiteLedger uses
+ * `ORDER BY ts DESC, rowid DESC`). A plain `set` per entry would therefore let
+ * the OLDEST record for a day win, so only fill a day the first time it is seen.
  */
 export function buildDateIndex(existing: LogEntry[]): Map<string, LogEntry> {
     const index = new Map<string, LogEntry>();
     for (const entry of existing) {
-        index.set(dateKeyOf(entry), entry);
+        const key = dateKeyOf(entry);
+        if (!index.has(key)) index.set(key, entry);
     }
     return index;
 }
@@ -93,10 +100,31 @@ export function selectEntriesToInscribe(
         if (!row.collision) {
             toInscribe.push(row.entry);
         } else if (row.collision.resolution === 'import-anyway') {
-            toInscribe.push(row.entry);
+            toInscribe.push(withoutShadowingPeriodFlags(row.entry));
         } else {
             skippedCount++; // 'keep-existing' → skip the incoming row
         }
     }
     return { toInscribe, skippedCount };
+}
+
+/**
+ * Strip period flags the incoming entry does not actually assert, for a row the
+ * user chose to import ON TOP of an existing entry for that day.
+ *
+ * Both records carry the same local-midnight ts, and the per-day view merges
+ * newest-over-oldest, so every field present on the import overwrites the user's
+ * entry. `ledgerEntryToLogEntry` always sets `isPeriod`, so a HealthKit day that
+ * only has (say) a BBT or cervical-mucus sample arrives with `isPeriod: false` —
+ * an absence of information, not a claim — and would silently un-mark a day the
+ * user logged as a period, shifting cycle predictions.
+ *
+ * "Import anyway" means "add this data too", never "erase what I recorded", so a
+ * falsy period flag is dropped rather than written. A TRUE flag is a real claim
+ * and is kept.
+ */
+function withoutShadowingPeriodFlags(entry: LogEntry): LogEntry {
+    if (entry.isPeriod) return entry;
+    const { isPeriod: _p, isStart: _s, isEnd: _e, ...rest } = entry;
+    return rest as LogEntry;
 }

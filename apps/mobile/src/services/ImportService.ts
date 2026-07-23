@@ -581,9 +581,20 @@ export function parseFloExport(json: FloExport): ImportResult {
         // Per-day intensity, e.g. {"4": 1} = cycle day 4 was Low.
         const intensityByDay = floProperties(cycle.period_intensity);
 
-        // Generate an entry for each day
+        // Generate an entry for each day.
+        //
+        // Step by CALENDAR days, not by a fixed 86_400_000 ms. A day is not
+        // always 24h: across a DST transition a fixed step lands on 23:00 (or
+        // 01:00) of the wrong calendar day, which duplicates one ISO date, drops
+        // the final day, and breaks ts-keyed merging with the point-event
+        // containers — applyBoundaryFlags then splits one period into two cycles.
+        const periodStart = new Date(startTs);
         for (let i = 0; i < daysDiff; i++) {
-            const currentTs = startTs + (i * 24 * 60 * 60 * 1000);
+            const currentTs = new Date(
+                periodStart.getFullYear(),
+                periodStart.getMonth(),
+                periodStart.getDate() + i,
+            ).getTime();
             const entry = entryFor(currentTs);
             entry.isPeriod = true;
 

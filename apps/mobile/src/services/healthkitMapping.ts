@@ -69,6 +69,8 @@ interface DayAcc {
     periodFlow?: number;      // 1..3 (or 2 default) once a period sample lands
     sawSpotting: boolean;
     bbt?: number;
+    /** Instant the winning bbt was measured, so the EARLIEST reading wins. */
+    bbtAtMs?: number;
     cycleStart: boolean;
     notes: string[];
 }
@@ -235,9 +237,16 @@ function mapQuantitySample(sample: HealthKitQuantitySample, accFor: (ts: number)
     if (typeof sample.quantity !== 'number' || !Number.isFinite(sample.quantity)) return;
     const ts = localDayTs(sample.startDate);
     const acc = accFor(ts);
+    // BASAL body temperature is the resting measurement taken on waking, so when
+    // a day holds several readings the EARLIEST one is the basal value. Plain
+    // last-write-wins would let an evening reading (or a third-party app's write)
+    // replace the morning measurement and drive the temperature field and charts.
+    const measuredAt = sample.startDate.getTime();
+    if (acc.bbtAtMs !== undefined && measuredAt >= acc.bbtAtMs) return;
     // BBT is read in Celsius; clamp to the physiological range for its unit.
     const unit = inferTemperatureUnit(sample.quantity);
     acc.bbt = clampTemperature(sample.quantity, unit);
+    acc.bbtAtMs = measuredAt;
 }
 
 /**
@@ -247,6 +256,12 @@ function mapQuantitySample(sample: HealthKitQuantitySample, accFor: (ts: number)
  */
 function applyCycleStartBoundaries(entries: LedgerEntry[], cycleStartDays: Set<number>): void {
     const DAY_1_5 = 24 * 60 * 60 * 1000 * 1.5;
+    // When Apple reported cycle starts at all, that signal is AUTHORITATIVE for
+    // isStart and must not be OR-ed with the gap heuristic: a single unlogged day
+    // mid-cycle would otherwise open a phantom cycle on the next logged day, and
+    // PredictionEngine reads start-to-start as cycle length. The heuristic is the
+    // fallback for exports that carry no HKMenstrualCycleStart metadata at all.
+    const appleKnowsStarts = cycleStartDays.size > 0;
     for (let i = 0; i < entries.length; i++) {
         const entry = entries[i];
         delete entry.isStart;
@@ -256,7 +271,10 @@ function applyCycleStartBoundaries(entries: LedgerEntry[], cycleStartDays: Set<n
         const prev = i > 0 ? entries[i - 1] : null;
         const next = i < entries.length - 1 ? entries[i + 1] : null;
 
-        if (cycleStartDays.has(entry.ts) || !prev || !prev.isPeriod || entry.ts - prev.ts > DAY_1_5) {
+        const isStart = appleKnowsStarts
+            ? cycleStartDays.has(entry.ts)
+            : !prev || !prev.isPeriod || entry.ts - prev.ts > DAY_1_5;
+        if (isStart) {
             entry.isStart = true;
         }
         if (!next || !next.isPeriod || next.ts - entry.ts > DAY_1_5 || cycleStartDays.has(next.ts)) {

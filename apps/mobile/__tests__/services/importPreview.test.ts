@@ -266,3 +266,67 @@ function previewFixture(): ImportPreview {
         counts: { total: 1, collisions: 0 },
     };
 }
+
+describe('importPreview — review regressions', () => {
+    it('keeps the NEWEST entry for a day in the collision index', () => {
+        // loadEvents returns newest-first on both backends, so a plain set() per
+        // entry would leave the OLDEST record as collision.existing.
+        const newest = entry('2024-01-05', { note: 'NEWEST', ts: new Date(2024, 0, 5, 20, 0).getTime() });
+        const oldest = entry('2024-01-05', { note: 'OLDEST', ts: new Date(2024, 0, 5, 1, 0).getTime() });
+        const index = buildDateIndex([newest, oldest]);
+        expect(index.get('2024-01-05')?.note).toBe('NEWEST');
+    });
+
+    it('does not let an import-anyway row un-mark an existing period day', () => {
+        // The incoming HealthKit row has no period signal, so its isPeriod:false
+        // is an absence of information. Both records share a local-midnight ts and
+        // the per-day view merges newest-over-oldest, so writing that false would
+        // erase the user's period marking.
+        const incoming = entry('2024-03-10', { isPeriod: false, temperature: { value: 36.5, unit: 'C' } });
+        const existing = entry('2024-03-10', { isPeriod: true, note: 'mine' });
+        const preview: ImportPreview = {
+            source: 'healthkit',
+            rows: [
+                {
+                    date: '2024-03-10',
+                    entry: incoming,
+                    glyphs: { bleeding: false, temperature: true, symptoms: false, note: false },
+                    collision: { existing, resolution: 'import-anyway' },
+                },
+            ],
+            range: { earliest: '2024-03-10', latest: '2024-03-10' },
+            truncation: null,
+            permissionState: 'available',
+            counts: { total: 1, collisions: 1 },
+        };
+
+        const { toInscribe } = selectEntriesToInscribe(preview);
+        expect(toInscribe).toHaveLength(1);
+        expect('isPeriod' in toInscribe[0]).toBe(false);
+        // The data the user actually wanted still imports.
+        expect(toInscribe[0].temperature?.value).toBe(36.5);
+    });
+
+    it('keeps a TRUE period flag on an import-anyway row (a real claim, not an absence)', () => {
+        const incoming = entry('2024-03-11', { isPeriod: true, isStart: true });
+        const existing = entry('2024-03-11', { note: 'mine' });
+        const preview: ImportPreview = {
+            source: 'healthkit',
+            rows: [
+                {
+                    date: '2024-03-11',
+                    entry: incoming,
+                    glyphs: { bleeding: true, temperature: false, symptoms: false, note: false },
+                    collision: { existing, resolution: 'import-anyway' },
+                },
+            ],
+            range: { earliest: '2024-03-11', latest: '2024-03-11' },
+            truncation: null,
+            permissionState: 'available',
+            counts: { total: 1, collisions: 1 },
+        };
+        const { toInscribe } = selectEntriesToInscribe(preview);
+        expect(toInscribe[0].isPeriod).toBe(true);
+        expect(toInscribe[0].isStart).toBe(true);
+    });
+});

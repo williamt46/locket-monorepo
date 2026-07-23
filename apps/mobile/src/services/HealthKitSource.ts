@@ -128,6 +128,8 @@ export interface HealthKitQueryOptions {
 export interface HealthKitCategoryQueryOptions {
     limit: number;
     ascending?: boolean;
+    /** Lower bound on sample date. Omitted means "everything". */
+    startDate?: Date;
 }
 export interface HealthKitQuantityQueryOptions extends HealthKitCategoryQueryOptions {
     unit?: string;
@@ -167,13 +169,21 @@ export function createLibraryClient(): HealthKitClient {
     const toObj = (m: unknown): Record<string, unknown> | undefined =>
         m && typeof m === 'object' ? (m as Record<string, unknown>) : undefined;
 
+    // Our flat `startDate` becomes the library's `filter.date.startDate` — the
+    // only shape it honours. Passing it at the top level would be silently
+    // ignored and the query would return the entire archive.
+    const toLibraryOptions = ({ startDate, ...rest }: { startDate?: Date }): Record<string, unknown> => ({
+        ...rest,
+        ...(startDate ? { filter: { date: { startDate } } } : {}),
+    });
+
     return {
         isHealthDataAvailable: () => isHealthDataAvailable(),
         getRequestStatusForAuthorization: (toCheck) =>
             getRequestStatusForAuthorization(toCheck as any) as unknown as Promise<number>,
         requestAuthorization: (toRequest) => requestAuthorization(toRequest as any),
         queryCategorySamples: async (identifier, options) => {
-            const raw = await queryCategorySamples(identifier as any, options as any);
+            const raw = await queryCategorySamples(identifier as any, toLibraryOptions(options) as any);
             return raw.map((s: any) => ({
                 categoryType: s.categoryType,
                 value: s.value,
@@ -183,7 +193,7 @@ export function createLibraryClient(): HealthKitClient {
             }));
         },
         queryQuantitySamples: async (identifier, options) => {
-            const raw = await queryQuantitySamples(identifier as any, options as any);
+            const raw = await queryQuantitySamples(identifier as any, toLibraryOptions(options) as any);
             return raw.map((s: any) => ({
                 quantityType: s.quantityType,
                 quantity: s.quantity,
@@ -223,9 +233,13 @@ export class HealthKitSource {
     async getPermissionState(): Promise<HealthKitPrequeryState> {
         if (!this.isAvailable()) return 'unavailable';
         const status = await this.client.getRequestStatusForAuthorization(this.authTypes());
-        // shouldRequest → we have never asked. unnecessary/unknown → already
-        // asked (or nothing more to ask); grant vs. denial stays opaque.
-        return status === AUTH_STATUS_SHOULD_REQUEST ? 'not-determined' : 'requested';
+        // Only `unnecessary` proves we have already asked. `shouldRequest` means
+        // we have not, and `unknown` (0) means the status probe itself failed —
+        // treating that as "already asked" would skip the OS sheet entirely and
+        // strand the user in a zero-state pointing at a Settings row that does
+        // not exist, because Locket never requested access. requestAuthorization
+        // is idempotent on iOS, so asking again when unsure is the safe default.
+        return status === AUTH_STATUS_UNNECESSARY ? 'requested' : 'not-determined';
     }
 
     /** Present the OS permission sheet (read-only types). Grant state is opaque. */
@@ -243,29 +257,53 @@ export class HealthKitSource {
      * not sink the whole import.
      */
     async query(options: HealthKitQueryOptions = {}): Promise<HealthKitQueryResult> {
+        // `requestedStart` bounds the read itself, not just truncation reporting.
+        const startDate = options.requestedStart;
+        let attempted = 0;
+        let failed = 0;
+
         const categorySamples: HealthKitCategorySample[] = [];
         for (const identifier of REPRODUCTIVE_CATEGORY_TYPES) {
+            attempted++;
             try {
                 const samples = await this.client.queryCategorySamples(identifier, {
                     limit: 0,          // 0 → all samples (library contract)
                     ascending: true,
+                    ...(startDate ? { startDate } : {}),
                 });
                 for (const s of samples) categorySamples.push(s);
             } catch (e) {
+                failed++;
                 console.warn(`[HealthKitSource] category query failed for ${identifier}`, describeError(e));
             }
         }
 
         const quantitySamples: HealthKitQuantitySample[] = [];
+        attempted++;
         try {
             const samples = await this.client.queryQuantitySamples(BBT_QUANTITY_TYPE, {
                 limit: 0,
                 ascending: true,
                 unit: BBT_UNIT,
+                ...(startDate ? { startDate } : {}),
             });
             for (const s of samples) quantitySamples.push(s);
         } catch (e) {
+            failed++;
             console.warn(`[HealthKitSource] quantity query failed for ${BBT_QUANTITY_TYPE}`, describeError(e));
+        }
+
+        // Every query failing is a hard fault (missing entitlement, native module
+        // not resolving), NOT "you have no data / maybe you denied us". Reporting
+        // it as ambiguous-zero sends the user to a Settings screen to fix a
+        // problem that has nothing to do with permissions, and the caller's error
+        // path never runs. Fail loud instead.
+        if (failed === attempted) {
+            throw new Error(
+                `[HealthKitSource] All ${attempted} Apple Health queries failed — this is a read ` +
+                `error, not an empty or denied library. Check the HealthKit entitlement and that ` +
+                `the native module is present in this build.`,
+            );
         }
 
         // Sort ts-ascending (defensive — do not trust per-type ordering).

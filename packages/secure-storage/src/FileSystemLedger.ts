@@ -2,10 +2,35 @@ import { Directory, File, Paths } from 'expo-file-system';
 import { LedgerStorage, StorageRecord, LedgerInitError } from './types.js';
 
 // Sibling of events.json used for crash-safe writes. saveToDisk writes here
-// first, verifies the readback parses, then atomically replaces events.json.
+// first, verifies the written byte count, then atomically replaces events.json.
 // If a write is interrupted, this file survives intact and loadFromDisk
 // recovers the ledger from it.
 const TEMP_FILE_NAME = 'events.json.tmp';
+
+/**
+ * Exact UTF-8 byte length of a JS string. `String.length` counts UTF-16 code
+ * units, which undercounts every non-ASCII character — so it cannot be used to
+ * verify how many bytes a write actually produced. No TextEncoder dependency:
+ * it is not guaranteed on Hermes.
+ */
+function utf8ByteLength(s: string): number {
+    let bytes = 0;
+    for (let i = 0; i < s.length; i++) {
+        const code = s.charCodeAt(i);
+        if (code < 0x80) {
+            bytes += 1;
+        } else if (code < 0x800) {
+            bytes += 2;
+        } else if (code >= 0xd800 && code <= 0xdbff) {
+            // High surrogate: with its low surrogate this is one 4-byte code point.
+            bytes += 4;
+            i++;
+        } else {
+            bytes += 3;
+        }
+    }
+    return bytes;
+}
 
 export class FileSystemLedger implements LedgerStorage {
     private events: StorageRecord[] = [];
@@ -130,8 +155,15 @@ export class FileSystemLedger implements LedgerStorage {
         this.events = [];
     }
 
-    private async saveToDisk(): Promise<void> {
-        const serialized = JSON.stringify(this.events);
+    /**
+     * Persist `records` to disk. Callers pass the CANDIDATE state and only commit
+     * it to `this.events` after this resolves — a throw here must leave the
+     * in-memory ledger exactly as it was, because loadEvents serves `this.events`
+     * as the source of truth and any later successful save would flush a batch
+     * the caller already reported as failed.
+     */
+    private async saveToDisk(records: StorageRecord[] = this.events): Promise<void> {
+        const serialized = JSON.stringify(records);
 
         // 1. Write to a temp file in the same directory. A crash here leaves the
         // real events.json untouched.
@@ -150,16 +182,17 @@ export class FileSystemLedger implements LedgerStorage {
         // freeze on a multi-MB ledger. A torn/short write is the failure this guard
         // exists for, and size catches exactly that at O(1).
         //
-        // Safe direction: UTF-8 byte length is always >= JS string length, so a
-        // COMPLETE write can never trip this check (no false aborts). In practice
-        // the ledger JSON is pure ASCII anyway — base64 payloads, alphanumeric ids,
-        // numeric timestamps — so the two are equal.
+        // The expected size is the UTF-8 BYTE length, computed exactly. Comparing
+        // against `serialized.length` (UTF-16 code units) would undercount by 1-2
+        // bytes per non-ASCII character — note text, imported free text, emoji —
+        // leaving a slack window in which a truncated write still looks complete.
+        const expectedBytes = utf8ByteLength(serialized);
         const writtenBytes = this.tmpFile.size;
-        if (writtenBytes === null || writtenBytes < serialized.length) {
+        if (writtenBytes === null || writtenBytes !== expectedBytes) {
             throw new Error(
                 `[FileSystemLedger] Incomplete ledger write: temp file is ` +
-                `${writtenBytes === null ? 'unreadable' : `${writtenBytes} bytes`}, expected at least ` +
-                `${serialized.length}. Refusing to replace events.json; the previous ledger is intact.`,
+                `${writtenBytes === null ? 'unreadable' : `${writtenBytes} bytes`}, expected ` +
+                `${expectedBytes}. Refusing to replace events.json; the previous ledger is intact.`,
             );
         }
 
@@ -181,26 +214,32 @@ export class FileSystemLedger implements LedgerStorage {
         const id = record.id || Math.random().toString(36).substring(7) + '-' + Date.now();
         const newRecord = { ...record, id };
 
-        const index = this.events.findIndex(e => e.id === id);
+        // Build the candidate state, persist it, and only then adopt it — a
+        // failed write must not leave the record live in memory (see saveToDisk).
+        const next = [...this.events];
+        const index = next.findIndex(e => e.id === id);
         if (index >= 0) {
-            this.events[index] = newRecord;
+            next[index] = newRecord;
         } else {
             if (record.id) {
                 console.warn(`[FileSystemLedger] Single update failed: Record ${record.id} not found.`);
             }
-            this.events.push(newRecord);
+            next.push(newRecord);
         }
-        await this.saveToDisk();
+        await this.saveToDisk(next);
+        this.events = next;
     }
 
     async saveEvents(records: StorageRecord[]): Promise<void> {
-        const before = this.events.length;
+        // Build the candidate state, persist it, and only then adopt it — a failed
+        // write must not leave the batch live in memory (see saveToDisk).
+        const next = [...this.events];
         // Index by id once instead of a findIndex scan per record: a batch import
         // is O(records x ledgerSize) otherwise, which is millions of comparisons
         // on the JS thread for a few thousand entries.
         const indexById = new Map<string, number>();
-        for (let i = 0; i < this.events.length; i++) {
-            const existingId = this.events[i].id;
+        for (let i = 0; i < next.length; i++) {
+            const existingId = next[i].id;
             if (existingId !== undefined) indexById.set(existingId, i);
         }
         for (const record of records) {
@@ -208,14 +247,14 @@ export class FileSystemLedger implements LedgerStorage {
             const newRecord = { ...record, id };
             const index = indexById.get(id);
             if (index !== undefined) {
-                this.events[index] = newRecord;
+                next[index] = newRecord;
             } else {
-                indexById.set(id, this.events.length);
-                this.events.push(newRecord);
+                indexById.set(id, next.length);
+                next.push(newRecord);
             }
         }
-        const after = this.events.length;
-        await this.saveToDisk();
+        await this.saveToDisk(next);
+        this.events = next;
         console.log(`[FileSystemLedger] Batch saved ${records.length} events (including updates)`);
     }
 
@@ -240,15 +279,18 @@ export class FileSystemLedger implements LedgerStorage {
         const dateStr = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 
         const initialCount = this.events.length;
-        this.events = this.events.filter(e => {
+        // Persist before adopting: a failed write must not drop records from the
+        // running app while the caller is told nothing changed (see saveToDisk).
+        const next = this.events.filter(e => {
             const d = new Date(e.ts);
             const s = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
             return s !== dateStr;
         });
 
-        if (this.events.length !== initialCount) {
-            await this.saveToDisk();
-            console.log(`[FileSystemLedger] Deleted ${initialCount - this.events.length} events for ${dateStr}. Remaining: ${this.events.length}`);
+        if (next.length !== initialCount) {
+            await this.saveToDisk(next);
+            this.events = next;
+            console.log(`[FileSystemLedger] Deleted ${initialCount - next.length} events for ${dateStr}. Remaining: ${next.length}`);
         } else {
             console.log(`[FileSystemLedger] No events found to delete for ${dateStr}`);
         }
@@ -258,10 +300,14 @@ export class FileSystemLedger implements LedgerStorage {
         if (!ids || ids.length === 0) return 0;
         const idSet = new Set(ids);
         const before = this.events.length;
-        this.events = this.events.filter(e => !e.id || !idSet.has(e.id));
-        const removed = before - this.events.length;
+        // Persist before adopting: a failed write must not make the records vanish
+        // from the running app while the caller reports the purge failed, only for
+        // them to return on the next launch (see saveToDisk).
+        const next = this.events.filter(e => !e.id || !idSet.has(e.id));
+        const removed = before - next.length;
         if (removed > 0) {
-            await this.saveToDisk();
+            await this.saveToDisk(next);
+            this.events = next;
             console.log(`[FileSystemLedger] Deleted ${removed} events by id`);
         }
         return removed;
@@ -290,7 +336,8 @@ export class FileSystemLedger implements LedgerStorage {
             status: 'local',
             isDummy: true
         };
-        this.events.push(dummyRecord);
-        await this.saveToDisk();
+        const next = [...this.events, dummyRecord];
+        await this.saveToDisk(next);
+        this.events = next;
     }
 }

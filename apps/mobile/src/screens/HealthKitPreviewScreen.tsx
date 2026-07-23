@@ -133,6 +133,9 @@ export const HealthKitPreviewScreen = () => {
     const [undoPhase, setUndoPhase] = useState<'idle' | 'working' | 'done'>('idle');
     const [undoError, setUndoError] = useState<string | null>(null);
     const [undoResult, setUndoResult] = useState<UndoResult | null>(null);
+    // Re-entrancy guard for commit. State cannot do this job: two taps in one
+    // React batch both observe the pre-update `phase`.
+    const isCommittingRef = useRef(false);
 
     const load = useCallback(async () => {
         setPhase('loading');
@@ -170,6 +173,17 @@ export const HealthKitPreviewScreen = () => {
         }
     }, [isInitialized, keyHex, load]);
 
+    // Block hardware back and the swipe-back gesture while committing. Disabling
+    // the header button alone leaves those routes open, and leaving mid-commit
+    // discards the CommitResult while the write still lands — stranding the
+    // import with no Undo affordance.
+    useEffect(() => {
+        if (phase !== 'committing') return;
+        return navigation.addListener('beforeRemove', (e: any) => {
+            e.preventDefault();
+        });
+    }, [navigation, phase]);
+
     // §14: collision.resolution is THE ONLY field the frontend mutates.
     const setResolution = useCallback((rowIndex: number, resolution: CollisionResolution) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -201,6 +215,12 @@ export const HealthKitPreviewScreen = () => {
 
     const handleCommit = useCallback(async () => {
         if (!preview || preview.rows.length === 0 || toInscribeCount === 0) return; // §14 guarantee 4
+        // A ref, not `phase`: two taps in the same React batch both read the old
+        // state and would each run a full commit, writing every day twice while
+        // only the second CommitResult survives — leaving half the duplicates
+        // beyond the reach of Undo. Same guard LogScreen uses for saving.
+        if (isCommittingRef.current) return;
+        isCommittingRef.current = true;
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         setCommitError(null);
         setCommitTotal(toInscribeCount);
@@ -222,6 +242,8 @@ export const HealthKitPreviewScreen = () => {
             setCommitError(e?.message || 'The import failed.');
             setPhase('preview');
             announce('Import failed. Nothing was inscribed.');
+        } finally {
+            isCommittingRef.current = false;
         }
     }, [preview, toInscribeCount, backend]);
 
@@ -585,13 +607,28 @@ export const HealthKitPreviewScreen = () => {
     return (
         <ScreenWrapper>
             <View style={[styles.header, { borderBottomColor: t.divider }]}>
+                {/*
+                  * Disabled while committing: the write completes regardless of
+                  * navigation, but leaving unmounts the screen before the
+                  * CommitResult lands, so inscribedIds are lost and the promised
+                  * one-tap Undo can never be offered for entries that DID import.
+                  */}
                 <TouchableOpacity
                     accessibilityRole="button"
                     accessibilityLabel="Go back"
+                    accessibilityState={{ disabled: phase === 'committing' }}
+                    disabled={phase === 'committing'}
                     onPress={() => navigation.goBack()}
                     style={styles.backButton}
                 >
-                    <Text style={[styles.backButtonText, { color: t.locketBlue }]}>← Back</Text>
+                    <Text
+                        style={[
+                            styles.backButtonText,
+                            { color: phase === 'committing' ? t.fog : t.locketBlue },
+                        ]}
+                    >
+                        ← Back
+                    </Text>
                 </TouchableOpacity>
                 <Text style={[styles.headerTitle, { color: t.ink }]}>Apple Health</Text>
                 <View style={{ width: 60 }} />

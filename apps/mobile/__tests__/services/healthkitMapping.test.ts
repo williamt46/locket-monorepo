@@ -223,3 +223,48 @@ describe('healthkitMapping — merged day + empty set', () => {
         expect(entries).toEqual([]);
     });
 });
+
+describe('healthkitMapping — review regressions', () => {
+    it("does not invent a cycle start on a gap when Apple's metadata is present", () => {
+        // Nov 1,2,3,5,6 logged; Apple says only Nov 1 starts a cycle. The missing
+        // Nov 4 must NOT open a phantom cycle on Nov 5, or PredictionEngine reads
+        // a 4-day cycle from start-to-start.
+        const entries = mapHealthKitSamples({
+            categorySamples: [
+                cat('HKCategoryTypeIdentifierMenstrualFlow', 3, d(2024, 11, 1), { HKMenstrualCycleStart: true }),
+                cat('HKCategoryTypeIdentifierMenstrualFlow', 3, d(2024, 11, 2), { HKMenstrualCycleStart: false }),
+                cat('HKCategoryTypeIdentifierMenstrualFlow', 3, d(2024, 11, 3), { HKMenstrualCycleStart: false }),
+                cat('HKCategoryTypeIdentifierMenstrualFlow', 3, d(2024, 11, 5), { HKMenstrualCycleStart: false }),
+                cat('HKCategoryTypeIdentifierMenstrualFlow', 3, d(2024, 11, 6), { HKMenstrualCycleStart: false }),
+            ],
+            quantitySamples: [],
+        });
+        const starts = entries.filter((e) => e.isStart).map((e) => new Date(e.ts).getDate());
+        expect(starts).toEqual([1]);
+    });
+
+    it('still falls back to the gap heuristic when no cycle-start metadata exists', () => {
+        const entries = mapHealthKitSamples({
+            categorySamples: [
+                cat('HKCategoryTypeIdentifierMenstrualFlow', 3, d(2024, 11, 1)),
+                cat('HKCategoryTypeIdentifierMenstrualFlow', 3, d(2024, 11, 2)),
+                cat('HKCategoryTypeIdentifierMenstrualFlow', 3, d(2024, 11, 20)),
+            ],
+            quantitySamples: [],
+        });
+        const starts = entries.filter((e) => e.isStart).map((e) => new Date(e.ts).getDate());
+        expect(starts).toEqual([1, 20]);
+    });
+
+    it('keeps the EARLIEST basal temperature of the day, not the last reading', () => {
+        const morning = new Date(2024, 4, 10, 6, 30);
+        const evening = new Date(2024, 4, 10, 21, 0);
+        // Deliberately evening-first: correctness must not depend on input order.
+        const entries = mapHealthKitSamples({
+            categorySamples: [],
+            quantitySamples: [bbt(37.9, evening), bbt(36.4, morning)],
+        });
+        expect(entries).toHaveLength(1);
+        expect(entries[0].bbt).toBeCloseTo(36.4, 5);
+    });
+});
