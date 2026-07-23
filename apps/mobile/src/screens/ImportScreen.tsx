@@ -5,10 +5,12 @@ import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
 import * as Haptics from 'expo-haptics';
 import { ScreenWrapper } from '../components/ScreenWrapper';
+import { Icon } from '../components/Icon';
 import { useTheme } from '../theme/ThemeContext';
 import { typography } from '../theme/typography';
 import { useLedger } from '../hooks/useLedger';
 import { SecureKeyService } from '../services/SecureKeyService';
+import { isHealthKitAvailable } from './HealthKitImportContract';
 
 type ImportStatus = 'idle' | 'parsing' | 'success' | 'error';
 
@@ -25,6 +27,17 @@ export const ImportScreen = () => {
 
     const [status, setStatus] = useState<ImportStatus>('idle');
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    // DES-D3: Apple Health is a second source card on this screen. Real
+    // availability check (HealthKitSource.isAvailable via the shared
+    // singleton): hidden/disabled (false) until the async probe resolves.
+    const [healthKitAvailable, setHealthKitAvailable] = useState(false);
+    useEffect(() => {
+        let cancelled = false;
+        isHealthKitAvailable()
+            .then((ok) => { if (!cancelled) setHealthKitAvailable(ok); })
+            .catch(() => { if (!cancelled) setHealthKitAvailable(false); });
+        return () => { cancelled = true; };
+    }, []);
     const [importResult, setImportResult] = useState<{
         count: number;
         source: string;
@@ -101,7 +114,7 @@ export const ImportScreen = () => {
 
             <View style={styles.content}>
                 {status === 'idle' && (
-                    <View style={styles.centerContainer}>
+                    <ScrollView contentContainerStyle={styles.idleContainer} showsVerticalScrollIndicator={false}>
                         <Text style={[styles.title, { color: t.ink }]}>Bring Your Data</Text>
                         <Text style={[styles.subtitle, { color: t.graphite }]}>
                             Locket decrypts your Clue or Flo exports, and formatted CSV spreadsheets, plotting them securely into your local ledger.
@@ -124,7 +137,44 @@ export const ImportScreen = () => {
                         >
                             <Text style={[styles.primaryButtonText, { color: t.onAccent }]}>Choose File</Text>
                         </TouchableOpacity>
-                    </View>
+
+                        {/* DES-D3: Apple Health as a second source card, beside the file sources. */}
+                        <TouchableOpacity
+                            style={[
+                                styles.sourceCard,
+                                {
+                                    backgroundColor: t.cardWhite,
+                                    borderColor: t.divider,
+                                    shadowColor: t.shadowColor,
+                                    shadowOpacity: t.shadowOpacity,
+                                },
+                                !healthKitAvailable && styles.sourceCardDisabled,
+                            ]}
+                            onPress={() => {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                navigation.navigate('HealthKitPriming');
+                            }}
+                            disabled={!healthKitAvailable}
+                            accessibilityRole="button"
+                            accessibilityState={{ disabled: !healthKitAvailable }}
+                            accessibilityLabel={
+                                healthKitAvailable
+                                    ? 'Apple Health. Read-only, and stays on this device.'
+                                    : 'Apple Health import is not available on this device.'
+                            }
+                        >
+                            <Icon name="favorite" size={22} color={healthKitAvailable ? t.menstrual : t.fog} />
+                            <View style={styles.sourceCardBody}>
+                                <Text style={[styles.sourceCardTitle, { color: t.ink }]}>Apple Health</Text>
+                                <Text style={[styles.sourceCardSub, { color: t.graphite }]}>
+                                    {healthKitAvailable
+                                        ? 'Read-only, and stays on this device.'
+                                        : 'Not available on this device.'}
+                                </Text>
+                            </View>
+                            {healthKitAvailable && <Icon name="chevron-right" size={22} color={t.fog} />}
+                        </TouchableOpacity>
+                    </ScrollView>
                 )}
 
                 {status === 'parsing' && (
@@ -245,6 +295,44 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         paddingHorizontal: 10,
+    },
+    idleContainer: {
+        flexGrow: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 10,
+        paddingBottom: 20,
+    },
+    sourceCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 14,
+        width: '100%',
+        borderRadius: 16,
+        borderWidth: 1,
+        padding: 18,
+        marginTop: 16,
+        minHeight: 44,
+        shadowOffset: { width: 0, height: 2 },
+        shadowRadius: 10,
+        elevation: 2,
+    },
+    sourceCardDisabled: {
+        opacity: 0.55,
+    },
+    sourceCardBody: {
+        flex: 1,
+    },
+    sourceCardTitle: {
+        fontFamily: typography.heading,
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginBottom: 2,
+    },
+    sourceCardSub: {
+        fontFamily: typography.body,
+        fontSize: 13,
+        lineHeight: 18,
     },
     title: {
         fontFamily: typography.heading,

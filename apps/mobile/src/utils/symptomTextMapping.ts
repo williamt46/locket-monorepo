@@ -51,6 +51,13 @@ const SYMPTOM_TEXT_MAP: Record<string, SymptomKey> = {
   'tender breasts': 'breast_tenderness',
   'sore breasts': 'breast_tenderness',
   'breast pain': 'breast_tenderness',
+  // Sex (Apple Health `sexualActivity` protection metadata → the existing
+  // sex_protected / sex_unprotected pills; the HealthKit mapper emits these
+  // exact phrases as note tokens so they light up their pill on import).
+  'sex protected': 'sex_protected',
+  'protected sex': 'sex_protected',
+  'sex unprotected': 'sex_unprotected',
+  'unprotected sex': 'sex_unprotected',
   // Mood
   'low mood': 'mood_low',
   anxious: 'mood_anxious',

@@ -946,8 +946,12 @@ export function parseCsvExport(csvString: string): ImportResult {
 /**
  * Modifies the array in-place, adding isStart/isEnd flags
  * to consecutive runs of isPeriod === true days.
+ *
+ * Exported so the HealthKit mapper can reuse the 1.5-day-gap run detection as a
+ * FALLBACK — HealthKit's own `HKMenstrualCycleStart` metadata is authoritative
+ * for cycle starts and is preferred when present. Requires ts-ascending input.
  */
-function applyBoundaryFlags(entries: LedgerEntry[]) {
+export function applyBoundaryFlags(entries: LedgerEntry[]) {
     for (let i = 0; i < entries.length; i++) {
         const entry = entries[i];
 
@@ -982,7 +986,7 @@ const FLOW_TO_INTENSITY: Record<number, BleedingIntensity> = {
     3: 'heavy',
 };
 
-function toLocalIsoDate(ts: number): string {
+export function toLocalIsoDate(ts: number): string {
     const d = new Date(ts);
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');

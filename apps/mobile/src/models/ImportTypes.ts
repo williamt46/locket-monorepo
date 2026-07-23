@@ -1,3 +1,5 @@
+import type { LogEntry } from './LogEntry';
+
 export type ImportSource = 'clue' | 'flo' | 'csv' | 'healthkit' | 'unknown';
 
 export interface LedgerEntry {
@@ -104,4 +106,62 @@ export interface ImportResult {
     entries: LedgerEntry[];
     warnings: string[];  // e.g. "3 days had unmapped keys", "ambiguous date format"
     stats: ImportStats;
+}
+
+// ---------------------------------------------------------------------------
+// §14 THE CONTRACT — preview / commit / undo shapes (verbatim from the plan).
+// Backend (this layer) produces and consumes these; the frontend renders them
+// and mutates ONLY the fields marked below. Any change here requires updating
+// BOTH sides in the same chunk.
+// ---------------------------------------------------------------------------
+
+// Per-row collision choice. ENG-D1(c): nothing is ever replaced or upserted.
+// 'keep-existing'  → the incoming entry is SKIPPED at commit (default — safe).
+// 'import-anyway'  → the incoming entry is inscribed as an ADDITIONAL record
+//                    for that day, alongside the existing one. No overwrite
+//                    path exists, so existing notes/symptoms can never be
+//                    destroyed (honors TODOS.md:66 by construction).
+export type CollisionResolution = 'keep-existing' | 'import-anyway';
+
+export interface ImportPreviewRow {
+    date: string;              // ISO YYYY-MM-DD (LogEntry date key — NOT the
+                               // legacy "YYYY-M-D" ledger form)
+    entry: LogEntry;           // incoming, fully mapped, incl. source (T3)
+    glyphs: {                  // what the row shows, precomputed by backend
+        bleeding: boolean;
+        temperature: boolean;
+        symptoms: boolean;
+        note: boolean;
+    };
+    collision: null | {        // null → no existing entry that day
+        existing: LogEntry;    // decrypted existing entry for display
+        resolution: CollisionResolution;   // frontend mutates this field ONLY
+    };
+}
+
+export interface ImportPreview {
+    source: ImportSource;      // 'healthkit' | 'clue' | 'flo' | 'csv'
+    rows: ImportPreviewRow[];  // ts-ascending; frontend groups by month
+    range: { earliest: string; latest: string } | null;  // null iff rows empty
+    truncation: null | {       // HealthKit only; present when the earliest
+        earliestAuthorized: string;  // authorized date clips requested history
+    };
+    permissionState: 'available' | 'ambiguous-zero';
+    // 'ambiguous-zero': HK returned 0 rows — denial and truly-empty are
+    // indistinguishable (Apple). Frontend renders the both-readings zero-state
+    // with the Health-settings deep-link. File sources are always 'available'.
+    counts: { total: number; collisions: number };  // backend-computed
+}
+
+export interface CommitResult {
+    inscribedIds: string[];    // ids of records actually written (random ids,
+                               // minted in batchInscribe and RETURNED). Undo
+                               // purges exactly these.
+    inscribedCount: number;    // === inscribedIds.length
+    skippedCount: number;      // collision rows left at 'keep-existing'
+}
+
+export interface UndoResult {
+    removedCount: number;      // from purgeByIds' return; "0 removed" renders
+                               // honestly instead of lying
 }

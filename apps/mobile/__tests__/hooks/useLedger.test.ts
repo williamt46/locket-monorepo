@@ -75,24 +75,36 @@ function makeLedger() {
 }
 
 /**
- * Hand-rolled mirror of useLedger.batchInscribe (apps/mobile/src/hooks/useLedger.ts:77-109).
+ * Hand-rolled mirror of useLedger.batchInscribe (apps/mobile/src/hooks/useLedger.ts).
  * Reproduces the exact commit loop and guard so the observable contract is
- * asserted independently of React. Returns the records handed to saveEvents.
+ * asserted independently of React.
+ *
+ * MIGRATED to the Phase 1 API: batchInscribe now mints a random id per record
+ * BEFORE saveEvents and RETURNS the ids (so CommitResult.inscribedIds is exact
+ * and Undo can purge precisely this import). Records are observable via the
+ * saveEvents mock; the function returns the id list.
  */
+function mintId(): string {
+    return Math.random().toString(36).substring(7) + '-' + Date.now();
+}
+
 async function batchInscribeHarness(
     entries: any[],
     ctx: { crypto: ReturnType<typeof makeCrypto>; ledger: ReturnType<typeof makeLedger>; keyHex?: string; isInitialized: boolean },
-): Promise<StorageRecord[]> {
+): Promise<string[]> {
     if (!ctx.isInitialized || !ctx.keyHex) throw new Error('Ledger not ready or key missing');
     const records: StorageRecord[] = [];
+    const ids: string[] = [];
     for (const data of entries) {
         const ts = data.ts || Date.now();
+        const id = mintId();
         const encrypted = await ctx.crypto.encryptData(data, ctx.keyHex);
         const hash = await ctx.crypto.generateIntegrityHash(encrypted);
-        records.push({ ts, payload: encrypted, status: 'local', signature: hash });
+        records.push({ id, ts, payload: encrypted, status: 'local', signature: hash });
+        ids.push(id);
     }
     await ctx.ledger.saveEvents(records);
-    return records;
+    return ids;
 }
 
 // Mirror of importData's produce stage (useLedger.ts:218-264), minus React.
@@ -165,13 +177,13 @@ describe('T2 commit stage — batchInscribe observable contract', () => {
         ledger = makeLedger();
     });
 
-    it('encrypts and hashes EACH entry and calls saveEvents exactly once with all records', async () => {
+    it('encrypts and hashes EACH entry, mints ids, and calls saveEvents exactly once with all records', async () => {
         const entries = [
             { ts: 1000, note: 'a' },
             { ts: 2000, note: 'b' },
             { ts: 3000, note: 'c' },
         ];
-        const records = await batchInscribeHarness(entries, { crypto, ledger, keyHex: 'deadbeef', isInitialized: true });
+        const ids = await batchInscribeHarness(entries, { crypto, ledger, keyHex: 'deadbeef', isInitialized: true });
 
         expect(crypto.encryptData).toHaveBeenCalledTimes(3);
         expect(crypto.generateIntegrityHash).toHaveBeenCalledTimes(3);
@@ -183,7 +195,11 @@ describe('T2 commit stage — batchInscribe observable contract', () => {
         expect(saved.every((r: StorageRecord) => r.status === 'local')).toBe(true);
         // signature is the integrity hash of the encrypted payload.
         expect(saved[0].signature).toBe(`hash:${saved[0].payload.encryptedData}`);
-        expect(records).toBe(saved);
+        // Phase 1: ids are minted before write and returned; they match the
+        // records handed to saveEvents exactly (the undo contract depends on it).
+        expect(ids).toHaveLength(3);
+        expect(saved.map((r: StorageRecord) => r.id)).toEqual(ids);
+        expect(ids.every((id) => typeof id === 'string' && id.length > 0)).toBe(true);
     });
 
     it("throws 'Ledger not ready or key missing' and writes NOTHING when the key is absent", async () => {

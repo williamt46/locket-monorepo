@@ -5,6 +5,8 @@ import { AuthScreen } from '../screens/AuthScreen';
 import { LedgerScreen } from '../screens/LedgerScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { ImportScreen } from '../screens/ImportScreen';
+import { HealthKitPrimingScreen } from '../screens/HealthKitPrimingScreen';
+import { HealthKitPreviewScreen } from '../screens/HealthKitPreviewScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { LogScreen } from '../screens/LogScreen';
 import { CycleInsightsScreen } from '../screens/CycleInsightsScreen';
@@ -69,6 +71,8 @@ export const AppNavigator = () => {
                 <Stack.Screen name="Auth" component={AuthScreen} />
                 <Stack.Screen name="Ledger" component={LedgerScreen} />
                 <Stack.Screen name="Import" component={ImportScreen} />
+                <Stack.Screen name="HealthKitPriming" component={HealthKitPrimingScreen} />
+                <Stack.Screen name="HealthKitPreview" component={HealthKitPreviewScreen} />
                 <Stack.Screen name="Settings" component={SettingsScreen} />
                 <Stack.Screen name="Log" component={LogScreen} />
                 <Stack.Screen name="CycleInsights" component={CycleInsightsScreen} />
