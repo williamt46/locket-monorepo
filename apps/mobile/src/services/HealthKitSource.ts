@@ -24,7 +24,10 @@
  * the truncation path. If Apple ever exposes the window, only the wrapper hook
  * changes.
  */
-import HealthKit, {
+// Static import only — `await import()` of a native module fails on physical
+// devices in this repo. The named imports keep the module statically linked, so
+// no default-export placeholder is needed to hold the import open.
+import {
     isHealthDataAvailable,
     getRequestStatusForAuthorization,
     requestAuthorization,
@@ -193,9 +196,6 @@ export function createLibraryClient(): HealthKitClient {
         // getEarliestAuthorizedDate intentionally omitted — the API does not exist.
     };
 }
-
-/** Suppress "unused" on the default export while keeping the static import. */
-void HealthKit;
 
 // --- The source ---------------------------------------------------------------
 

@@ -7,9 +7,23 @@ import type { LogEntry } from '../models/LogEntry';
 import type { ImportPreview, CommitResult } from '../models/ImportTypes';
 import { buildDateIndex, buildImportPreview, selectEntriesToInscribe } from '../services/importPreview';
 
-/** Random id in the exact format FileSystemLedger mints, so CommitResult.inscribedIds is exact. */
+/**
+ * Caller-minted record id, so CommitResult.inscribedIds is exact and undo can
+ * purge precisely what an import created.
+ *
+ * The monotonic counter is load-bearing, not decoration: a batch mints hundreds
+ * of ids inside one loop, so Date.now() is identical across them and the random
+ * suffix is the only separator — `Math.random().toString(36)` occasionally
+ * returns few enough digits to make that suffix very short. Two equal ids would
+ * be silent data loss, because FileSystemLedger.saveEvents OVERWRITES a record
+ * whose id already exists (that upsert is intentional — BackgroundSyncService
+ * relies on it to write anchor status back), and undo deletes by id. The
+ * counter makes an intra-batch collision impossible rather than merely unlikely.
+ */
+let idCounter = 0;
 function mintId(): string {
-    return Math.random().toString(36).substring(7) + '-' + Date.now();
+    idCounter = (idCounter + 1) % 1000000;
+    return `${Math.random().toString(36).slice(2, 10)}-${Date.now()}-${idCounter}`;
 }
 
 // Session cache of the SHARED ledger instance owned by StorageService (one
@@ -197,7 +211,9 @@ export const useLedger = (keyHex?: string) => {
             // ids simply don't count). This feeds the §14 UndoResult.removedCount.
             const removedCount = await ledger.deleteByIds(ids);
             await refresh();
-            console.log(`[useLedger] Purged ${removedCount} unreadable record(s) by id`);
+            // Not necessarily unreadable: this is also the import-undo path, where
+            // the purged records are perfectly readable and were just inscribed.
+            console.log(`[useLedger] Purged ${removedCount} record(s) by id`);
             return { removedCount };
         } catch (e) {
             // Fail loud: the caller must not treat a failed purge as success.

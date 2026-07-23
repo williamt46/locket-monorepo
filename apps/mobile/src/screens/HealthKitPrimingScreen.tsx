@@ -164,6 +164,9 @@ const styles = StyleSheet.create({
     backButton: {
         width: 60,
         paddingVertical: 8,
+        // 44pt minimum: declining is a first-class path, so it gets a real target.
+        minHeight: 44,
+        justifyContent: 'center',
     },
     backButtonText: {
         fontFamily: typography.body,

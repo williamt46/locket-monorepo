@@ -264,14 +264,24 @@ export const HealthKitPreviewScreen = () => {
             `${collisionText}.`;
 
         return (
-            <View
-                accessible={true}
-                accessibilityRole="header"
-                accessibilityLabel={a11yLabel}
-                style={[styles.rangeHeader, { borderBottomColor: t.divider }]}
-            >
+            <View style={[styles.rangeHeader, { borderBottomColor: t.divider }]}>
+                {/*
+                 * The composed announcement lives on the title Text, NOT on this
+                 * container: `accessible` on a wrapper collapses its descendants
+                 * into one element, which would make the "Open Settings" link
+                 * below unreachable to VoiceOver — the one escape hatch the
+                 * truncation copy tells the user to use. Header still reads
+                 * range -> truncation -> collisions before the list (T11).
+                 */}
                 {/* Dynamic Type: the range and collision strings wrap — no clamps (T11). */}
-                <Text style={[styles.rangeTitle, { color: t.ink }]}>{rangeText}</Text>
+                <Text
+                    accessible={true}
+                    accessibilityRole="header"
+                    accessibilityLabel={a11yLabel}
+                    style={[styles.rangeTitle, { color: t.ink }]}
+                >
+                    {rangeText}
+                </Text>
 
                 {preview.truncation && (
                     <View style={[styles.truncationBox, { backgroundColor: t.locketBlueTint }]}>
@@ -609,6 +619,9 @@ const styles = StyleSheet.create({
     backButton: {
         width: 60,
         paddingVertical: 8,
+        // 44pt minimum: this is the primary escape path out of the flow.
+        minHeight: 44,
+        justifyContent: 'center',
     },
     backButtonText: {
         fontFamily: typography.body,

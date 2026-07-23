@@ -178,14 +178,22 @@ export class FileSystemLedger implements LedgerStorage {
 
     async saveEvents(records: StorageRecord[]): Promise<void> {
         const before = this.events.length;
+        // Index by id once instead of a findIndex scan per record: a batch import
+        // is O(records x ledgerSize) otherwise, which is millions of comparisons
+        // on the JS thread for a few thousand entries.
+        const indexById = new Map<string, number>();
+        for (let i = 0; i < this.events.length; i++) {
+            const existingId = this.events[i].id;
+            if (existingId !== undefined) indexById.set(existingId, i);
+        }
         for (const record of records) {
             const id = record.id || Math.random().toString(36).substring(7) + '-' + Date.now();
             const newRecord = { ...record, id };
-            const index = this.events.findIndex(e => e.id === id);
-            if (index >= 0) {
+            const index = indexById.get(id);
+            if (index !== undefined) {
                 this.events[index] = newRecord;
             } else {
-                // Removed console.warn as per instruction
+                indexById.set(id, this.events.length);
                 this.events.push(newRecord);
             }
         }
@@ -246,6 +254,13 @@ export class FileSystemLedger implements LedgerStorage {
         this.events = [];
         if (this.file.exists) {
             await this.file.delete();
+        }
+        // The crash-safety temp file MUST die with the main file. loadFromDisk
+        // treats a surviving events.json.tmp as a recoverable backup and promotes
+        // it, so leaving it here would resurrect the wiped ledger on next init —
+        // a factory reset that silently gives the data back.
+        if (this.tmpFile.exists) {
+            try { this.tmpFile.delete(); } catch { /* best-effort; main file is already gone */ }
         }
         console.log('[FileSystemLedger] Ledger nuked');
     }

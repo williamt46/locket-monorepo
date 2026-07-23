@@ -84,8 +84,16 @@ function makeLedger() {
  * and Undo can purge precisely this import). Records are observable via the
  * saveEvents mock; the function returns the id list.
  */
+/**
+ * Kept byte-identical to useLedger.ts mintId. The monotonic counter is the part
+ * that matters: a batch mints every id inside one loop, so Date.now() is shared
+ * and the random suffix alone is not a guarantee. Duplicate ids would be silent
+ * data loss (saveEvents upserts on id match, and undo deletes by id).
+ */
+let idCounter = 0;
 function mintId(): string {
-    return Math.random().toString(36).substring(7) + '-' + Date.now();
+    idCounter = (idCounter + 1) % 1000000;
+    return `${Math.random().toString(36).slice(2, 10)}-${Date.now()}-${idCounter}`;
 }
 
 async function batchInscribeHarness(
@@ -223,5 +231,27 @@ describe('T2 commit stage — batchInscribe observable contract', () => {
         expect(ledger.saveEvents).toHaveBeenCalledTimes(1);
         const saved = (ledger.saveEvents as any).mock.calls[0][0];
         expect(saved).toHaveLength(logEntries.length);
+    });
+});
+
+describe('batchInscribe id uniqueness (collision guard)', () => {
+    it('mints a distinct id for every entry in a large single-batch import', async () => {
+        const crypto = makeCrypto();
+        const ledger = makeLedger();
+        // 2000 entries in one loop: Date.now() is identical for nearly all of
+        // them, so this fails if the random suffix is the only separator.
+        const entries = Array.from({ length: 2000 }, (_, i) => ({
+            event: 'manual_entry',
+            date: `2024-01-${String((i % 28) + 1).padStart(2, '0')}`,
+            ts: 1700000000000 + i,
+        }));
+
+        const ids = await batchInscribeHarness(entries, { crypto, ledger, keyHex: 'k', isInitialized: true });
+
+        expect(ids).toHaveLength(2000);
+        expect(new Set(ids).size).toBe(2000);
+        // And every id reached the ledger as its own record — no silent upsert.
+        const written = ledger.saveEvents.mock.calls[0][0];
+        expect(new Set(written.map((r: any) => r.id)).size).toBe(2000);
     });
 });

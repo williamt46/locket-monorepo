@@ -26,6 +26,8 @@ const TMP = `${DIR}/events.json.tmp`;
 const state = vi.hoisted(() => ({
     files: new Map<string, string>(),
     dirs: new Set<string>(),
+    /** When set, File.write garbles the stored content (simulates a short write). */
+    garbleWrites: false,
 }));
 
 function joinUri(parts: any[]): string {
@@ -47,7 +49,11 @@ vi.mock('expo-file-system', () => {
             if (!state.files.has(this.uri)) throw new Error(`ENOENT ${this.uri}`);
             return state.files.get(this.uri)!;
         }
-        write(content: string) { state.files.set(this.uri, String(content)); }
+        write(content: string) {
+            const s = String(content);
+            // Simulate a short/garbled write: only the first half lands on disk.
+            state.files.set(this.uri, state.garbleWrites ? s.slice(0, Math.floor(s.length / 2)) : s);
+        }
         delete() { state.files.delete(this.uri); }
         move(dest: { uri: string }) {
             const content = state.files.get(this.uri);
@@ -71,6 +77,27 @@ describe('FileSystemLedger crash-safety (T1)', () => {
     beforeEach(() => {
         state.files.clear();
         state.dirs.clear();
+        state.garbleWrites = false;
+    });
+
+    it('aborts the save when the temp readback does not parse, leaving the previous good ledger on disk', async () => {
+        const ledger = new FileSystemLedger();
+        await ledger.init();
+        await ledger.saveEvents([rec('a', 100)]);
+        const good = state.files.get(MAIN);
+
+        // Next write is short/garbled -> the verify step must throw BEFORE the
+        // atomic replace, so events.json still holds the last good ledger.
+        state.garbleWrites = true;
+        await expect(ledger.saveEvents([rec('b', 200)])).rejects.toBeInstanceOf(SyntaxError);
+        expect(state.files.get(MAIN)).toBe(good);
+
+        // And the surviving temp is not mistaken for a better copy on next boot.
+        state.garbleWrites = false;
+        const next = new FileSystemLedger();
+        await next.init();
+        expect((await next.loadEvents()).map((e) => e.id)).toEqual(['a']);
+        expect(next.corrupted).toBe(false);
     });
 
     it('round-trips a normal save then load in a fresh instance', async () => {
@@ -196,5 +223,35 @@ describe('FileSystemLedger.deleteByIds count (T5)', () => {
         await ledger.saveEvents([rec('a', 1)]);
         expect(await ledger.deleteByIds([])).toBe(0);
         expect((await ledger.loadEvents()).map((e) => e.id)).toEqual(['a']);
+    });
+});
+
+describe('FileSystemLedger.nuke temp-file cleanup', () => {
+    beforeEach(() => {
+        state.files.clear();
+        state.dirs.clear();
+        state.garbleWrites = false;
+    });
+
+    it('deletes the crash-safety temp file so a wipe cannot be resurrected on next init', async () => {
+        const ledger = new FileSystemLedger();
+        await ledger.init();
+        await ledger.saveEvents([rec('secret', 100)]);
+
+        // Simulate a temp file surviving an interrupted write: loadFromDisk
+        // treats events.json.tmp as a recoverable backup and promotes it.
+        state.files.set(TMP, state.files.get(MAIN)!);
+
+        await ledger.nuke();
+
+        expect(state.files.has(MAIN)).toBe(false);
+        expect(state.files.has(TMP)).toBe(false);
+
+        // The wipe must stay wiped — a fresh boot gets an empty ledger, not the
+        // pre-nuke data recovered from the temp file.
+        const next = new FileSystemLedger();
+        await next.init();
+        expect(await next.loadEvents()).toEqual([]);
+        expect(next.corrupted).toBe(false);
     });
 });
