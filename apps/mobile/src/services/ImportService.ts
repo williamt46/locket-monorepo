@@ -1034,6 +1034,7 @@ export function ledgerEntryToLogEntry(entry: LedgerEntry): LogEntry {
 
     if (entry.isStart) log.isStart = true;
     if (entry.isEnd) log.isEnd = true;
+    if (entry.source) log.source = entry.source;
     if (rest) log.note = rest;
     if (symptoms.length > 0) log.symptoms = symptoms;
 

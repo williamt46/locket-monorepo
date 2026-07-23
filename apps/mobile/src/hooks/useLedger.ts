@@ -166,20 +166,25 @@ export const useLedger = (keyHex?: string) => {
         await BackgroundSyncService.forceSync(ledger, refresh);
     }, [isInitialized, refresh]);
 
-    const purgeByIds = useCallback(async (ids: string[]) => {
-        if (!isInitialized || !ledger) return;
-        if (!ids || ids.length === 0) return;
+    const purgeByIds = useCallback(async (ids: string[]): Promise<{ removedCount: number }> => {
+        if (!isInitialized || !ledger) return { removedCount: 0 };
+        if (!ids || ids.length === 0) return { removedCount: 0 };
         if (typeof ledger.deleteByIds !== 'function') {
             console.warn('[useLedger] Active ledger does not support deleteByIds; cannot purge.');
-            return;
+            return { removedCount: 0 };
         }
         setIsBusy(true);
         try {
-            await ledger.deleteByIds(ids);
+            // deleteByIds returns the number of records actually removed (missing
+            // ids simply don't count). This feeds the §14 UndoResult.removedCount.
+            const removedCount = await ledger.deleteByIds(ids);
             await refresh();
-            console.log(`[useLedger] Purged ${ids.length} unreadable record(s) by id`);
+            console.log(`[useLedger] Purged ${removedCount} unreadable record(s) by id`);
+            return { removedCount };
         } catch (e) {
+            // Fail loud: the caller must not treat a failed purge as success.
             console.error('[useLedger] Purge failed', e);
+            throw e;
         } finally {
             setIsBusy(false);
         }

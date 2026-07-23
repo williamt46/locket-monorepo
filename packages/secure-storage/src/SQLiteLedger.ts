@@ -111,15 +111,19 @@ export class SQLiteLedger implements LedgerStorage {
         console.log(`[SQLiteLedger] Deleted events between ${new Date(startOfDay).toISOString()} and ${new Date(endOfDay).toISOString()}`);
     }
 
-    async deleteByIds(ids: string[]): Promise<void> {
+    async deleteByIds(ids: string[]): Promise<number> {
         if (!this.db) throw new Error('Database not initialized');
-        if (!ids || ids.length === 0) return;
+        if (!ids || ids.length === 0) return 0;
         const placeholders = ids.map(() => '?').join(',');
-        await (this.db as any).runAsync(
+        const result = await (this.db as any).runAsync(
             `DELETE FROM events WHERE id IN (${placeholders})`,
             ids
         );
-        console.log(`[SQLiteLedger] Deleted ${ids.length} events by id`);
+        // SQLiteRunResult.changes is the number of rows actually deleted, which
+        // (unlike ids.length) excludes ids that matched no row.
+        const removed = typeof result?.changes === 'number' ? result.changes : 0;
+        console.log(`[SQLiteLedger] Deleted ${removed} events by id`);
+        return removed;
     }
 
     async nuke(): Promise<void> {

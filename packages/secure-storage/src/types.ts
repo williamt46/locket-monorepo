@@ -14,7 +14,8 @@ export interface LedgerStorage {
     saveEvents(records: StorageRecord[]): Promise<void>;
     loadEvents(): Promise<StorageRecord[]>;
     deleteByTimestamp(ts: number): Promise<void>;
-    deleteByIds(ids: string[]): Promise<void>;
+    /** Removes records whose id is in `ids`; returns how many were removed. */
+    deleteByIds(ids: string[]): Promise<number>;
     nuke(): Promise<void>;
 }
 

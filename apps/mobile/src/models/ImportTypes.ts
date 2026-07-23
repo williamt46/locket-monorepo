@@ -1,4 +1,4 @@
-export type ImportSource = 'clue' | 'flo' | 'csv' | 'unknown';
+export type ImportSource = 'clue' | 'flo' | 'csv' | 'healthkit' | 'unknown';
 
 export interface LedgerEntry {
     ts: number;          // UTC epoch ms

@@ -105,4 +105,18 @@ describe('ImportService - ledgerEntryToLogEntry (import -> app domain)', () => {
         const log = ledgerEntryToLogEntry(entry);
         expect(log.bleeding).toBeUndefined();
     });
+
+    // T3: provenance must survive the import -> app-domain mapping so a record's
+    // origin is queryable on the persisted LogEntry.
+    it('round-trips the source provenance tag for clue/flo/csv', () => {
+        for (const source of ['clue', 'flo', 'csv'] as const) {
+            const entry: LedgerEntry = { ts: TS, isPeriod: true, flow: 2, source };
+            expect(ledgerEntryToLogEntry(entry).source).toBe(source);
+        }
+    });
+
+    it('leaves source undefined when the import entry carries none', () => {
+        const entry: LedgerEntry = { ts: TS, isPeriod: false, note: 'hand-typed' };
+        expect(ledgerEntryToLogEntry(entry).source).toBeUndefined();
+    });
 });

@@ -1,15 +1,30 @@
 import { Directory, File, Paths } from 'expo-file-system';
-import { LedgerStorage, StorageRecord } from './types.js';
+import { LedgerStorage, StorageRecord, LedgerInitError } from './types.js';
+
+// Sibling of events.json used for crash-safe writes. saveToDisk writes here
+// first, verifies the readback parses, then atomically replaces events.json.
+// If a write is interrupted, this file survives intact and loadFromDisk
+// recovers the ledger from it.
+const TEMP_FILE_NAME = 'events.json.tmp';
 
 export class FileSystemLedger implements LedgerStorage {
     private events: StorageRecord[] = [];
     private dir: Directory;
     private file: File;
+    private tmpFile: File;
     private isInitialized: boolean = false;
+    /**
+     * Set when a ledger file was present on disk but could not be read as a
+     * valid ledger and no recoverable temp backup existed. Callers must treat
+     * this as fatal — we fail closed rather than silently presenting an empty
+     * ledger. loadFromDisk also throws a LedgerInitError in this case.
+     */
+    public corrupted: boolean = false;
 
     constructor() {
         this.dir = new Directory(Paths.document, 'locket_ledger');
         this.file = new File(this.dir, 'events.json');
+        this.tmpFile = new File(this.dir, TEMP_FILE_NAME);
     }
 
     async init(): Promise<void> {
@@ -37,25 +52,111 @@ export class FileSystemLedger implements LedgerStorage {
         console.log(`[FileSystemLedger] Initialized with ${this.events.length} events`);
     }
 
-    private async loadFromDisk(): Promise<void> {
-        if (this.file.exists) {
-            try {
-                const content = await this.file.text();
-                if (content && content.trim()) {
-                    this.events = JSON.parse(content);
-                } else {
-                    this.events = [];
-                }
-            } catch (e) {
-                console.error('[FileSystemLedger] Error parsing events', e);
-                this.events = [];
-            }
+    /**
+     * Parse the given file's contents into a StorageRecord[]. Returns null when
+     * the file is absent, empty/whitespace (a truncated write), or unparseable —
+     * i.e. anything that is NOT a usable ledger. Never throws.
+     */
+    private async tryReadLedger(file: File): Promise<StorageRecord[] | null> {
+        if (!file.exists) return null;
+        let content: string;
+        try {
+            content = await file.text();
+        } catch (e) {
+            console.error('[FileSystemLedger] Failed to read ledger file', file.uri, e);
+            return null;
+        }
+        if (!content || !content.trim()) return null;
+        try {
+            const parsed = JSON.parse(content);
+            return Array.isArray(parsed) ? parsed : null;
+        } catch (e) {
+            console.error('[FileSystemLedger] Failed to parse ledger file', file.uri, e);
+            return null;
         }
     }
 
+    private async loadFromDisk(): Promise<void> {
+        this.corrupted = false;
+
+        // Note whether ANY ledger file exists BEFORE we try to read. This is how
+        // we tell a genuine first boot (nothing on disk -> empty is correct) from
+        // an interrupted/corrupt write (a file exists but won't parse -> fail
+        // closed, never silently empty).
+        const mainExisted = this.file.exists;
+        const tmpExisted = this.tmpFile.exists;
+
+        // 1. Primary path: read events.json.
+        const fromMain = await this.tryReadLedger(this.file);
+        if (fromMain) {
+            this.events = fromMain;
+            // Main is good — discard any stale temp from a prior interrupted write.
+            if (this.tmpFile.exists) {
+                try { this.tmpFile.delete(); } catch { /* best-effort cleanup */ }
+            }
+            return;
+        }
+
+        // 2. Recovery path: events.json is missing/truncated/corrupt. If the temp
+        // file from an interrupted write survived intact, recover from it and
+        // promote it to the main file so the next boot is clean.
+        const fromTmp = await this.tryReadLedger(this.tmpFile);
+        if (fromTmp) {
+            this.events = fromTmp;
+            console.warn('[FileSystemLedger] Recovered ledger from temp file after an interrupted write');
+            try {
+                if (this.file.exists) this.file.delete();
+                this.tmpFile.move(this.file);
+                // move() repoints the tmpFile instance's uri to events.json;
+                // restore a temp handle for subsequent saves.
+                this.tmpFile = new File(this.dir, TEMP_FILE_NAME);
+            } catch (e) {
+                console.error('[FileSystemLedger] Failed to promote recovered temp file', e);
+            }
+            return;
+        }
+
+        // 3. Nothing usable. If a file WAS present we must not zero the ledger —
+        // that is exactly the silent-empty failure we are guarding against.
+        if (mainExisted || tmpExisted) {
+            this.corrupted = true;
+            throw new LedgerInitError(
+                'Ledger file present on disk but unreadable/corrupt, and no recoverable backup exists. ' +
+                'Refusing to start with an empty ledger.'
+            );
+        }
+
+        // 4. Genuine first boot: no main file, no temp file. Empty is correct.
+        this.events = [];
+    }
+
     private async saveToDisk(): Promise<void> {
-        // ALWAYS await the write to avoid race conditions during batch/refresh
-        await this.file.write(JSON.stringify(this.events));
+        const serialized = JSON.stringify(this.events);
+
+        // 1. Write to a temp file in the same directory. A crash here leaves the
+        // real events.json untouched.
+        if (this.tmpFile.exists) {
+            try { this.tmpFile.delete(); } catch { /* overwrite below */ }
+        }
+        this.tmpFile.write(serialized);
+
+        // 2. Verify the temp file reads back and parses before we let it replace
+        // the real ledger. If the write was short/garbled, abort WITHOUT touching
+        // events.json — the previous good ledger stays on disk.
+        const readback = await this.tmpFile.text();
+        JSON.parse(readback); // throws if corrupt -> propagate, main untouched
+
+        // 3. Atomically replace events.json with the verified temp file. The tmp
+        // survives the whole window, so an interrupted replace is recoverable on
+        // next boot (loadFromDisk step 2).
+        if (this.file.exists) {
+            this.file.delete();
+        }
+        this.tmpFile.move(this.file);
+
+        // move() repoints tmpFile's uri to events.json; restore a fresh temp
+        // handle for the next save.
+        this.tmpFile = new File(this.dir, TEMP_FILE_NAME);
     }
 
     async saveEvent(record: StorageRecord): Promise<void> {
@@ -128,15 +229,17 @@ export class FileSystemLedger implements LedgerStorage {
         }
     }
 
-    async deleteByIds(ids: string[]): Promise<void> {
-        if (!ids || ids.length === 0) return;
+    async deleteByIds(ids: string[]): Promise<number> {
+        if (!ids || ids.length === 0) return 0;
         const idSet = new Set(ids);
         const before = this.events.length;
         this.events = this.events.filter(e => !e.id || !idSet.has(e.id));
-        if (this.events.length !== before) {
+        const removed = before - this.events.length;
+        if (removed > 0) {
             await this.saveToDisk();
-            console.log(`[FileSystemLedger] Deleted ${before - this.events.length} events by id`);
+            console.log(`[FileSystemLedger] Deleted ${removed} events by id`);
         }
+        return removed;
     }
 
     async nuke(): Promise<void> {
