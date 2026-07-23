@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { detectSource, parseFloExport, ledgerEntryToLogEntry } from '../../src/services/ImportService';
 import floSample from './fixtures/flo-sample.json';
 import floSpaceDateSample from './fixtures/flo-spacedate-sample.json';
@@ -348,11 +348,22 @@ describe('ImportService - Flo (review hardening)', () => {
 describe('ImportService - Flo DST regression', () => {
     // Fixed-ms day stepping drifts to 23:00 of the previous calendar day across a
     // fall-back transition, which duplicates one ISO date and drops the last day.
-    // Vitest is configured with TZ=America/New_York for this file's assertions to
-    // be meaningful; skip cleanly elsewhere rather than assert something false.
-    const inNewYork = Intl.DateTimeFormat().resolvedOptions().timeZone === 'America/New_York';
+    //
+    // The timezone is FORCED here rather than gated on the ambient one. Gating
+    // (`it.runIf(tz === 'America/New_York')`) meant the test silently skipped on
+    // every machine and in CI, so the fix it guards had no coverage at all.
+    // Vitest isolates each test file in its own worker, so a file-local override
+    // does not leak into other suites.
+    let prevTZ: string | undefined;
+    beforeAll(() => {
+        prevTZ = process.env.TZ;
+        process.env.TZ = 'America/New_York';
+    });
+    afterAll(() => {
+        process.env.TZ = prevTZ;
+    });
 
-    it.runIf(inNewYork)('emits one entry per calendar day across a DST fall-back', () => {
+    it('emits one entry per calendar day across a DST fall-back', () => {
         const result = parseFloExport({
             operationalData: {
                 cycles: [

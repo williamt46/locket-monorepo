@@ -22,9 +22,16 @@ function utf8ByteLength(s: string): number {
         } else if (code < 0x800) {
             bytes += 2;
         } else if (code >= 0xd800 && code <= 0xdbff) {
-            // High surrogate: with its low surrogate this is one 4-byte code point.
-            bytes += 4;
-            i++;
+            const next = s.charCodeAt(i + 1);
+            if (next >= 0xdc00 && next <= 0xdfff) {
+                // Valid pair: one 4-byte code point, consume both units.
+                bytes += 4;
+                i++;
+            } else {
+                // Lone high surrogate. Do NOT consume the next unit — skipping it
+                // would undercount and widen the truncation-detection window.
+                bytes += 3;
+            }
         } else {
             bytes += 3;
         }
@@ -46,10 +53,40 @@ export class FileSystemLedger implements LedgerStorage {
      */
     public corrupted: boolean = false;
 
+    /**
+     * Serializes every mutation. Each op snapshots `this.events`, awaits a disk
+     * write, then adopts the snapshot — so two ops running concurrently would
+     * both snapshot the same state and the second adopt would silently drop the
+     * first one's record (a lost update, in memory AND on disk). That is
+     * reachable today: useLedger fires BackgroundSyncService.performSync
+     * un-awaited, and its anchor write-back calls saveEvents while the user may
+     * be saving a log entry. Running ops through one chain also stops two
+     * writers from racing over the single shared events.json.tmp.
+     */
+    private writeQueue: Promise<void> = Promise.resolve();
+
     constructor() {
         this.dir = new Directory(Paths.document, 'locket_ledger');
         this.file = new File(this.dir, 'events.json');
         this.tmpFile = new File(this.dir, TEMP_FILE_NAME);
+    }
+
+    /**
+     * Run `op` after every previously queued mutation has settled, building its
+     * candidate state INSIDE the critical section so it always derives from the
+     * freshest `this.events`. Failures do not poison the queue for later ops.
+     */
+    private enqueue<T>(op: () => Promise<T>): Promise<T> {
+        const run = this.writeQueue.then(op, op);
+        // Keep the chain alive regardless of this op's outcome.
+        this.writeQueue = run.then(() => undefined, () => undefined);
+        return run;
+    }
+
+    /** Persist `next` then adopt it. Never reorder: adopt only after a good write. */
+    private async commit(next: StorageRecord[]): Promise<void> {
+        await this.saveToDisk(next);
+        this.events = next;
     }
 
     async init(): Promise<void> {
@@ -58,9 +95,11 @@ export class FileSystemLedger implements LedgerStorage {
         }
         await this.loadFromDisk();
 
-        // Data Migration: Ensure all records have unique IDs for anchor updates
+        // Data Migration: Ensure all records have unique IDs for anchor updates.
+        // Same persist-then-adopt discipline as every other mutation: a failed
+        // migration write must not leave re-id'd records live in memory.
         let migrationCount = 0;
-        this.events = this.events.map(e => {
+        const migrated = this.events.map(e => {
             if (!e.id) {
                 migrationCount++;
                 return { ...e, id: Math.random().toString(36).substring(7) + '-' + Date.now() };
@@ -70,7 +109,7 @@ export class FileSystemLedger implements LedgerStorage {
 
         if (migrationCount > 0) {
             console.log(`[FileSystemLedger] Data Migration: Assigned IDs to ${migrationCount} records`);
-            await this.saveToDisk();
+            await this.commit(migrated);
         }
 
         this.isInitialized = true;
@@ -162,7 +201,7 @@ export class FileSystemLedger implements LedgerStorage {
      * as the source of truth and any later successful save would flush a batch
      * the caller already reported as failed.
      */
-    private async saveToDisk(records: StorageRecord[] = this.events): Promise<void> {
+    private async saveToDisk(records: StorageRecord[]): Promise<void> {
         const serialized = JSON.stringify(records);
 
         // 1. Write to a temp file in the same directory. A crash here leaves the
@@ -214,48 +253,46 @@ export class FileSystemLedger implements LedgerStorage {
         const id = record.id || Math.random().toString(36).substring(7) + '-' + Date.now();
         const newRecord = { ...record, id };
 
-        // Build the candidate state, persist it, and only then adopt it — a
-        // failed write must not leave the record live in memory (see saveToDisk).
-        const next = [...this.events];
-        const index = next.findIndex(e => e.id === id);
-        if (index >= 0) {
-            next[index] = newRecord;
-        } else {
-            if (record.id) {
-                console.warn(`[FileSystemLedger] Single update failed: Record ${record.id} not found.`);
+        return this.enqueue(async () => {
+            const next = [...this.events];
+            const index = next.findIndex(e => e.id === id);
+            if (index >= 0) {
+                next[index] = newRecord;
+            } else {
+                if (record.id) {
+                    console.warn(`[FileSystemLedger] Single update failed: Record ${record.id} not found.`);
+                }
+                next.push(newRecord);
             }
-            next.push(newRecord);
-        }
-        await this.saveToDisk(next);
-        this.events = next;
+            await this.commit(next);
+        });
     }
 
     async saveEvents(records: StorageRecord[]): Promise<void> {
-        // Build the candidate state, persist it, and only then adopt it — a failed
-        // write must not leave the batch live in memory (see saveToDisk).
-        const next = [...this.events];
-        // Index by id once instead of a findIndex scan per record: a batch import
-        // is O(records x ledgerSize) otherwise, which is millions of comparisons
-        // on the JS thread for a few thousand entries.
-        const indexById = new Map<string, number>();
-        for (let i = 0; i < next.length; i++) {
-            const existingId = next[i].id;
-            if (existingId !== undefined) indexById.set(existingId, i);
-        }
-        for (const record of records) {
-            const id = record.id || Math.random().toString(36).substring(7) + '-' + Date.now();
-            const newRecord = { ...record, id };
-            const index = indexById.get(id);
-            if (index !== undefined) {
-                next[index] = newRecord;
-            } else {
-                indexById.set(id, next.length);
-                next.push(newRecord);
+        return this.enqueue(async () => {
+            const next = [...this.events];
+            // Index by id once instead of a findIndex scan per record: a batch
+            // import is O(records x ledgerSize) otherwise, which is millions of
+            // comparisons on the JS thread for a few thousand entries.
+            const indexById = new Map<string, number>();
+            for (let i = 0; i < next.length; i++) {
+                const existingId = next[i].id;
+                if (existingId !== undefined) indexById.set(existingId, i);
             }
-        }
-        await this.saveToDisk(next);
-        this.events = next;
-        console.log(`[FileSystemLedger] Batch saved ${records.length} events (including updates)`);
+            for (const record of records) {
+                const id = record.id || Math.random().toString(36).substring(7) + '-' + Date.now();
+                const newRecord = { ...record, id };
+                const index = indexById.get(id);
+                if (index !== undefined) {
+                    next[index] = newRecord;
+                } else {
+                    indexById.set(id, next.length);
+                    next.push(newRecord);
+                }
+            }
+            await this.commit(next);
+            console.log(`[FileSystemLedger] Batch saved ${records.length} events (including updates)`);
+        });
     }
 
     async loadEvents(): Promise<StorageRecord[]> {
@@ -278,39 +315,36 @@ export class FileSystemLedger implements LedgerStorage {
         // Use Y-M-D string for reliable matching across day boundaries
         const dateStr = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 
-        const initialCount = this.events.length;
-        // Persist before adopting: a failed write must not drop records from the
-        // running app while the caller is told nothing changed (see saveToDisk).
-        const next = this.events.filter(e => {
-            const d = new Date(e.ts);
-            const s = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-            return s !== dateStr;
-        });
+        return this.enqueue(async () => {
+            const initialCount = this.events.length;
+            const next = this.events.filter(e => {
+                const d = new Date(e.ts);
+                const s = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+                return s !== dateStr;
+            });
 
-        if (next.length !== initialCount) {
-            await this.saveToDisk(next);
-            this.events = next;
-            console.log(`[FileSystemLedger] Deleted ${initialCount - next.length} events for ${dateStr}. Remaining: ${next.length}`);
-        } else {
-            console.log(`[FileSystemLedger] No events found to delete for ${dateStr}`);
-        }
+            if (next.length !== initialCount) {
+                await this.commit(next);
+                console.log(`[FileSystemLedger] Deleted ${initialCount - next.length} events for ${dateStr}. Remaining: ${next.length}`);
+            } else {
+                console.log(`[FileSystemLedger] No events found to delete for ${dateStr}`);
+            }
+        });
     }
 
     async deleteByIds(ids: string[]): Promise<number> {
         if (!ids || ids.length === 0) return 0;
         const idSet = new Set(ids);
-        const before = this.events.length;
-        // Persist before adopting: a failed write must not make the records vanish
-        // from the running app while the caller reports the purge failed, only for
-        // them to return on the next launch (see saveToDisk).
-        const next = this.events.filter(e => !e.id || !idSet.has(e.id));
-        const removed = before - next.length;
-        if (removed > 0) {
-            await this.saveToDisk(next);
-            this.events = next;
-            console.log(`[FileSystemLedger] Deleted ${removed} events by id`);
-        }
-        return removed;
+        return this.enqueue(async () => {
+            const before = this.events.length;
+            const next = this.events.filter(e => !e.id || !idSet.has(e.id));
+            const removed = before - next.length;
+            if (removed > 0) {
+                await this.commit(next);
+                console.log(`[FileSystemLedger] Deleted ${removed} events by id`);
+            }
+            return removed;
+        });
     }
 
     async nuke(): Promise<void> {
@@ -336,8 +370,8 @@ export class FileSystemLedger implements LedgerStorage {
             status: 'local',
             isDummy: true
         };
-        const next = [...this.events, dummyRecord];
-        await this.saveToDisk(next);
-        this.events = next;
+        return this.enqueue(async () => {
+            await this.commit([...this.events, dummyRecord]);
+        });
     }
 }

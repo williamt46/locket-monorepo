@@ -6,6 +6,7 @@ import { getLedger, resetLedgerSingleton, resetBaselineCache, nukeBaseline } fro
 import type { LogEntry } from '../models/LogEntry';
 import type { ImportPreview, CommitResult } from '../models/ImportTypes';
 import { buildDateIndex, buildImportPreview, selectEntriesToInscribe } from '../services/importPreview';
+import { purgeByIdsOp, decryptExistingEntriesOp } from './ledgerOps';
 
 /**
  * Caller-minted record id, so CommitResult.inscribedIds is exact and undo can
@@ -198,34 +199,17 @@ export const useLedger = (keyHex?: string) => {
         await BackgroundSyncService.forceSync(ledger, refresh);
     }, [isInitialized, refresh]);
 
+    // Thin wrapper: the behavior lives in ledgerOps.purgeByIdsOp so tests can
+    // exercise the real implementation instead of a copy that can drift.
     const purgeByIds = useCallback(async (ids: string[]): Promise<{ removedCount: number }> => {
-        // An empty id list is the only case where "removed nothing" is a real
-        // success. Every other early exit means we CANNOT purge, and returning 0
-        // there would let the undo UI render its done state ("0 removed") while
-        // the records are still in the ledger and the affordance is gone.
-        if (!ids || ids.length === 0) return { removedCount: 0 };
-        if (!isInitialized || !ledger) {
-            throw new Error('Ledger not ready; cannot purge records.');
-        }
-        if (typeof ledger.deleteByIds !== 'function') {
-            throw new Error('Active ledger does not support deleteByIds; cannot purge records.');
-        }
         setIsBusy(true);
         try {
-            // Cancel any in-flight sync FIRST. batchInscribe fires an un-awaited
-            // performSync, which captures the records and writes them back after
-            // the network round-trip. Without bumping the epoch, that write-back
-            // resurrects everything this purge removes — the same hazard nuke and
-            // superNuke guard against, reached here via import Undo.
-            BackgroundSyncService.invalidate();
-            // deleteByIds returns the number of records actually removed (missing
-            // ids simply don't count). This feeds the §14 UndoResult.removedCount.
-            const removedCount = await ledger.deleteByIds(ids);
-            await refresh();
-            // Not necessarily unreadable: this is also the import-undo path, where
-            // the purged records are perfectly readable and were just inscribed.
-            console.log(`[useLedger] Purged ${removedCount} record(s) by id`);
-            return { removedCount };
+            return await purgeByIdsOp(ids, {
+                isInitialized,
+                ledger,
+                invalidateSync: () => BackgroundSyncService.invalidate(),
+                refresh,
+            });
         } catch (e) {
             // Fail loud: the caller must not treat a failed purge as success.
             console.error('[useLedger] Purge failed', e);
@@ -316,34 +300,12 @@ export const useLedger = (keyHex?: string) => {
     // Decrypt the existing ledger ONCE (the `events` state is ciphertext — §11
     // E12) to build a date→LogEntry index for collision detection. Off the render
     // path; undecryptable records are skipped (count logged, never values).
-    const decryptExistingEntries = useCallback(async (): Promise<LogEntry[]> => {
-        if (!keyHex) throw new Error('Ledger not ready or key missing');
-        const records: StorageRecord[] = await ledger.loadEvents();
-        const out: LogEntry[] = [];
-        let failed = 0;
-        for (const rec of records) {
-            try {
-                const data = await crypto.decryptData(rec.payload, keyHex);
-                if (data && typeof data === 'object') out.push(data as LogEntry);
-            } catch {
-                failed++;
-            }
-        }
-        if (failed > 0) {
-            // Fail closed. A day whose record could not be decrypted drops out of
-            // the collision index, so the preview would claim "no overlap with
-            // your existing entries" and inscribe a duplicate for every such day.
-            // "The ledger has no entry there" and "we could not read the entry
-            // there" must never look the same to the user.
-            console.error(`[useLedger] ${failed} existing record(s) undecryptable for preview index`);
-            throw new Error(
-                `Could not read ${failed} existing ledger record(s), so overlap with your ` +
-                `existing entries cannot be determined. Importing now could duplicate days. ` +
-                `Resolve the unreadable entries from the Ledger screen first.`,
-            );
-        }
-        return out;
-    }, [keyHex]);
+    // Thin wrapper — see ledgerOps.decryptExistingEntriesOp for the fail-closed
+    // contract and why it is extracted.
+    const decryptExistingEntries = useCallback(
+        (): Promise<LogEntry[]> => decryptExistingEntriesOp({ keyHex, ledger, crypto }),
+        [keyHex],
+    );
 
     // Backward-compatible file import: produce → inscribe ALL entries (the
     // pre-preview append-all behavior the current ImportScreen relies on) →

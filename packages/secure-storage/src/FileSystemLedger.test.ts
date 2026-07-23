@@ -367,3 +367,60 @@ describe('FileSystemLedger write-failure atomicity', () => {
         expect((await ledger.loadEvents()).map((e) => e.id)).toEqual(['a']);
     });
 });
+
+describe('FileSystemLedger concurrent-write serialization', () => {
+    beforeEach(() => {
+        state.files.clear();
+        state.dirs.clear();
+        state.garbleWrites = false;
+    });
+
+    it('does not lose an update when two writes overlap', async () => {
+        const ledger = new FileSystemLedger();
+        await ledger.init();
+
+        // Both callers start before either finishes. Each snapshots this.events,
+        // awaits a disk write, then adopts its snapshot — so without a queue the
+        // second adopt discards the first one's record, from memory AND disk.
+        // Reachable in the app: useLedger fires performSync un-awaited and its
+        // anchor write-back calls saveEvents while the user may be logging.
+        await Promise.all([
+            ledger.saveEvents([rec('a', 100)]),
+            ledger.saveEvents([rec('b', 200)]),
+        ]);
+
+        expect((await ledger.loadEvents()).map((e) => e.id).sort()).toEqual(['a', 'b']);
+
+        // And disk agrees with memory.
+        const next = new FileSystemLedger();
+        await next.init();
+        expect((await next.loadEvents()).map((e) => e.id).sort()).toEqual(['a', 'b']);
+    });
+
+    it('serializes a delete against a concurrent save', async () => {
+        const ledger = new FileSystemLedger();
+        await ledger.init();
+        await ledger.saveEvents([rec('a', 100), rec('b', 200)]);
+
+        const [, removed] = await Promise.all([
+            ledger.saveEvents([rec('c', 300)]),
+            ledger.deleteByIds(['a']),
+        ]);
+
+        expect(removed).toBe(1);
+        expect((await ledger.loadEvents()).map((e) => e.id).sort()).toEqual(['b', 'c']);
+    });
+
+    it('a failed write does not poison later queued writes', async () => {
+        const ledger = new FileSystemLedger();
+        await ledger.init();
+        await ledger.saveEvents([rec('a', 100)]);
+
+        state.garbleWrites = true;
+        await expect(ledger.saveEvents([rec('bad', 1)])).rejects.toThrow(/Incomplete ledger write/);
+        state.garbleWrites = false;
+
+        await ledger.saveEvents([rec('c', 300)]);
+        expect((await ledger.loadEvents()).map((e) => e.id).sort()).toEqual(['a', 'c']);
+    });
+});
