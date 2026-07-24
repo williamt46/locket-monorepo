@@ -122,7 +122,20 @@ export const LedgerScreen = () => {
                     text: 'Remove',
                     style: 'destructive',
                     onPress: async () => {
-                        await purgeByIds(undecryptableIds);
+                        try {
+                            await purgeByIds(undecryptableIds);
+                        } catch (e) {
+                            // purgeByIds now rethrows on write failure. Keep the
+                            // undecryptable-ids list (do NOT clear it) and let the
+                            // prompt fire again for this set on the next reload.
+                            console.error('[LedgerScreen] purge of unreadable entries failed:', e);
+                            purgePromptedRef.current = '';
+                            Alert.alert(
+                                'Remove Failed',
+                                'The unreadable entries could not be removed. Nothing was changed — please try again.'
+                            );
+                            return;
+                        }
                         setUndecryptableIds([]);
                     },
                 },

@@ -3,7 +3,9 @@ import {
     ImportResult,
     ImportSource,
     ClueExport,
+    ClueMeasurement,
     FloExport,
+    FloPointEvent,
     ImportStats
 } from '../models/ImportTypes';
 import { LogEntry, BleedingIntensity } from '../models/LogEntry';
@@ -37,7 +39,20 @@ export function detectFormat(raw: string): 'json' | 'csv' | 'unknown' {
 export function detectSource(json: unknown): ImportSource {
     if (!json || typeof json !== 'object') return 'unknown';
 
-    // Clue signature: root has "data" array
+    // Clue 2026 signature: top-level ARRAY of {type, date, value} measurement
+    // records. Probe a few elements rather than the whole array — the real export
+    // is 100+ records and one malformed row shouldn't defeat detection.
+    if (Array.isArray(json)) {
+        const probe = json.slice(0, 5);
+        const looksLikeMeasurements = probe.length > 0 && probe.every(
+            r => r && typeof r === 'object'
+                && typeof (r as any).type === 'string'
+                && typeof (r as any).date === 'string'
+        );
+        return looksLikeMeasurements ? 'clue' : 'unknown';
+    }
+
+    // Clue legacy signature: root has "data" array
     if ('data' in json && Array.isArray((json as any).data)) {
         return 'clue';
     }
@@ -55,9 +70,234 @@ export function detectSource(json: unknown): ImportSource {
     return 'unknown';
 }
 
-// --- Clue Parser ---
+// --- Shared guards ---
+
+/**
+ * An entry that carries nothing is not worth inscribing.
+ *
+ * Container-shaped sources can produce a date with no usable payload (a note
+ * record whose `text` is empty, an event with no category, a day whose only
+ * reading was excluded). Those must not become blank ledger days.
+ */
+function hasImportableData(entry: LedgerEntry): boolean {
+    return entry.isPeriod
+        || typeof entry.flow === 'number'
+        || typeof entry.bbt === 'number'
+        || !!entry.note;
+}
+
+/**
+ * Fail closed on a recognized-but-empty import.
+ *
+ * Lives here rather than inline in `useLedger` so it is unit-testable: this is
+ * the guard that stops the UI reporting "Import Complete — Records Inscribed: 0"
+ * for a file that parsed but mapped to nothing.
+ */
+export function assertImportHasEntries(result: ImportResult | null | undefined): asserts result is ImportResult {
+    if (result && result.entries.length > 0) return;
+
+    const detected = result?.source ? result.source.toUpperCase() : 'the file';
+    // Cap the appended detail: a badly-formed file can produce a warning per
+    // cycle, and the whole string ends up in an alert box.
+    const warnings = result?.warnings ?? [];
+    const shown = warnings.slice(0, 3).join('; ');
+    const more = warnings.length > 3 ? ` (+${warnings.length - 3} more)` : '';
+    const detail = shown ? ` Parser warnings: ${shown}${more}` : '';
+
+    throw new Error(
+        `Recognized as ${detected} but found 0 valid entries — check the file isn't empty or corrupted.${detail}`
+    );
+}
+
+// --- Clue Parser (2026 measurements.json) ---
+
+const CLUE_FLOW_BY_OPTION: Record<string, number> = {
+    light: 1,
+    medium: 2,
+    heavy: 3,
+    very_heavy: 3,
+};
+
+/**
+ * Clue's `value` is polymorphic: `{option: "medium"}` for single-valued types,
+ * `[{option: "period_cramps"}, ...]` for multi-valued ones. Normalize both to a
+ * flat list of option strings so callers don't have to branch on shape — getting
+ * this wrong silently drops every pain/energy/spotting symptom.
+ */
+function clueOptions(value: unknown): string[] {
+    if (Array.isArray(value)) {
+        return value
+            .map(v => (v && typeof v === 'object' ? (v as any).option : v))
+            .filter((o): o is string => typeof o === 'string');
+    }
+    if (value && typeof value === 'object' && typeof (value as any).option === 'string') {
+        return [(value as any).option];
+    }
+    return [];
+}
+
+/**
+ * "period_cramps" -> "Period Cramps".
+ *
+ * Space-joined, NOT the legacy `': '` join used for the old key-based format:
+ * `extractSymptomsFromNote` matches whole comma-delimited tokens, so
+ * "Breast Tenderness" lights up its pill while "Breast: Tenderness" would not.
+ */
+function titleCaseWords(raw: string): string {
+    return raw
+        .split(/[/_\s]+/)
+        .filter(Boolean)
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ');
+}
+
+/**
+ * Parse the 2026 Clue export: a flat array of `{type, date, value}` records,
+ * grouped into one LedgerEntry per calendar date.
+ *
+ *   period.value.option light/medium/heavy -> flow 1/2/3, isPeriod true
+ *   spotting                               -> flow 0 (when no period that day)
+ *   bbt.value.celsius                      -> entry.bbt, unless value.excluded
+ *   pain / energy / birth_control_pill     -> note text (pills where recognized)
+ */
+export function parseClueMeasurements(records: ClueMeasurement[]): ImportResult {
+    const entries: LedgerEntry[] = [];
+    const warnings: string[] = [];
+    const stats: ImportStats = { totalDays: 0, periodDays: 0, spottingDays: 0, skippedDays: 0 };
+
+    if (!Array.isArray(records)) {
+        throw new Error('Invalid Clue export format: expected an array of measurement records');
+    }
+
+    // 1. Group records by calendar date
+    const byDate = new Map<string, ClueMeasurement[]>();
+    let undatedRecords = 0;
+    for (const rec of records) {
+        if (!rec || typeof rec !== 'object' || typeof rec.date !== 'string' || !rec.date.trim()) {
+            // Never skip silently: skippedDays isn't surfaced in the import UI,
+            // so a dropped record needs a warning to be visible at all.
+            undatedRecords++;
+            stats.skippedDays++;
+            continue;
+        }
+        const dayPart = rec.date.trim().split(/[ T]/)[0];
+        const bucket = byDate.get(dayPart);
+        if (bucket) bucket.push(rec);
+        else byDate.set(dayPart, [rec]);
+    }
+
+    // 2. One entry per date
+    let excludedBbtCount = 0;
+
+    for (const [date, recs] of byDate) {
+        const [y, m, d] = date.split('-').map(Number);
+        if (!y || !m || !d || !Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) {
+            stats.skippedDays += recs.length;
+            warnings.push(`Skipped ${recs.length} record(s) with unparseable date "${date}".`);
+            continue;
+        }
+
+        // Local midnight for alignment with device UI
+        const ts = new Date(y, m - 1, d).getTime();
+        const entry: LedgerEntry = { ts, isPeriod: false, source: 'clue' };
+        const notes: string[] = [];
+
+        let sawPeriod = false;
+        let sawSpotting = false;
+
+        for (const rec of recs) {
+            const type = typeof rec.type === 'string' ? rec.type : '';
+            const options = clueOptions(rec.value);
+
+            if (type === 'period') {
+                sawPeriod = true;
+                entry.isPeriod = true;
+                const opt = options[0];
+                const flow = opt ? CLUE_FLOW_BY_OPTION[opt] : undefined;
+                if (flow === undefined) {
+                    // Unrecognized intensity is still a period day — default to
+                    // medium and preserve the raw option rather than dropping it.
+                    entry.flow = 2;
+                    notes.push(`Period ${titleCaseWords(opt || 'unknown')}`);
+                } else {
+                    entry.flow = flow;
+                }
+            } else if (type === 'spotting') {
+                sawSpotting = true;
+                for (const o of options) notes.push(`Spotting ${titleCaseWords(o)}`);
+                if (options.length === 0) notes.push('Spotting');
+            } else if (type === 'bbt') {
+                const v = rec.value as any;
+                if (v && typeof v === 'object' && typeof v.celsius === 'number' && Number.isFinite(v.celsius)) {
+                    if (v.excluded === true) {
+                        // Clue lets a user exclude an outlier reading from their
+                        // own charting; importing it as real would corrupt BBT.
+                        excludedBbtCount++;
+                    } else {
+                        entry.bbt = v.celsius;
+                    }
+                }
+            } else if (type === 'birth_control_pill') {
+                for (const o of options) notes.push(`Birth Control Pill: ${titleCaseWords(o)}`);
+            } else if (options.length > 0) {
+                // pain / energy / any future type — emit bare phrases so the
+                // recognized ones ("Breast Tenderness") become symptom pills.
+                for (const o of options) notes.push(titleCaseWords(o));
+            } else if (type) {
+                // A type whose `value` shape we don't understand yet. Record that
+                // the user tracked SOMETHING that day rather than dropping it —
+                // silently ignoring tracked data is the bug this parser exists to
+                // fix, and an unknown shape is exactly where it would recur.
+                const scalar = typeof rec.value === 'string' || typeof rec.value === 'number'
+                    ? `: ${String(rec.value)}`
+                    : '';
+                notes.push(`${titleCaseWords(type)}${scalar}`);
+            }
+        }
+
+        // Spotting is only a flow value when it isn't overridden by a real period
+        if (sawSpotting && !sawPeriod) {
+            entry.flow = 0;
+        }
+
+        if (notes.length > 0) entry.note = notes.join(', ');
+
+        // A day whose only record was an excluded BBT carries nothing.
+        if (!hasImportableData(entry)) continue;
+
+        if (sawPeriod) stats.periodDays++;
+        if (sawSpotting) stats.spottingDays++;
+        stats.totalDays++;
+        entries.push(entry);
+    }
+
+    if (undatedRecords > 0) {
+        warnings.push(`${undatedRecords} record(s) had no usable date and were skipped.`);
+    }
+
+    if (excludedBbtCount > 0) {
+        warnings.push(`${excludedBbtCount} BBT reading(s) were marked excluded in Clue and were not imported.`);
+    }
+
+    entries.sort((a, b) => a.ts - b.ts);
+    applyBoundaryFlags(entries);
+
+    if (entries.length > 0) {
+        stats.latestTs = Math.max(...entries.map(e => e.ts));
+    }
+
+    return { source: 'clue', entries, warnings, stats };
+}
+
+// --- Clue Parser (legacy {data: [...]}) ---
 
 export function parseClueExport(json: ClueExport): ImportResult {
+    // The 2026 export is a bare array; dispatch so both shapes work through the
+    // same entry point (useLedger and existing callers stay unchanged).
+    if (Array.isArray(json)) {
+        return parseClueMeasurements(json as unknown as ClueMeasurement[]);
+    }
+
     const entries: LedgerEntry[] = [];
     const warnings: string[] = [];
     const stats: ImportStats = { totalDays: 0, periodDays: 0, spottingDays: 0, skippedDays: 0 };
@@ -140,8 +380,124 @@ export function parseClueExport(json: ClueExport): ImportResult {
 
 // --- Flo Parser ---
 
+/**
+ * Flo writes cycle dates as "YYYY-MM-DD 00:00:00.0" (real 2026 export), though
+ * older/bare "YYYY-MM-DD" also occurs. Splitting the raw string on '-' leaves
+ * "DD 00:00:00.0" as the day token, and Number("18 00:00:00.0") is NaN — which
+ * then poisons every downstream date computation silently. Strip the time
+ * component before splitting, and return null rather than a NaN timestamp so
+ * callers are forced to handle the bad-date case explicitly.
+ */
+function parseFloDateToTs(dateStr: unknown): number | null {
+    if (!dateStr || typeof dateStr !== 'string') return null;
+
+    const dayPart = dateStr.trim().split(/[ T]/)[0];
+    const [y, m, d] = dayPart.split('-').map(Number);
+
+    if (!y || !m || !d || !Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) {
+        return null;
+    }
+
+    // Local midnight for alignment with device UI
+    const ts = new Date(y, m - 1, d).getTime();
+    return Number.isFinite(ts) ? ts : null;
+}
+
+/**
+ * Cycle-level keys that are transport/bookkeeping metadata rather than anything
+ * the user logged.
+ *
+ * This is a DENYLIST on purpose. An allowlist of known-good keys would silently
+ * drop any key Flo adds later — and cycle objects really do carry user data
+ * (the legacy fixture has `symptom_cramps` and `note` at cycle level), which is
+ * exactly the "tracked data must never be silently ignored" rule. Everything not
+ * listed here survives into note text.
+ */
+const FLO_CYCLE_METADATA_KEYS = new Set([
+    'id', 'user_id', 'parent_id', 'source_id', 'source', 'source_client',
+    'source_client_version', 'created_at', 'updated_at', 'deleted', 'time_index',
+    'additional_fields', 'period_start_date', 'period_end_date', 'period_intensity',
+]);
+
+/**
+ * cycles[].period_intensity is {"<cycle day>": <level>} — e.g. {"4": 1} meaning
+ * day 4 of that cycle. Level 1 is corroborated as "Low" by the same export's
+ * res.txt ("Day 4: intensity: Low"); 2 and 3 are assumed to continue the scale.
+ * An unrecognized level keeps the default medium flow and is preserved in the
+ * note rather than guessed at.
+ */
+const FLO_INTENSITY_TO_FLOW: Record<number, number> = { 1: 1, 2: 2, 3: 3 };
+
+/**
+ * Empty/absent values that would otherwise render as literal noise in a note
+ * ("Pregnant Due Date: null", "Additional Fields: {}"). Flo's cycle keys are
+ * flag- or level-shaped, so `false` and `0` mean "not present" and are dropped
+ * too — `pregnant: false` is not a fact worth writing to a user's ledger.
+ */
+function isNoteworthyValue(value: unknown): boolean {
+    if (value === null || value === undefined || value === false || value === 0) return false;
+    if (typeof value === 'string') {
+        const t = value.trim();
+        return t !== '' && t !== '{}' && t !== 'null';
+    }
+    if (typeof value === 'object') return Object.keys(value as object).length > 0;
+    return true;
+}
+
+/**
+ * "2025-01-01 00:00:00.0" -> "2025-01-01".
+ *
+ * Flo stamps user-facing dates (e.g. `pregnant_start_date`) with a time
+ * component. Those keys are user data, so they belong in the note — but writing
+ * the raw stamp would put a precise timestamp in a user's ledger, which is the
+ * same class of leak as the id/created_at dump this parser removed.
+ */
+function stripTimeComponent(value: string): string {
+    const t = value.trim();
+    return /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/.test(t) ? t.split(/[ T]/)[0] : value;
+}
+
+/** "TenderBreasts" -> "Tender Breasts", so it can match a symptom pill. */
+function splitCamel(raw: string): string {
+    return raw
+        .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+        .replace(/[_/]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+/** Flo stores some `properties` blobs as JSON strings and others as real objects. */
+function floProperties(raw: unknown): Record<string, unknown> {
+    if (!raw) return {};
+    if (typeof raw === 'object') return raw as Record<string, unknown>;
+    if (typeof raw === 'string') {
+        try {
+            const parsed = JSON.parse(raw);
+            return parsed && typeof parsed === 'object' ? parsed : {};
+        } catch {
+            return {};
+        }
+    }
+    return {};
+}
+
+/**
+ * Parse a Flo export.
+ *
+ * Flo splits user data across FOUR containers under `operationalData`, and this
+ * parser used to read only the first — so a real export imported period days but
+ * silently dropped 31 contraceptive-pill logs, every symptom, both BBT readings,
+ * and the free-text note:
+ *
+ *   cycles                        -> period day ranges (+ per-day intensity)
+ *   repeatable_child_point_events -> recurring logs, e.g. Medication/Pills
+ *   point_events_manual_v2        -> one-off logs: Symptom, Mood, Temperature, Weight…
+ *   notes                         -> free text
+ *
+ * All four are merged by calendar date, so a day that appears in several
+ * containers produces one entry carrying all of it.
+ */
 export function parseFloExport(json: FloExport): ImportResult {
-    const entries: LedgerEntry[] = [];
     const warnings: string[] = [];
     const stats: ImportStats = { totalDays: 0, periodDays: 0, spottingDays: 0, skippedDays: 0 };
 
@@ -149,9 +505,34 @@ export function parseFloExport(json: FloExport): ImportResult {
         throw new Error('Invalid Flo export format: missing cycles array');
     }
 
+    const op = json.operationalData;
+
+    // ts -> entry, with a parallel note accumulator so contributions from all
+    // four containers merge onto the same day instead of overwriting each other.
+    const byTs = new Map<number, LedgerEntry>();
+    const notesByTs = new Map<number, string[]>();
+
+    const entryFor = (ts: number): LedgerEntry => {
+        let entry = byTs.get(ts);
+        if (!entry) {
+            entry = { ts, isPeriod: false, source: 'flo' };
+            byTs.set(ts, entry);
+            notesByTs.set(ts, []);
+        }
+        return entry;
+    };
+
+    const addNote = (ts: number, text: string) => {
+        const list = notesByTs.get(ts);
+        if (list && text && !list.includes(text)) list.push(text);
+    };
+
+    /** Shared date resolution: prefer the user's local date over the UTC stamp. */
+    const tsOf = (rec: FloPointEvent): number | null => parseFloDateToTs(rec?.local_date ?? rec?.date);
+
     // Sort cycles ascending
     const cycles = [...json.operationalData.cycles].sort((a, b) => {
-        return new Date(a.period_start_date).getTime() - new Date(b.period_start_date).getTime();
+        return (parseFloDateToTs(a.period_start_date) ?? 0) - (parseFloDateToTs(b.period_start_date) ?? 0);
     });
 
     for (const cycle of cycles) {
@@ -160,65 +541,178 @@ export function parseFloExport(json: FloExport): ImportResult {
             continue;
         }
 
-        const [sy, sm, sd] = cycle.period_start_date.split('-').map(Number);
-        const [ey, em, ed] = cycle.period_end_date.split('-').map(Number);
+        const startTs = parseFloDateToTs(cycle.period_start_date);
+        const endTs = parseFloDateToTs(cycle.period_end_date);
 
-        if (!sy || !ey) {
+        if (startTs === null || endTs === null) {
+            warnings.push(`Cycle starting ${cycle.period_start_date} has an unparseable date and was skipped.`);
             stats.skippedDays++;
             continue;
         }
 
-        const startTs = new Date(sy, sm - 1, sd).getTime();
-        const endTs = new Date(ey, em - 1, ed).getTime();
-
         // Calculate number of days (inclusive)
         const daysDiff = Math.round((endTs - startTs) / (1000 * 60 * 60 * 24)) + 1;
 
-        if (daysDiff <= 0 || daysDiff > 30) {
+        // NaN must fail closed: `NaN <= 0 || NaN > 30` is false, so a non-finite
+        // daysDiff used to slip past this guard into `for (i = 0; i < NaN; i++)`,
+        // which never iterates — producing zero entries with no warning at all.
+        if (!Number.isFinite(daysDiff) || daysDiff <= 0 || daysDiff > 30) {
             // Guard against bad dates or massive erroneous periods
             warnings.push(`Cycle starting ${cycle.period_start_date} is invalid or suspiciously long (${daysDiff} days).`);
-            stats.skippedDays += Math.max(0, daysDiff);
+            stats.skippedDays += Number.isFinite(daysDiff) ? Math.max(0, daysDiff) : 1;
             continue;
         }
 
-        // Collect unmapped cycle-level properties
+        // Cycle-level user data -> note text. The old code dumped the ENTIRE
+        // cycle object, which wrote the user's Flo user_id, record ids and
+        // created/updated timestamps into the note of every single period day.
         const cycleNotes: string[] = [];
         for (const [key, value] of Object.entries(cycle)) {
-            if (key !== 'period_start_date' && key !== 'period_end_date') {
-                const words = key.split(/[/_]/).map(w => w.charAt(0).toUpperCase() + w.slice(1));
-                const valStr = typeof value === 'object' ? JSON.stringify(value) : String(value);
-                cycleNotes.push(`${words.join(' ')}: ${valStr}`);
-            }
+            if (FLO_CYCLE_METADATA_KEYS.has(key)) continue;
+            if (!isNoteworthyValue(value)) continue;
+
+            const words = key.split(/[/_]/).map(w => w.charAt(0).toUpperCase() + w.slice(1));
+            const valStr = typeof value === 'object'
+                ? JSON.stringify(value)
+                : stripTimeComponent(String(value));
+            cycleNotes.push(`${words.join(' ')}: ${valStr}`);
         }
 
-        // Generate an entry for each day
+        // Per-day intensity, e.g. {"4": 1} = cycle day 4 was Low.
+        const intensityByDay = floProperties(cycle.period_intensity);
+
+        // Generate an entry for each day.
+        //
+        // Step by CALENDAR days, not by a fixed 86_400_000 ms. A day is not
+        // always 24h: across a DST transition a fixed step lands on 23:00 (or
+        // 01:00) of the wrong calendar day, which duplicates one ISO date, drops
+        // the final day, and breaks ts-keyed merging with the point-event
+        // containers — applyBoundaryFlags then splits one period into two cycles.
+        const periodStart = new Date(startTs);
         for (let i = 0; i < daysDiff; i++) {
-            const currentTs = startTs + (i * 24 * 60 * 60 * 1000);
+            const currentTs = new Date(
+                periodStart.getFullYear(),
+                periodStart.getMonth(),
+                periodStart.getDate() + i,
+            ).getTime();
+            const entry = entryFor(currentTs);
+            entry.isPeriod = true;
 
-            const entry: LedgerEntry = {
-                ts: currentTs,
-                isPeriod: true,
-                flow: 2, // Default to medium for Flo as they don't export pure intensity in start/end
-                source: 'flo'
-            };
+            const rawLevel = intensityByDay[String(i + 1)];
+            const mapped = typeof rawLevel === 'number' ? FLO_INTENSITY_TO_FLOW[rawLevel] : undefined;
+            if (mapped !== undefined) {
+                entry.flow = mapped;
+            } else {
+                // Flo's start/end range carries no intensity by itself.
+                entry.flow = 2;
+                if (rawLevel !== undefined) {
+                    // Unknown scale value: preserve it rather than guess.
+                    addNote(currentTs, `Period Intensity: ${String(rawLevel)}`);
+                }
+            }
 
-            const dayNotes = [...cycleNotes, `Flo Cycle Day: ${i + 1}`];
-            entry.note = dayNotes.join(', ');
-
-            stats.totalDays++;
-            stats.periodDays++;
-            entries.push(entry);
+            cycleNotes.forEach(n => addNote(currentTs, n));
+            addNote(currentTs, `Flo Cycle Day: ${i + 1}`);
         }
     }
 
-    // Clean up floats and deduplicate if overlapping cycles existed, then boundary flags
-    const uniqueEntriesMap = new Map<number, LedgerEntry>();
-    for (const e of entries) {
-        uniqueEntriesMap.set(e.ts, e);
+    // Container records skipped for an unusable date. Counted and warned rather
+    // than dropped quietly — `skippedDays` alone never reaches the import UI.
+    let skippedRecords = 0;
+
+    // --- repeatable_child_point_events: recurring logs (Medication/Pills) ---
+    for (const rec of Array.isArray(op.repeatable_child_point_events) ? op.repeatable_child_point_events : []) {
+        if (!rec || rec.deleted === true) continue;
+
+        const ts = tsOf(rec);
+        if (ts === null) { skippedRecords++; stats.skippedDays++; continue; }
+
+        entryFor(ts);
+        const props = floProperties(rec.properties);
+        const category = typeof rec.category === 'string' ? rec.category : '';
+        const sub = typeof rec.subcategory === 'string' && rec.subcategory !== 'N/A' ? rec.subcategory : '';
+
+        if (category === 'Medication' && /pill/i.test(sub) && typeof props.missed_pill === 'boolean') {
+            // Rendered in Flo's OWN vocabulary (Medication / Pills / missed_pill),
+            // deliberately NOT normalized to the Clue parser's phrasing.
+            //
+            // Note text is free text carried out of one specific app's export, and
+            // two exports are not necessarily the same person — making them read
+            // identically would assert an equivalence the data does not support.
+            // The sources converge only where the domain is genuinely shared:
+            // flow / period days, bbt, and symptom pills.
+            addNote(ts, props.missed_pill ? 'Medication: Pills: Missed' : 'Medication: Pills: Taken On Time');
+        } else if (sub) {
+            addNote(ts, `${splitCamel(category || 'Logged')}: ${splitCamel(sub)}`);
+        } else if (category) {
+            addNote(ts, splitCamel(category));
+        }
     }
 
-    const finalEntries = Array.from(uniqueEntriesMap.values()).sort((a, b) => a.ts - b.ts);
+    // --- point_events_manual_v2: one-off manual logs ---
+    for (const rec of Array.isArray(op.point_events_manual_v2) ? op.point_events_manual_v2 : []) {
+        if (!rec || rec.deleted === true) continue;
+
+        const ts = tsOf(rec);
+        if (ts === null) { skippedRecords++; stats.skippedDays++; continue; }
+
+        const entry = entryFor(ts);
+        const props = floProperties(rec.properties);
+        const category = typeof rec.category === 'string' ? rec.category : '';
+        const sub = typeof rec.subcategory === 'string' && rec.subcategory !== 'N/A' ? rec.subcategory : '';
+        // Must be finite, or the note reads "Weight: NaN".
+        const numeric = typeof props.value === 'number' && Number.isFinite(props.value) ? props.value
+            : typeof props.volume === 'number' && Number.isFinite(props.volume) ? props.volume
+                : undefined;
+
+        if (category === 'Temperature' && numeric !== undefined) {
+            entry.bbt = numeric;
+        } else if (category === 'Symptom' || category === 'Mood') {
+            // Bare phrase so recognized ones ("Tender Breasts") become pills.
+            if (sub) addNote(ts, splitCamel(sub));
+        } else if (numeric !== undefined) {
+            addNote(ts, `${splitCamel(category || 'Value')}: ${numeric}`);
+        } else if (sub) {
+            addNote(ts, `${splitCamel(category || 'Logged')}: ${splitCamel(sub)}`);
+        } else if (category) {
+            addNote(ts, splitCamel(category));
+        }
+    }
+
+    // --- notes: free text ---
+    for (const rec of Array.isArray(op.notes) ? op.notes : []) {
+        if (!rec || rec.deleted === true) continue;
+
+        const ts = tsOf(rec);
+        if (ts === null) { skippedRecords++; stats.skippedDays++; continue; }
+
+        if (typeof rec.text === 'string' && rec.text.trim()) {
+            entryFor(ts);
+            addNote(ts, rec.text.trim());
+        }
+    }
+
+    if (skippedRecords > 0) {
+        warnings.push(`${skippedRecords} logged event(s) had no usable date and were skipped.`);
+    }
+
+    for (const [ts, list] of notesByTs) {
+        if (list.length > 0) {
+            const entry = byTs.get(ts);
+            if (entry) entry.note = list.join(', ');
+        }
+    }
+
+    // Drop days that ended up with nothing attached — e.g. an event carrying no
+    // category, or a note record whose text was blank.
+    const finalEntries = Array.from(byTs.values())
+        .filter(hasImportableData)
+        .sort((a, b) => a.ts - b.ts);
+
     applyBoundaryFlags(finalEntries);
+
+    stats.totalDays = finalEntries.length;
+    stats.periodDays = finalEntries.filter(e => e.isPeriod).length;
 
     if (finalEntries.length > 0) {
         stats.latestTs = Math.max(...finalEntries.map(e => e.ts));
@@ -463,8 +957,12 @@ export function parseCsvExport(csvString: string): ImportResult {
 /**
  * Modifies the array in-place, adding isStart/isEnd flags
  * to consecutive runs of isPeriod === true days.
+ *
+ * Exported so the HealthKit mapper can reuse the 1.5-day-gap run detection as a
+ * FALLBACK — HealthKit's own `HKMenstrualCycleStart` metadata is authoritative
+ * for cycle starts and is preferred when present. Requires ts-ascending input.
  */
-function applyBoundaryFlags(entries: LedgerEntry[]) {
+export function applyBoundaryFlags(entries: LedgerEntry[]) {
     for (let i = 0; i < entries.length; i++) {
         const entry = entries[i];
 
@@ -499,7 +997,7 @@ const FLOW_TO_INTENSITY: Record<number, BleedingIntensity> = {
     3: 'heavy',
 };
 
-function toLocalIsoDate(ts: number): string {
+export function toLocalIsoDate(ts: number): string {
     const d = new Date(ts);
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -551,6 +1049,7 @@ export function ledgerEntryToLogEntry(entry: LedgerEntry): LogEntry {
 
     if (entry.isStart) log.isStart = true;
     if (entry.isEnd) log.isEnd = true;
+    if (entry.source) log.source = entry.source;
     if (rest) log.note = rest;
     if (symptoms.length > 0) log.symptoms = symptoms;
 

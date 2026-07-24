@@ -15,14 +15,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
  * DB driver) so this runs under plain Node/vitest without native bindings.
  */
 
-const state = vi.hoisted(() => ({ resolved: null as any }));
+const state = vi.hoisted(() => ({ resolved: null as any, db: null as any }));
 
 vi.mock('expo', () => ({
     requireOptionalNativeModule: vi.fn((name: string) => state.resolved),
 }));
 
 vi.mock('expo-sqlite', () => ({
-    openDatabaseAsync: vi.fn(),
+    openDatabaseAsync: vi.fn(async () => state.db),
 }));
 
 import { SQLiteLedger } from './SQLiteLedger.js';
@@ -66,5 +66,58 @@ describe('SQLiteLedger.isAvailable — SDK 54 native module detection', () => {
         SQLiteLedger.isAvailable();
         expect(logSpy).not.toHaveBeenCalled();
         logSpy.mockRestore();
+    });
+});
+
+/**
+ * deleteByIds now RETURNS the number of rows actually removed (it used to return
+ * void). The §14 Undo banner reports that count, so a wrong number is a
+ * user-visible lie — pin the contract against a fake SQLiteDatabase.
+ */
+describe('SQLiteLedger.deleteByIds — removed-row count', () => {
+    function fakeDb(runAsync: any) {
+        return { execAsync: vi.fn(async () => undefined), runAsync };
+    }
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.spyOn(console, 'log').mockImplementation(() => {});
+    });
+
+    it('returns SQLiteRunResult.changes, not the requested id count', async () => {
+        const runAsync = vi.fn(async () => ({ changes: 2, lastInsertRowId: 0 }));
+        state.db = fakeDb(runAsync);
+        const ledger = new SQLiteLedger();
+        await ledger.init();
+
+        const removed = await ledger.deleteByIds(['a', 'b', 'missing']);
+        expect(removed).toBe(2);
+        const [sql, params] = runAsync.mock.calls[0] as any[];
+        expect(sql).toContain('DELETE FROM events WHERE id IN (?,?,?)');
+        expect(params).toEqual(['a', 'b', 'missing']);
+    });
+
+    it('returns 0 and issues NO delete for an empty id list', async () => {
+        const runAsync = vi.fn(async () => ({ changes: 99 }));
+        state.db = fakeDb(runAsync);
+        const ledger = new SQLiteLedger();
+        await ledger.init();
+
+        expect(await ledger.deleteByIds([])).toBe(0);
+        expect(runAsync).not.toHaveBeenCalled();
+    });
+
+    it('returns 0 when the driver does not report a numeric changes field', async () => {
+        const runAsync = vi.fn(async () => undefined);
+        state.db = fakeDb(runAsync);
+        const ledger = new SQLiteLedger();
+        await ledger.init();
+
+        expect(await ledger.deleteByIds(['a'])).toBe(0);
+    });
+
+    it('throws instead of reporting a bogus count when the db is not initialized', async () => {
+        const ledger = new SQLiteLedger();
+        await expect(ledger.deleteByIds(['a'])).rejects.toThrow('Database not initialized');
     });
 });

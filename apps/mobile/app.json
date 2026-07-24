@@ -29,7 +29,15 @@
     },
     "plugins": [
       "expo-secure-store",
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "Locket reads your cycle history from Apple Health to import it into your encrypted, on-device ledger.",
+          "NSHealthUpdateUsageDescription": false,
+          "background": false
+        }
+      ]
     ]
   }
 }

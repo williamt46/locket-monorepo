@@ -1,3 +1,5 @@
+import { ImportSource } from './ImportTypes';
+
 export type BleedingIntensity = 'spotting' | 'light' | 'medium' | 'heavy';
 export type SymptomKey =
   // Physical
@@ -25,6 +27,13 @@ export interface LogEntry {
    * `null` is an explicit clear (distinct from `undefined` = never set).
    */
   temperature?: { value: number; unit: 'F' | 'C' } | null;
+  /**
+   * Provenance of an imported entry ('clue' | 'flo' | 'csv' | 'healthkit' |
+   * 'unknown'). Copied from the import-domain LedgerEntry.source in
+   * ledgerEntryToLogEntry so a record's origin survives into the app domain.
+   * Absent on entries the user created by hand.
+   */
+  source?: ImportSource;
 }
 
 export type TemperatureUnit = 'F' | 'C';

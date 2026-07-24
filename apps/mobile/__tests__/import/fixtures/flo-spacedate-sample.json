@@ -1,0 +1,36 @@
+{
+  "_comment": "HAND-AUTHORED SYNTHETIC FIXTURE. Mirrors the shape of a real Flo export (operationalData.cycles with space-separated 'YYYY-MM-DD 00:00:00.0' dates) but every id, user_id and date is fabricated. Contains no real user data.",
+  "operationalData": {
+    "cycles": [
+      {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "user_id": "00000000-0000-4000-8000-0000000000ff",
+        "period_start_date": "2030-03-04 00:00:00.0",
+        "period_end_date": "2030-03-10 00:00:00.0",
+        "pregnant": false,
+        "source_client_version": "9.9.9"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000002",
+        "user_id": "00000000-0000-4000-8000-0000000000ff",
+        "period_start_date": "2030-04-01 00:00:00.0",
+        "period_end_date": "2030-04-01 00:00:00.0",
+        "pregnant": false
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000003",
+        "user_id": "00000000-0000-4000-8000-0000000000ff",
+        "period_start_date": "not-a-real-date",
+        "period_end_date": "2030-05-05 00:00:00.0",
+        "pregnant": false
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000004",
+        "user_id": "00000000-0000-4000-8000-0000000000ff",
+        "period_start_date": "2030-06-01 00:00:00.0",
+        "period_end_date": "2030-08-30 00:00:00.0",
+        "pregnant": false
+      }
+    ]
+  }
+}

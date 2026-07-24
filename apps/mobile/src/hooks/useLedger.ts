@@ -3,6 +3,29 @@ import { StorageRecord } from '@locket/secure-storage';
 import { LocketCryptoService } from '@locket/core-crypto';
 import { BackgroundSyncService } from '../services/BackgroundSyncService';
 import { getLedger, resetLedgerSingleton, resetBaselineCache, nukeBaseline } from '../services/StorageService';
+import type { LogEntry } from '../models/LogEntry';
+import type { ImportPreview, CommitResult } from '../models/ImportTypes';
+import { buildDateIndex, buildImportPreview, selectEntriesToInscribe } from '../services/importPreview';
+import { purgeByIdsOp, decryptExistingEntriesOp } from './ledgerOps';
+
+/**
+ * Caller-minted record id, so CommitResult.inscribedIds is exact and undo can
+ * purge precisely what an import created.
+ *
+ * The monotonic counter is load-bearing, not decoration: a batch mints hundreds
+ * of ids inside one loop, so Date.now() is identical across them and the random
+ * suffix is the only separator — `Math.random().toString(36)` occasionally
+ * returns few enough digits to make that suffix very short. Two equal ids would
+ * be silent data loss, because FileSystemLedger.saveEvents OVERWRITES a record
+ * whose id already exists (that upsert is intentional — BackgroundSyncService
+ * relies on it to write anchor status back), and undo deletes by id. The
+ * counter makes an intra-batch collision impossible rather than merely unlikely.
+ */
+let idCounter = 0;
+function mintId(): string {
+    idCounter = (idCounter + 1) % 1000000;
+    return `${Math.random().toString(36).slice(2, 10)}-${Date.now()}-${idCounter}`;
+}
 
 // Session cache of the SHARED ledger instance owned by StorageService (one
 // singleton app-wide, sourced via getLedger() rather than a second instance).
@@ -74,32 +97,42 @@ export const useLedger = (keyHex?: string) => {
         }
     }, [isInitialized, keyHex, refresh]);
 
-    const batchInscribe = useCallback(async (entries: any[]) => {
+    // Typed as LogEntry[] (not any[]) so malformed entries are a compile-time
+    // error rather than a silent write. Mints a random id per record BEFORE
+    // saveEvents (same format FileSystemLedger uses; saveEvents respects provided
+    // ids) and RETURNS the ids so a commit can be undone exactly via purgeByIds.
+    const batchInscribe = useCallback(async (entries: LogEntry[]): Promise<string[]> => {
         if (!isInitialized || !keyHex) throw new Error('Ledger not ready or key missing');
         setIsBusy(true);
         try {
             console.log(`[useLedger] Starting batch inscribe of ${entries.length} items`);
             const records: StorageRecord[] = [];
+            const ids: string[] = [];
 
             for (const data of entries) {
                 const ts = data.ts || Date.now();
+                const id = mintId();
                 const encrypted = await crypto.encryptData(data, keyHex);
                 const hash = await crypto.generateIntegrityHash(encrypted);
                 records.push({
+                    id,
                     ts,
                     payload: encrypted,
                     status: 'local',
                     signature: hash
                 });
+                ids.push(id);
             }
 
             // Use the new atomic batch save method
             await ledger.saveEvents(records);
             await refresh();
-            console.log(`[useLedger] Batch inscribed ${entries.length} entries successfully`);
+            console.log(`[useLedger] Batch inscribed ${records.length} entries successfully`);
 
             // Trigger optimistic sync check (should hit the 7-event threshold immediately)
             BackgroundSyncService.performSync(ledger, refresh);
+
+            return ids;
         } catch (e) {
             console.error('[useLedger] Batch inscription failed', e);
             throw e;
@@ -166,20 +199,21 @@ export const useLedger = (keyHex?: string) => {
         await BackgroundSyncService.forceSync(ledger, refresh);
     }, [isInitialized, refresh]);
 
-    const purgeByIds = useCallback(async (ids: string[]) => {
-        if (!isInitialized || !ledger) return;
-        if (!ids || ids.length === 0) return;
-        if (typeof ledger.deleteByIds !== 'function') {
-            console.warn('[useLedger] Active ledger does not support deleteByIds; cannot purge.');
-            return;
-        }
+    // Thin wrapper: the behavior lives in ledgerOps.purgeByIdsOp so tests can
+    // exercise the real implementation instead of a copy that can drift.
+    const purgeByIds = useCallback(async (ids: string[]): Promise<{ removedCount: number }> => {
         setIsBusy(true);
         try {
-            await ledger.deleteByIds(ids);
-            await refresh();
-            console.log(`[useLedger] Purged ${ids.length} unreadable record(s) by id`);
+            return await purgeByIdsOp(ids, {
+                isInitialized,
+                ledger,
+                invalidateSync: () => BackgroundSyncService.invalidate(),
+                refresh,
+            });
         } catch (e) {
+            // Fail loud: the caller must not treat a failed purge as success.
             console.error('[useLedger] Purge failed', e);
+            throw e;
         } finally {
             setIsBusy(false);
         }
@@ -210,47 +244,79 @@ export const useLedger = (keyHex?: string) => {
         };
     }, [isInitialized]);
 
+    // PRODUCE (file): detect → parse → assert → map to LogEntry[]. Shared by the
+    // backward-compatible importData wrapper and producePreviewFromFile. Pure
+    // apart from the lazy require; throws on unrecognized/empty input.
+    const produceFileLogEntries = (rawString: string): { logEntries: LogEntry[]; result: any } => {
+        // Lazy load ImportService to avoid circular/heavy deps on boot if not importing
+        const { detectFormat, detectSource, parseClueExport, parseFloExport, parseCsvExport, ledgerEntryToLogEntry, assertImportHasEntries } = require('../services/ImportService');
+
+        const format = detectFormat(rawString);
+        let result;
+
+        if (format === 'csv') {
+            result = parseCsvExport(rawString);
+        } else if (format === 'json') {
+            const jsonObj = JSON.parse(rawString);
+            const source = detectSource(jsonObj);
+
+            if (source === 'clue') {
+                result = parseClueExport(jsonObj);
+            } else if (source === 'flo') {
+                result = parseFloExport(jsonObj);
+            } else {
+                // Name the right file: an export folder holds a dozen JSONs and
+                // only one of them is importable, so "unrecognized" alone leaves
+                // the user guessing which to pick.
+                throw new Error(
+                    'Unrecognized JSON export schema (not Clue or Flo). ' +
+                    'From a Clue export folder choose measurements.json; ' +
+                    'from a Flo export choose the .json file (not res.txt).'
+                );
+            }
+        } else {
+            throw new Error(
+                'Unrecognized file format. Must be Clue/Flo JSON or spreadsheet CSV. ' +
+                'Flo\'s res.txt and notes.txt are not importable — use the .json file.'
+            );
+        }
+
+        // Fail closed: a recognized FILE that yields no entries is an error (the
+        // Flo NaN-date bug once showed "Records Inscribed: 0" with no signal).
+        // NOTE: this guard is file-only. The HealthKit path deliberately does NOT
+        // route through it — a zero-sample HK query is 'ambiguous-zero', a
+        // permission state carried in the preview, not a corrupted file.
+        if (!result || result.entries.length === 0) {
+            console.warn('[useLedger] Import recognized the format but produced 0 entries.');
+        }
+        assertImportHasEntries(result);
+
+        // Convert import-domain LedgerEntry into app-domain LogEntry so imported
+        // days render on the Log modal and calendar.
+        const logEntries: LogEntry[] = result.entries.map(ledgerEntryToLogEntry);
+        return { logEntries, result };
+    };
+
+    // Decrypt the existing ledger ONCE (the `events` state is ciphertext — §11
+    // E12) to build a date→LogEntry index for collision detection. Off the render
+    // path; undecryptable records are skipped (count logged, never values).
+    // Thin wrapper — see ledgerOps.decryptExistingEntriesOp for the fail-closed
+    // contract and why it is extracted.
+    const decryptExistingEntries = useCallback(
+        (): Promise<LogEntry[]> => decryptExistingEntriesOp({ keyHex, ledger, crypto }),
+        [keyHex],
+    );
+
+    // Backward-compatible file import: produce → inscribe ALL entries (the
+    // pre-preview append-all behavior the current ImportScreen relies on) →
+    // return the legacy summary shape. Built on the new internals.
     const importData = useCallback(async (rawString: string) => {
         if (!isInitialized) throw new Error('Ledger not initialized');
         setIsBusy(true);
         try {
-            // Lazy load ImportService to avoid circular/heavy deps on boot if not importing
-            const { detectFormat, detectSource, parseClueExport, parseFloExport, parseCsvExport, ledgerEntryToLogEntry } = require('../services/ImportService');
-
-            const format = detectFormat(rawString);
-            let result;
-
-            if (format === 'csv') {
-                result = parseCsvExport(rawString);
-            } else if (format === 'json') {
-                const jsonObj = JSON.parse(rawString);
-                const source = detectSource(jsonObj);
-
-                if (source === 'clue') {
-                    result = parseClueExport(jsonObj);
-                } else if (source === 'flo') {
-                    result = parseFloExport(jsonObj);
-                } else {
-                    throw new Error('Unrecognized JSON export schema (not Clue or Flo)');
-                }
-            } else {
-                throw new Error('Unrecognized file format. Must be Clue/Flo JSON or spreadsheet CSV.');
-            }
-
-            if (!result || result.entries.length === 0) {
-                console.warn('[useLedger] Import parsed successfully but no valid entries were found.');
-                return { success: true, count: 0, warnings: result?.warnings || [] };
-            }
-
-            // Convert import-domain LedgerEntry (numeric flow/bbt) into app-domain
-            // LogEntry (bleeding.intensity + note) so imported days render correctly
-            // on the Log modal and calendar. Without this, spotting/flow and BBT
-            // never surface in the UI after import.
-            const logEntries = result.entries.map(ledgerEntryToLogEntry);
-
+            const { logEntries, result } = produceFileLogEntries(rawString);
             console.log(`[useLedger] Mapped ${logEntries.length} items from ${result.source}, beginning batch inscribe...`);
             await batchInscribe(logEntries);
-
             return {
                 success: true,
                 count: result.entries.length,
@@ -266,6 +332,72 @@ export const useLedger = (keyHex?: string) => {
         }
     }, [isInitialized, batchInscribe]);
 
+    // PRODUCE → PREVIEW (file): parse a file into an ImportPreview with per-row
+    // collision detection against the decrypted ledger. File sources are always
+    // permissionState 'available' with no truncation.
+    const producePreviewFromFile = useCallback(async (rawString: string): Promise<ImportPreview> => {
+        if (!isInitialized) throw new Error('Ledger not initialized');
+        setIsBusy(true);
+        try {
+            const { logEntries, result } = produceFileLogEntries(rawString);
+            const existing = await decryptExistingEntries();
+            return buildImportPreview({
+                source: result.source,
+                logEntries,
+                existingByDate: buildDateIndex(existing),
+                permissionState: 'available',
+                truncation: null,
+            });
+        } finally {
+            setIsBusy(false);
+        }
+    }, [isInitialized, decryptExistingEntries]);
+
+    // PRODUCE → PREVIEW (HealthKit): one-shot read → map → ImportPreview. A
+    // zero-sample query yields an empty preview whose permissionState is
+    // 'ambiguous-zero' (never the corrupted-file assert). `source` is injectable
+    // for testing; production builds a real HealthKitSource. Lazy-required so the
+    // native library is not pulled into the app boot graph.
+    const producePreviewFromHealthKit = useCallback(async (source?: any): Promise<ImportPreview> => {
+        if (!isInitialized) throw new Error('Ledger not initialized');
+        setIsBusy(true);
+        try {
+            const { HealthKitSource } = require('../services/HealthKitSource');
+            const { mapHealthKitSamples } = require('../services/healthkitMapping');
+            const { ledgerEntryToLogEntry } = require('../services/ImportService');
+
+            const src = source ?? new HealthKitSource();
+            if (!src.isAvailable()) {
+                throw new Error('Apple Health is not available on this device');
+            }
+            const queryResult = await src.query();
+            const ledgerEntries = mapHealthKitSamples(queryResult);
+            const logEntries: LogEntry[] = ledgerEntries.map(ledgerEntryToLogEntry);
+            const existing = await decryptExistingEntries();
+            return buildImportPreview({
+                source: 'healthkit',
+                logEntries,
+                existingByDate: buildDateIndex(existing),
+                permissionState: queryResult.permissionState,
+                truncation: queryResult.truncation,
+            });
+        } finally {
+            setIsBusy(false);
+        }
+    }, [isInitialized, decryptExistingEntries]);
+
+    // COMMIT (§14 guarantee 2): inscribe every non-collision row + every
+    // 'import-anyway' row, nothing else. Returns the exact ids written so Undo
+    // (purgeByIds) can remove precisely this import.
+    const commitPreview = useCallback(async (preview: ImportPreview): Promise<CommitResult> => {
+        const { toInscribe, skippedCount } = selectEntriesToInscribe(preview);
+        if (toInscribe.length === 0) {
+            return { inscribedIds: [], inscribedCount: 0, skippedCount };
+        }
+        const inscribedIds = await batchInscribe(toInscribe);
+        return { inscribedIds, inscribedCount: inscribedIds.length, skippedCount };
+    }, [batchInscribe]);
+
     return {
         events,
         isInitialized,
@@ -274,6 +406,9 @@ export const useLedger = (keyHex?: string) => {
         inscribe,
         batchInscribe,
         importData,
+        producePreviewFromFile,
+        producePreviewFromHealthKit,
+        commitPreview,
         deleteByTimestamp,
         purgeByIds,
         triggerSync,

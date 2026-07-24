@@ -76,6 +76,25 @@ cd apps/mobile
 npx vitest run
 ```
 
+#### Apple Health (HealthKit) Import
+**Type:** Unit Test (mocked native module) + manual device check
+
+The HealthKit import is covered by unit tests that mock the native module, so they run
+anywhere with no device or entitlement:
+```bash
+cd apps/mobile
+npx vitest run __tests__/services/HealthKitSource.test.ts \
+               __tests__/services/HealthKitSource.errors.test.ts \
+               __tests__/services/healthkitMapping.test.ts \
+               __tests__/services/importPreview.test.ts
+```
+
+Verifying the real permission prompt and sample reads needs a **physical iOS device** —
+HealthKit returns no cycle data in the Simulator, and the entitlement only exists after a
+native rebuild (`npx expo prebuild` + `pod install` + `npx expo run:ios --device`; see the
+Mobile Development section of `README.md`). Manual path: Import → Apple Health → priming
+screen → grant read access → preview screen → resolve collisions → commit → undo.
+
 ---
 
 ## 💡 Frequently Asked Questions

@@ -107,6 +107,11 @@ describe('migrateBbtInNote', () => {
 });
 
 describe('ledgerEntryToLogEntry re-import dedup guard', () => {
+  // "period cramps" became a recognized symptom phrase when Clue's `pain`
+  // option `period_cramps` was mapped (2026-07-23), so these two cases now
+  // exercise BBT dedup AND symptom lifting together: the phrase is promoted to
+  // a `cramps` pill and leaves no residual note text. The BBT half of the
+  // guard — never duplicating the value back into the note — is unchanged.
   it('maps bbt to temperature and does not append BBT to the note', () => {
     const log = ledgerEntryToLogEntry({
       ts: 1_752_000_000_000,
@@ -115,8 +120,9 @@ describe('ledgerEntryToLogEntry re-import dedup guard', () => {
       note: 'period cramps.',
     } as any);
     expect(log.temperature).toEqual({ value: 36.5, unit: 'C' });
-    expect(log.note).toBe('period cramps.');
-    expect(log.note).not.toMatch(/BBT/i);
+    expect(log.symptoms).toContain('cramps');
+    expect(log.note).toBeUndefined();
+    expect(log.note ?? '').not.toMatch(/BBT/i);
   });
 
   it('strips a duplicate BBT token from the source note (re-import after migration)', () => {
@@ -129,7 +135,22 @@ describe('ledgerEntryToLogEntry re-import dedup guard', () => {
       note: 'period cramps. BBT: 36.5',
     } as any);
     expect(log.temperature).toEqual({ value: 36.5, unit: 'C' });
-    expect(log.note).toBe('period cramps.');
+    expect(log.symptoms).toContain('cramps');
+    expect(log.note).toBeUndefined();
+    expect(log.note ?? '').not.toMatch(/BBT/i);
+  });
+
+  it('keeps unrecognized note text while still stripping the BBT token', () => {
+    // Guards the residual-text path the two cases above no longer cover now that
+    // "period cramps" is lifted into a pill.
+    const log = ledgerEntryToLogEntry({
+      ts: 1_752_000_000_000,
+      isPeriod: false,
+      bbt: 36.5,
+      note: 'slept badly. BBT: 36.5',
+    } as any);
+    expect(log.temperature).toEqual({ value: 36.5, unit: 'C' });
+    expect(log.note).toBe('slept badly.');
     expect(log.note).not.toMatch(/BBT/i);
   });
 

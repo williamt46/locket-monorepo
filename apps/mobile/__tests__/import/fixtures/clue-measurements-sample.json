@@ -1,0 +1,13 @@
+[
+  { "type": "period", "id": "aaaa0000-0000-4000-8000-000000000001", "date": "2030-09-02", "value": { "option": "heavy" } },
+  { "type": "period", "id": "aaaa0000-0000-4000-8000-000000000002", "date": "2030-09-03", "value": { "option": "medium" } },
+  { "type": "period", "id": "aaaa0000-0000-4000-8000-000000000003", "date": "2030-09-04", "value": { "option": "light" } },
+  { "type": "pain", "id": "aaaa0000-0000-4000-8000-000000000004", "date": "2030-09-02", "value": [{ "option": "period_cramps" }, { "option": "breast_tenderness" }, { "option": "lower_back" }] },
+  { "type": "energy", "id": "aaaa0000-0000-4000-8000-000000000005", "date": "2030-09-02", "value": [{ "option": "exhausted" }] },
+  { "type": "bbt", "id": "aaaa0000-0000-4000-8000-000000000006", "date": "2030-09-03", "value": { "celsius": 36.62, "excluded": false } },
+  { "type": "bbt", "id": "aaaa0000-0000-4000-8000-000000000007", "date": "2030-09-04", "value": { "celsius": 39.91, "excluded": true } },
+  { "type": "spotting", "id": "aaaa0000-0000-4000-8000-000000000008", "date": "2030-09-14", "value": [{ "option": "red" }] },
+  { "type": "birth_control_pill", "id": "aaaa0000-0000-4000-8000-000000000009", "date": "2030-09-14", "value": { "option": "taken" } },
+  { "type": "birth_control_pill", "id": "aaaa0000-0000-4000-8000-00000000000a", "date": "2030-09-15", "value": { "option": "taken" } },
+  { "type": "period", "id": "aaaa0000-0000-4000-8000-00000000000b", "date": "not-a-date", "value": { "option": "medium" } }
+]
